@@ -1,0 +1,3977 @@
+\documentclass[11pt,twoside]{report}
+
+% ── Geometry & layout ──
+\usepackage[margin=1in]{geometry}
+\usepackage{parskip}
+\setlength{\parindent}{0pt}
+
+% ── Fonts & encoding ──
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+
+% ── Math ──
+\usepackage{amsmath,amssymb,amsthm,mathtools,bm}
+
+% ── Algorithms ──
+\usepackage[ruled,vlined,linesnumbered]{algorithm2e}
+
+% ── Graphics ──
+\usepackage{tikz,pgfplots}
+\pgfplotsset{compat=1.18}
+\usetikzlibrary{arrows.meta,calc,patterns,decorations.pathreplacing,positioning,shapes.geometric}
+
+% ── Tables & lists ──
+\usepackage{booktabs,array,enumitem,longtable}
+
+% ── Boxes ──
+\usepackage[most]{tcolorbox}
+\newtcolorbox{definitionbox}[1][]{colback=blue!5!white,colframe=blue!50!black,title={#1},fonttitle=\bfseries}
+\newtcolorbox{examplebox}[1][]{colback=green!5!white,colframe=green!40!black,title={#1},fonttitle=\bfseries}
+\newtcolorbox{warningbox}[1][]{colback=red!5!white,colframe=red!50!black,title={#1},fonttitle=\bfseries}
+\newtcolorbox{insightbox}[1][]{colback=orange!5!white,colframe=orange!50!black,title={#1},fonttitle=\bfseries}
+\newtcolorbox{stepbox}[1][]{colback=violet!5!white,colframe=violet!50!black,title={#1},breakable,fonttitle=\bfseries}
+
+% ── Theorems ──
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[chapter]
+\newtheorem{example}{Example}[chapter]
+\theoremstyle{plain}
+\newtheorem{theorem}{Theorem}[chapter]
+\newtheorem{proposition}{Proposition}[chapter]
+\theoremstyle{remark}
+\newtheorem{remark}{Remark}[chapter]
+
+% ── Hyperlinks ──
+\usepackage[colorlinks=true,linkcolor=blue!60!black,citecolor=green!50!black,urlcolor=blue!70!black]{hyperref}
+
+% ── Macros ──
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\N}{\mathbb{N}}
+\newcommand{\x}{\bm{x}}
+\newcommand{\uu}{\bm{u}}
+\newcommand{\f}{\bm{f}}
+\newcommand{\q}{\bm{q}}
+\newcommand{\pp}{\bm{p}}
+\newcommand{\lam}{\bm{\lambda}}
+\newcommand{\rr}{\bm{r}}
+\newcommand{\0}{\bm{0}}
+\newcommand{\I}{\bm{I}}
+\newcommand{\M}{\bm{M}}
+\newcommand{\J}{\bm{J}}
+\newcommand{\Kc}{\mathcal{K}}
+\DeclareMathOperator*{\argmin}{arg\,min}
+\DeclareMathOperator*{\argmax}{arg\,max}
+\DeclareMathOperator{\diag}{diag}
+\DeclareMathOperator{\proj}{proj}
+\DeclareMathOperator{\dist}{dist}
+\DeclareMathOperator{\tr}{tr}
+\DeclareMathOperator{\subjectto}{subject\;to}
+
+\title{\Huge\bfseries Trajectory Optimization and Contact Dynamics\\[6pt]
+\Large A Comprehensive Tutorial\\[3pt]
+\large From Mathematical Foundations to MuJoCo MPC}
+\author{Robotics Control Tutorial Series}
+\date{2026}
+
+\begin{document}
+\maketitle
+\tableofcontents
+
+%=============================================================================
+% PART I: MATHEMATICAL FOUNDATIONS
+%=============================================================================
+\part{Mathematical Foundations}
+
+%-----------------------------------------------------------------------------
+\chapter{Optimization Fundamentals}
+\label{ch:opt-fundamentals}
+
+Before we can discuss trajectory optimization or contact dynamics,
+we must establish the mathematical language of optimisation.
+Every planner, every contact solver, and every learning algorithm
+ultimately solves (or approximates the solution of) an optimisation
+problem.
+
+%-------------------------------------------------------------
+\section{The General Optimisation Problem}
+
+\begin{definitionbox}[General Optimisation Problem]
+Given a \emph{decision variable} $\bm{z}\in\R^{n}$,
+an \emph{objective function} $J:\R^{n}\to\R$, and constraint
+functions $\bm{g}:\R^{n}\to\R^{m}$, $\bm{h}:\R^{n}\to\R^{p}$,
+\begin{equation}\label{eq:general-opt}
+\min_{\bm{z}}\; J(\bm{z})
+\quad\text{subject to}\quad
+\bm{g}(\bm{z})\le \0,\quad
+\bm{h}(\bm{z})=\0,\quad
+\bm{z}_{\text{lo}}\le\bm{z}\le\bm{z}_{\text{hi}}.
+\end{equation}
+\end{definitionbox}
+
+\textbf{Terminology.}
+A point $\bm{z}$ that satisfies all constraints is called \emph{feasible}.
+The set of all feasible points is the \emph{feasible set} $\mathcal{F}$.
+A feasible $\bm{z}^{\star}$ is \emph{(locally) optimal} if
+$J(\bm{z}^{\star})\le J(\bm{z})$
+for all feasible $\bm{z}$ in some neighbourhood.
+If this holds for \emph{all} feasible $\bm{z}$, the minimum is \emph{global}.
+
+\paragraph{How to read the standard form.}
+Equation~\eqref{eq:general-opt} is worth internalising, because
+\emph{every} problem in this tutorial will be forced into this shape.
+Three reading conventions:
+\begin{enumerate}
+\item \textbf{Minimisation is without loss of generality.}
+      Maximising $J$ is the same as minimising $-J$.
+      We always minimise; a ``reward'' in reinforcement learning is just
+      a negated cost.
+\item \textbf{Inequalities point one way.} Any inequality can be written
+      as $g(\bm{z})\le 0$: the constraint $z_{1}+z_{2}\ge 1$ becomes
+      $1-z_{1}-z_{2}\le 0$. Getting the sign right matters later,
+      because the sign convention determines the sign of the
+      Lagrange multipliers.
+\item \textbf{Equalities are two inequalities}, but we keep them separate
+      because they are handled differently by algorithms
+      (an equality is \emph{always} active; an inequality may or may not be).
+\end{enumerate}
+
+\paragraph{The two questions every algorithm must answer.}
+All optimisation algorithms, from gradient descent to interior-point
+solvers to the contact solvers of Chapter~\ref{ch:contact},
+are iterative procedures that repeatedly answer:
+\begin{enumerate}
+\item \emph{Which direction should I move?} (a \emph{search direction}
+      $\bm{d}_{k}$, usually derived from a local model of $J$), and
+\item \emph{How far should I move?} (a \emph{step size} $\alpha_{k}$,
+      usually chosen by a \emph{line search} or trust region).
+\end{enumerate}
+producing iterates $\bm{z}_{k+1}=\bm{z}_{k}+\alpha_{k}\bm{d}_{k}$.
+The local model is almost always a truncated Taylor expansion;
+the entire algorithmic zoo (gradient descent, Newton, Gauss--Newton,
+DDP, iLQR) differs only in \emph{how many Taylor terms} are kept and
+\emph{how the resulting model is minimised}.
+Keep this two-question framing in mind: it converts a bewildering
+collection of named methods into small variations on one idea.
+
+\begin{insightbox}[The Taylor expansion is the engine of everything]
+For a smooth $J$, the expansion around a point $\bm{z}_{k}$ is
+\begin{equation*}
+J(\bm{z}_{k}+\bm{\delta})
+\;\approx\;
+\underbrace{J(\bm{z}_{k})}_{\text{constant}}
++\underbrace{\nabla J(\bm{z}_{k})^{\!\top}\bm{\delta}}_{\text{linear model}}
++\underbrace{\tfrac12\,\bm{\delta}^{\!\top}\nabla^{2}J(\bm{z}_{k})\,\bm{\delta}}_{\text{quadratic model}}.
+\end{equation*}
+Truncating after the linear term and stepping opposite the gradient
+gives \emph{gradient descent}.
+Truncating after the quadratic term and jumping to the minimiser of the
+quadratic gives \emph{Newton's method}.
+Doing this \emph{along an entire trajectory}, time step by time step,
+gives \emph{DDP/iLQR} (Chapter~\ref{ch:ddp}).
+When you see a new algorithm, your first question should always be:
+\emph{what local model is it building, and how is it minimising that model?}
+\end{insightbox}
+
+%-------------------------------------------------------------
+\section{Unconstrained Optimisation and Optimality Conditions}
+\label{sec:unconstrained}
+
+Consider first the unconstrained case: $\min_{\bm{z}} J(\bm{z})$ with no
+constraints.
+
+\begin{definitionbox}[First-Order Necessary Condition]
+If $\bm{z}^{\star}$ is a local minimum of $J$, and $J$ is differentiable at $\bm{z}^{\star}$, then the gradient vanishes:
+\begin{equation}\label{eq:fonc}
+\nabla J(\bm{z}^{\star}) = \0.
+\end{equation}
+Any point satisfying \eqref{eq:fonc} is called a \emph{stationary point}.
+It could be a minimum, maximum, or saddle point.
+\end{definitionbox}
+
+\begin{definitionbox}[Second-Order Sufficient Condition]
+If additionally the Hessian $\bm{H}=\nabla^{2}J(\bm{z}^{\star})$ is
+\emph{positive definite} ($\bm{H}\succ 0$), then $\bm{z}^{\star}$ is a
+strict local minimum.
+\end{definitionbox}
+
+\paragraph{Why these conditions are true.}
+Both conditions fall straight out of the Taylor expansion, and the
+argument is worth seeing once because it is the template for every
+optimality condition in this tutorial.
+Suppose $\nabla J(\bm{z}^{\star})\ne\0$.
+Take a small step $\bm{\delta}=-\epsilon\,\nabla J(\bm{z}^{\star})$
+in the negative gradient direction. Then
+\begin{equation*}
+J(\bm{z}^{\star}+\bm{\delta})
+\approx J(\bm{z}^{\star})
+-\epsilon\,\|\nabla J(\bm{z}^{\star})\|^{2}
+< J(\bm{z}^{\star})
+\quad\text{for small }\epsilon>0,
+\end{equation*}
+so $\bm{z}^{\star}$ cannot be a minimum---we just found a strictly
+better point next door. Hence at a minimum the gradient \emph{must}
+vanish. With the gradient gone, the next Taylor term dominates:
+$J(\bm{z}^{\star}+\bm{\delta})\approx J(\bm{z}^{\star})
++\tfrac12\bm{\delta}^{\!\top}\bm{H}\bm{\delta}$.
+If $\bm{H}\succ 0$, every direction $\bm{\delta}$ increases the cost
+(the quadratic form is a bowl); if $\bm{H}$ has a negative eigenvalue,
+the corresponding eigenvector is a downhill escape direction and the
+point is a saddle. The Hessian's eigenvalues thus classify stationary
+points: all positive $\Rightarrow$ minimum, all negative $\Rightarrow$
+maximum, mixed signs $\Rightarrow$ saddle.
+
+\paragraph{Why the gradient is the steepest ascent direction.}
+The \emph{directional derivative} of $J$ along a unit vector $\bm{d}$ is
+$\nabla J^{\!\top}\bm{d}=\|\nabla J\|\cos\theta$, where $\theta$ is the
+angle between $\bm{d}$ and $\nabla J$. This is maximised at
+$\theta=0$ ($\bm{d}$ aligned with the gradient) and minimised at
+$\theta=\pi$ ($\bm{d}=-\nabla J/\|\nabla J\|$).
+So ``move against the gradient'' is not a heuristic---it is literally
+the locally fastest way downhill, \emph{measured in the Euclidean norm}.
+That last qualifier matters: if we measure step lengths in a different
+metric $\|\bm{\delta}\|_{\bm{H}}$, the steepest-descent direction becomes
+$-\bm{H}^{-1}\nabla J$, which is exactly the Newton direction.
+Newton's method is gradient descent in the geometry defined by the Hessian.
+
+\begin{examplebox}[Scalar quadratic]
+Let $J(z)=\tfrac12 a\,z^{2}+b\,z+c$ with $a>0$.
+Then $J'(z)=az+b=0\;\Rightarrow\;z^{\star}=-b/a$.
+And $J''(z^{\star})=a>0$, confirming a minimum.
+\end{examplebox}
+
+\begin{examplebox}[Worked Example 1.1: Minimising a non-convex scalar function]
+Find the minimum of $J(z)=z^{4}-4z^{2}+z+4$.
+
+\textbf{Step 1.} Compute the gradient:
+$J'(z)=4z^{3}-8z+1.$
+
+\textbf{Step 2.} Set $J'(z)=0$. This cubic has three real roots: $z\approx -1.47,\; 0.13,\; 1.35$.
+
+\textbf{Step 3.} Check the Hessian: $J''(z)=12z^{2}-8$.
+\begin{itemize}
+\item At $z\approx -1.47$: $J''=12(1.47)^{2}-8\approx 17.9>0$ \checkmark\ local min.
+\item At $z\approx 0.13$: $J''=12(0.13)^{2}-8\approx -7.8<0$ \texttimes\ local max.
+\item At $z\approx 1.35$: $J''=12(1.35)^{2}-8\approx 13.9>0$ \checkmark\ local min.
+\end{itemize}
+Evaluating: $J(-1.47)\approx 0.26$, $J(1.35)\approx 1.28$.  Global minimum at $z^{\star}\approx -1.47$.
+\end{examplebox}
+
+\begin{center}
+\begin{tikzpicture}
+\begin{axis}[
+  width=10cm, height=6cm,
+  xlabel={$z$}, ylabel={$J(z)$},
+  domain=-2.5:2.5, samples=100,
+  grid=major, grid style={gray!30},
+  title={$J(z)=z^4-4z^2+z+4$}
+]
+\addplot[blue, thick]{x^4-4*x^2+x+4};
+\addplot[only marks, mark=*, mark size=3pt, red] coordinates {(-1.47,0.26) (1.35,1.28)};
+\addplot[only marks, mark=triangle*, mark size=3pt, orange] coordinates {(0.13,3.93)};
+\node[red, right] at (axis cs:-1.47,0.26) {\footnotesize global min};
+\node[red, left] at (axis cs:1.35,1.28) {\footnotesize local min};
+\node[orange, above] at (axis cs:0.13,3.93) {\footnotesize local max};
+\end{axis}
+\end{tikzpicture}
+\end{center}
+
+\paragraph{Gradient descent.}
+The simplest iterative algorithm: starting from an initial guess $\bm{z}_{0}$,
+\begin{equation}
+\bm{z}_{k+1}=\bm{z}_{k}-\alpha_{k}\,\nabla J(\bm{z}_{k}),
+\end{equation}
+where $\alpha_{k}>0$ is a step size (learning rate).
+Each step moves in the direction of steepest descent.
+
+\begin{examplebox}[Worked Example 1.2: Gradient descent on $J(z)=z^{4}-4z^{2}+z+4$]
+Starting from $z_{0}=2$ with step size $\alpha=0.05$:
+\begin{center}
+\begin{tabular}{ccccc}
+\toprule
+$k$ & $z_{k}$ & $J(z_{k})$ & $J'(z_{k})$ & $z_{k+1}=z_{k}-\alpha J'$\\
+\midrule
+0 & 2.000 & 6.000 & 17.000 & 1.150\\
+1 & 1.150 & 0.948 & $-2.908$ & 1.295\\
+2 & 1.295 & 1.133 & $-1.315$ & 1.361\\
+3 & 1.361 & 1.278 & 0.089 & 1.356\\
+\bottomrule
+\end{tabular}
+\end{center}
+\begin{warningbox}[Initialization matters!]
+Gradient descent found the \emph{local} minimum near $z=1.35$, not the global one at $z\approx -1.47$.
+Starting from $z_{0}=-2$ instead would converge to the global minimum.
+This is a fundamental issue with non-linear optimisation that carries over to trajectory optimisation:
+the quality of the initial guess determines which solution you find.
+\end{warningbox}
+\end{examplebox}
+
+\paragraph{Choosing the step size: backtracking line search.}
+A fixed $\alpha$ is fragile: too large and the iterates overshoot and
+diverge; too small and progress crawls. The standard fix is
+\emph{backtracking line search} with the \emph{Armijo (sufficient decrease)
+condition}: start from a candidate $\alpha=1$ (or some $\alpha_{\max}$) and
+halve it until
+\begin{equation}\label{eq:armijo}
+J(\bm{z}_{k}+\alpha\,\bm{d}_{k})
+\;\le\;
+J(\bm{z}_{k})+c_{1}\,\alpha\,\nabla J(\bm{z}_{k})^{\!\top}\bm{d}_{k},
+\qquad c_{1}\in(0,1),\ \text{typically }10^{-4},
+\end{equation}
+where $\bm{d}_{k}$ is the search direction.
+The right-hand side is the \emph{linear model's prediction} of the new cost,
+scaled down by $c_{1}$: we accept any step that achieves at least a fraction
+$c_{1}$ of the improvement the linear model promised.
+This simple test is everywhere in this tutorial:
+the iLQR forward pass (Section~\ref{sec:forward-pass}) is precisely a
+parallelised line search with an Armijo-style acceptance test, and
+MuJoCo MPC's gradient planner uses a parallel line search over a fixed
+set of $\alpha$ values.
+
+\begin{examplebox}[Worked Example: Backtracking on the quartic]
+At $z_{0}=2$ for $J(z)=z^{4}-4z^{2}+z+4$: $J(2)=6$, $J'(2)=17$, descent
+direction $d=-17$. Try $\alpha=0.1$: $z=2-1.7=0.3$, $J(0.3)\approx 3.95$.
+Armijo requires $J\le 6+10^{-4}(0.1)(-17^{2})\approx 5.97$. Since
+$3.95\le 5.97$: \emph{accept}.
+Had we tried $\alpha=0.2$: $z=2-3.4=-1.4$, $J(-1.4)\approx 0.60$
+---also accepted, and luckily lands in the global basin.
+With $\alpha=0.3$: $z=-3.1$, $J(-3.1)\approx 54.8>6$: \emph{reject},
+halve, retry. The test costs one function evaluation per trial and
+guards against catastrophic overshoot.
+\end{examplebox}
+
+\paragraph{Convergence rates: how fast is fast?}
+Iterative methods are classified by how quickly the error
+$e_{k}=\|\bm{z}_{k}-\bm{z}^{\star}\|$ shrinks:
+\begin{itemize}
+\item \textbf{Linear:} $e_{k+1}\le\rho\,e_{k}$ with $\rho<1$.
+      Each iteration adds a roughly \emph{constant number of correct digits}.
+      Gradient descent is linear, with
+      $\rho\approx(\kappa-1)/(\kappa+1)$ where
+      $\kappa=\lambda_{\max}(\bm{H})/\lambda_{\min}(\bm{H})$ is the
+      \emph{condition number} of the Hessian.
+      For $\kappa=100$, $\rho\approx 0.98$: hundreds of iterations
+      per digit. This is why naive gradient descent is rarely used for
+      trajectory optimisation.
+\item \textbf{Superlinear:} $e_{k+1}/e_{k}\to 0$. Quasi-Newton methods
+      (BFGS) and iLQR achieve this.
+\item \textbf{Quadratic:} $e_{k+1}\le C\,e_{k}^{2}$.
+      The number of correct digits \emph{doubles} each iteration:
+      errors of $10^{-1}\to 10^{-2}\to 10^{-4}\to 10^{-8}$.
+      Newton's method and full DDP are quadratic near the solution.
+\end{itemize}
+
+\begin{insightbox}[Conditioning, or why gradient descent zig-zags]
+Picture the contours of a quadratic $J=\tfrac12\bm{z}^{\!\top}\bm{H}\bm{z}$
+with $\kappa\gg 1$: a long, narrow valley (an elongated ellipse).
+The gradient is perpendicular to the contour lines, so from most points
+it points \emph{across} the valley rather than \emph{along} it.
+Gradient descent therefore bounces from wall to wall, making tiny progress
+along the valley floor. Newton's method fixes this by rescaling each
+direction by the inverse curvature: it sees the valley as a perfect circle.
+In trajectory optimisation the Hessian is almost always badly conditioned
+(early controls influence the whole trajectory; late controls barely
+matter), which is the practical reason second-order methods like
+iLQR dominate first-order ones.
+\end{insightbox}
+
+\paragraph{Newton's method.}
+Uses second-order information for faster convergence:
+\begin{equation}\label{eq:newton}
+\bm{z}_{k+1}=\bm{z}_{k}-\bigl[\nabla^{2}J(\bm{z}_{k})\bigr]^{-1}\nabla J(\bm{z}_{k}).
+\end{equation}
+
+\paragraph{Where the formula comes from.}
+Build the quadratic Taylor model at $\bm{z}_{k}$:
+$m(\bm{\delta})=J(\bm{z}_{k})+\nabla J^{\!\top}\bm{\delta}
++\tfrac12\bm{\delta}^{\!\top}\bm{H}\bm{\delta}$.
+Minimise the model exactly by setting its gradient to zero:
+$\nabla_{\bm{\delta}}m=\nabla J+\bm{H}\bm{\delta}=\0
+\;\Rightarrow\;\bm{\delta}^{\star}=-\bm{H}^{-1}\nabla J$.
+Newton's method jumps to the bottom of the local quadratic bowl in one
+step. If $J$ \emph{is} quadratic (as in LQR), one step solves the problem
+exactly---a fact we will exploit repeatedly.
+Near a minimum where $\nabla^{2}J\succ 0$, convergence is quadratic.
+
+\begin{examplebox}[Worked Example 1.2b: Newton on the quartic]
+$J(z)=z^{4}-4z^{2}+z+4$, so $J'(z)=4z^{3}-8z+1$ and $J''(z)=12z^{2}-8$.
+Starting from $z_{0}=2$:
+\begin{center}
+\begin{tabular}{ccccc}
+\toprule
+$k$ & $z_{k}$ & $J'(z_{k})$ & $J''(z_{k})$ & $z_{k+1}=z_{k}-J'/J''$\\
+\midrule
+0 & 2.0000 & 17.000 & 40.00 & 1.5750\\
+1 & 1.5750 & 4.0252 & 21.77 & 1.3901\\
+2 & 1.3901 & 0.6258 & 15.19 & 1.3489\\
+3 & 1.3489 & 0.0264 & 13.83 & 1.3470\\
+4 & 1.3470 & $5\!\times\!10^{-5}$ & 13.77 & 1.3470\\
+\bottomrule
+\end{tabular}
+\end{center}
+Note the quadratic convergence signature in $|J'|$:
+$4.0\to 0.63\to 0.026\to 5\!\times\!10^{-5}$---the exponent roughly
+doubles each step. Compare with the gradient descent table in Worked
+Example~1.2, which needed comparable iterations just to get one digit.
+
+\textbf{Failure mode.} Start instead from $z_{0}=0$: there
+$J''(0)=-8<0$ (we are near the local \emph{maximum}), and the Newton step
+$z_{1}=0-1/(-8)=0.125$ moves \emph{toward} the stationary point at
+$z\approx 0.13$---which is a maximum! Newton's method finds
+\emph{stationary points}, not minima; with negative curvature it happily
+climbs hills. Practical fixes: (i)~check that the Newton direction is a
+descent direction ($\nabla J^{\!\top}\bm{\delta}<0$) and fall back to
+gradient descent otherwise, or (ii)~\emph{regularise}: replace $\bm{H}$
+with $\bm{H}+\mu\I$ for $\mu$ large enough to make it positive definite
+(Levenberg--Marquardt). As $\mu\to\infty$ the step direction blends
+toward plain gradient descent. This exact trick reappears as the
+regularisation of $Q_{\uu\uu}$ in iLQR (Section~\ref{sec:ilqr}).
+\end{examplebox}
+
+\paragraph{Gauss--Newton: exploiting least-squares structure.}
+A huge fraction of robotics costs are \emph{sums of squares}:
+\begin{equation}\label{eq:least-squares}
+J(\bm{z})=\tfrac12\|\rr(\bm{z})\|^{2}
+=\tfrac12\sum_{i}r_{i}(\bm{z})^{2},
+\end{equation}
+where $\rr:\R^{n}\to\R^{m}$ is a vector of \emph{residuals}---quantities
+that should be small when the task is solved (tracking errors, sensor
+mismatches; compare the MJPC cost in Chapter~\ref{ch:mjpc}).
+Differentiating with the chain rule (let $\J_{r}=\partial\rr/\partial\bm{z}$):
+\begin{align}
+\nabla J&=\J_{r}^{\!\top}\rr,\\
+\nabla^{2}J&=\underbrace{\J_{r}^{\!\top}\J_{r}}_{\text{Gauss--Newton term}}
++\underbrace{\textstyle\sum_{i}r_{i}\,\nabla^{2}r_{i}}_{\text{second-order term}}.
+\end{align}
+The \textbf{Gauss--Newton approximation} keeps only the first term:
+$\nabla^{2}J\approx\J_{r}^{\!\top}\J_{r}$. Two things make this a great deal:
+\begin{enumerate}
+\item $\J_{r}^{\!\top}\J_{r}$ is \emph{always} positive semidefinite
+      (it is a Gram matrix: $\bm{\delta}^{\!\top}\J_{r}^{\!\top}\J_{r}\bm{\delta}
+      =\|\J_{r}\bm{\delta}\|^{2}\ge 0$), so the Newton-with-GN-Hessian step
+      is always well-posed and always a descent direction.
+      No negative-curvature pathology.
+\item It needs only \emph{first} derivatives of the residuals---no
+      Hessians of $\rr$ required.
+\end{enumerate}
+The dropped term $\sum_{i}r_{i}\nabla^{2}r_{i}$ is weighted by the
+residuals themselves, so near a good solution (small $\rr$) it is small
+and Gauss--Newton converges almost as fast as full Newton.
+\textbf{This is precisely the relationship between DDP and iLQR}
+(Section~\ref{sec:ilqr}): iLQR is Gauss--Newton applied along a
+trajectory, dropping the dynamics second derivatives, whose contribution
+is weighted by the value-function gradient $V_{\x}'$ (which plays the role
+of the residual: it vanishes at optimality).
+Once you have seen this pattern in $\R^{n}$, the iLQR derivation will
+feel inevitable rather than mysterious.
+
+%-------------------------------------------------------------
+\section{Constrained Optimisation and the KKT Conditions}
+
+When constraints are present, the gradient need not vanish at the optimum.
+Instead we have the celebrated \emph{Karush--Kuhn--Tucker} (KKT) conditions.
+
+Consider the equality-constrained problem
+\begin{equation}
+\min_{\bm{z}}\; J(\bm{z}) \quad\text{s.t.}\quad \bm{h}(\bm{z})=\0.
+\end{equation}
+We introduce \emph{Lagrange multipliers} $\bm{\nu}\in\R^{p}$ and form the
+\emph{Lagrangian}:
+\begin{equation}\label{eq:lagrangian}
+\mathcal{L}(\bm{z},\bm{\nu})=J(\bm{z})+\bm{\nu}^{\!\top}\bm{h}(\bm{z}).
+\end{equation}
+A necessary condition for optimality is that both partial derivatives vanish:
+\begin{equation}
+\nabla_{\bm{z}}\mathcal{L}=\nabla J+\bm{\nu}^{\!\top}\nabla\bm{h}=\0,
+\qquad
+\nabla_{\bm{\nu}}\mathcal{L}=\bm{h}(\bm{z})=\0.
+\end{equation}
+
+\paragraph{The geometric picture (read this twice).}
+Why should this strange recipe---add the constraints to the objective
+with unknown coefficients, then differentiate---find the optimum?
+Picture a single constraint surface $h(\bm{z})=0$ and the contour lines
+of $J$. Walking along the surface, you can keep decreasing $J$ as long
+as the surface has a direction with a downhill component, i.e.\ as long
+as $\nabla J$ has a nonzero component \emph{tangent} to the surface.
+You can only be stuck when $\nabla J$ is entirely \emph{perpendicular}
+to the surface. But the perpendicular direction to the surface
+$h(\bm{z})=0$ is spanned by $\nabla h$. Hence, at a constrained optimum,
+\begin{equation*}
+\nabla J(\bm{z}^{\star})=-\nu\,\nabla h(\bm{z}^{\star})
+\quad\text{for some scalar }\nu,
+\end{equation*}
+which is exactly the stationarity condition above. The Lagrange
+multiplier $\nu$ is simply the unknown \emph{proportionality constant}
+between the two gradients. Equivalently: at the optimum, the contour
+line of $J$ is \emph{tangent} to the constraint surface.
+With $p$ constraints, $\nabla J$ must lie in the span of the $p$
+constraint gradients (this requires the constraint gradients to be
+linearly independent at $\bm{z}^{\star}$---the standard
+\emph{constraint qualification}, LICQ, which holds for all problems
+in this tutorial).
+
+\paragraph{Multipliers are prices.}
+The multipliers also carry quantitative meaning: if the constraint is
+perturbed to $h(\bm{z})=\epsilon$, the optimal cost changes as
+$\partial J^{\star}/\partial\epsilon=-\nu^{\star}$.
+Each multiplier is the \emph{sensitivity of the optimal cost to relaxing
+its constraint}---economists call it a shadow price.
+This interpretation will become physical in Part~III:
+\textbf{contact forces are exactly the Lagrange multipliers of the
+non-penetration constraints}. A large normal force at a contact means
+the non-penetration constraint there is ``expensive''---the dynamics
+are pushing hard against it. The whole machinery of contact solvers is
+machinery for computing Lagrange multipliers.
+
+For inequality constraints $g_{i}(\bm{z})\le 0$ with multipliers $\mu_{i}\ge 0$,
+the KKT conditions add \emph{complementary slackness}:
+\begin{equation}\label{eq:comp-slack}
+\mu_{i}\,g_{i}(\bm{z}^{\star})=0,\quad\forall\,i.
+\end{equation}
+This says: either the constraint is \emph{active} ($g_{i}=0$) or its multiplier is zero.
+Complementarity conditions will reappear throughout this tutorial, most prominently in contact dynamics (Chapter~\ref{ch:contact}).
+
+\paragraph{Why inequality multipliers must be non-negative.}
+For an equality constraint the multiplier can have either sign---the
+surface pushes back in whichever direction is needed. For an inequality
+$g\le 0$, the feasible side is one-sided: the constraint can only
+``push'' the solution \emph{into} the feasible region, never pull it out.
+Formally, at an active constraint, $-\nabla J=\mu\,\nabla g$ must point
+\emph{out of} the feasible set (otherwise we could move into the
+interior and decrease $J$, contradiction), forcing $\mu\ge 0$.
+The physical analogue is immediate: a floor can push up on a block but
+cannot pull down; normal contact forces satisfy $\lambda_{N}\ge 0$
+\emph{because they are inequality multipliers}.
+
+\begin{definitionbox}[The complete KKT conditions]
+For $\min J(\bm{z})$ s.t.\ $\bm{g}(\bm{z})\le\0$, $\bm{h}(\bm{z})=\0$,
+a point $\bm{z}^{\star}$ with multipliers $(\bm{\mu}^{\star},\bm{\nu}^{\star})$
+is a KKT point if:
+\begin{align*}
+&\text{(stationarity)} & \nabla J+\textstyle\sum_{i}\mu_{i}^{\star}\nabla g_{i}
++\sum_{j}\nu_{j}^{\star}\nabla h_{j}&=\0,\\
+&\text{(primal feasibility)} & \bm{g}(\bm{z}^{\star})\le\0,\quad
+\bm{h}(\bm{z}^{\star})&=\0,\\
+&\text{(dual feasibility)} & \bm{\mu}^{\star}&\ge\0,\\
+&\text{(complementary slackness)} & \mu_{i}^{\star}\,g_{i}(\bm{z}^{\star})&=0
+\quad\forall i.
+\end{align*}
+Under constraint qualification these are \emph{necessary} for a local
+minimum; for \emph{convex} problems they are also \emph{sufficient}
+for a global minimum. Memorise the four names---every solver log and
+every contact-dynamics paper refers to them.
+\end{definitionbox}
+
+\begin{insightbox}[Active sets and why inequality constraints are hard]
+If an oracle told us \emph{which} inequality constraints are active at
+the solution, we could treat those as equalities, discard the rest,
+and solve a much easier equality-constrained problem.
+The difficulty of inequality-constrained optimisation is entirely the
+\emph{combinatorial} problem of discovering the active set: with $m$
+inequalities there are $2^{m}$ possible active sets.
+Contact dynamics inherits this combinatorics directly---with $n_{c}$
+contacts each in \{separating, sticking, sliding\} there are
+$3^{n_{c}}$ contact modes, and a contact solver is implicitly an
+active-set search. The three main solution strategies
+(active-set methods, interior-point methods, and projection/proximal
+methods) are surveyed in Section~\ref{sec:solving-constrained},
+and each has a direct descendant among the contact solvers of
+Chapter~\ref{ch:contact}.
+\end{insightbox}
+
+\begin{examplebox}[Worked Example 1.3: 2D constrained optimisation]
+\begin{equation*}
+\min_{z_1,z_2}\; z_{1}^{2}+z_{2}^{2}
+\quad\text{s.t.}\quad z_{1}+z_{2}\ge 1.
+\end{equation*}
+
+\textbf{Step 1.} Rewrite: $g(z_{1},z_{2})=1-z_{1}-z_{2}\le 0$.
+
+\textbf{Step 2.} Lagrangian: $\mathcal{L}=z_{1}^{2}+z_{2}^{2}+\mu(1-z_{1}-z_{2})$.
+
+\textbf{Step 3.} KKT:
+$\partial\mathcal{L}/\partial z_{1}=2z_{1}-\mu=0\;\Rightarrow\;z_{1}=\mu/2$,\quad
+$\partial\mathcal{L}/\partial z_{2}=2z_{2}-\mu=0\;\Rightarrow\;z_{2}=\mu/2$.
+
+\textbf{Step 4.} Complementary slackness: $\mu(1-z_{1}-z_{2})=0$, $\mu\ge 0$.
+If $\mu=0$: $z_{1}=z_{2}=0$, but then $z_{1}+z_{2}=0<1$ violates the constraint.
+So the constraint is \emph{active}: $z_{1}+z_{2}=1$, giving $\mu/2+\mu/2=1$, thus $\mu=1$.
+
+\textbf{Solution:} $z_{1}^{\star}=z_{2}^{\star}=1/2$, $J^{\star}=1/2$, $\mu^{\star}=1$.
+
+\begin{warningbox}[Connection to contact]
+This has \emph{exactly} the same structure as the Signorini contact condition:
+either the ``gap'' $g=0$ (constraint active / in contact) or the ``force'' $\mu=0$ (no contact force).
+The complementary slackness $\mu\cdot g=0$ is a 1D complementarity condition.
+\end{warningbox}
+\end{examplebox}
+
+\begin{center}
+\begin{tikzpicture}
+\begin{axis}[
+  width=8cm, height=8cm,
+  xlabel={$z_1$}, ylabel={$z_2$},
+  domain=-0.5:1.5, samples=30,
+  view={0}{90}, colormap/viridis,
+  title={Contours of $z_1^2+z_2^2$ with constraint $z_1+z_2\ge 1$}
+]
+\addplot3[contour prepared={labels=false}, domain=-0.5:1.5, y domain=-0.5:1.5, samples=30]
+  {x^2+y^2};
+\addplot[red, very thick, domain=-0.5:1.5]{1-x};
+\addplot[only marks, mark=*, mark size=4pt, black] coordinates {(0.5,0.5)};
+\node[black, above right] at (axis cs:0.5,0.5) {\footnotesize $z^{\star}=(0.5,0.5)$};
+\node[red, rotate=-45] at (axis cs:1.1,0.1) {\footnotesize $z_1+z_2=1$};
+\end{axis}
+\end{tikzpicture}
+\end{center}
+
+%-------------------------------------------------------------
+\section{How Constrained Problems Are Actually Solved}
+\label{sec:solving-constrained}
+
+The KKT conditions characterise the solution but do not provide an
+algorithm. In practice, almost every constrained solver converts the
+constrained problem into a sequence of \emph{unconstrained} (or simpler)
+problems. Four conversion strategies cover essentially everything used
+in robotics, and each one foreshadows a contact solver.
+
+\subsection{Penalty Methods}
+Replace the constraint with a cost that punishes violation:
+\begin{equation}\label{eq:penalty}
+\min_{\bm{z}}\;J(\bm{z})+\frac{\rho}{2}\,\|\bm{h}(\bm{z})\|^{2}
++\frac{\rho}{2}\,\|\max(\bm{g}(\bm{z}),\0)\|^{2},
+\end{equation}
+and solve for increasing penalty weight $\rho\to\infty$.
+Simple and robust, but: the solution of the penalised problem only
+satisfies the constraints \emph{exactly} in the limit $\rho\to\infty$,
+and large $\rho$ makes the Hessian ill-conditioned
+($\kappa\propto\rho$), so Newton steps become numerically fragile.
+You face a dilemma: accurate constraints or solvable subproblems.
+
+\begin{examplebox}[Worked Example: Quadratic penalty on Example 1.3]
+For $\min z_{1}^{2}+z_{2}^{2}$ s.t.\ $z_{1}+z_{2}\ge 1$, the penalised
+problem is $\min z_{1}^{2}+z_{2}^{2}+\tfrac{\rho}{2}\max(1-z_{1}-z_{2},0)^{2}$.
+By symmetry $z_{1}=z_{2}=z$; in the violated region the stationarity
+condition is $2z-\rho(1-2z)=0$, giving $z=\rho/(2+2\rho)$.
+\begin{center}
+\begin{tabular}{cccc}
+\toprule
+$\rho$ & $z^{\star}_{\rho}$ & constraint violation $1-2z$ & exact?\\
+\midrule
+1 & 0.250 & 0.500 & no\\
+10 & 0.455 & 0.091 & no\\
+100 & 0.495 & 0.010 & no\\
+$\infty$ & 0.500 & 0 & limit only\\
+\bottomrule
+\end{tabular}
+\end{center}
+The iterate approaches the true solution $z=1/2$ from \emph{inside the
+violated region}: penalty methods systematically under-enforce
+constraints. The violation $\approx 1/\rho$ is the signature of a
+quadratic penalty. MuJoCo's soft contact is exactly this phenomenon:
+penetration plays the role of constraint violation, and contact
+stiffness plays the role of $\rho$. Finite stiffness $\Leftrightarrow$
+finite penetration.
+\end{examplebox}
+
+\subsection{The Augmented Lagrangian (Method of Multipliers)}
+The fix for the penalty dilemma: keep $\rho$ \emph{moderate}, and
+instead carry an explicit running estimate of the multipliers:
+\begin{equation}\label{eq:auglag}
+\mathcal{L}_{\rho}(\bm{z},\bm{\nu})
+=J(\bm{z})+\bm{\nu}^{\!\top}\bm{h}(\bm{z})
++\frac{\rho}{2}\|\bm{h}(\bm{z})\|^{2},
+\end{equation}
+alternating: (i) minimise $\mathcal{L}_{\rho}$ over $\bm{z}$ with
+$\bm{\nu}$ fixed; (ii) update the multiplier estimate
+$\bm{\nu}\leftarrow\bm{\nu}+\rho\,\bm{h}(\bm{z})$.
+The multiplier update has a beautiful interpretation: whatever residual
+constraint violation the penalty failed to remove gets absorbed into the
+linear term, so the next subproblem is ``pre-tilted'' to land closer to
+feasibility. The method converges with \emph{finite} $\rho$---no
+ill-conditioning blow-up. ADMM (Section~\ref{sec:ccp}), the workhorse of
+modern contact solvers, is an augmented-Lagrangian method that
+additionally splits the variables into blocks solved in alternation.
+
+\subsection{Barrier / Interior-Point Methods}
+Penalties punish violation \emph{after} it occurs; barriers make
+violation \emph{impossible} by adding a term that blows up at the
+boundary of the feasible region:
+\begin{equation}\label{eq:barrier}
+\min_{\bm{z}}\;J(\bm{z})-\frac{1}{t}\sum_{i}\ln\bigl(-g_{i}(\bm{z})\bigr),
+\qquad t>0.
+\end{equation}
+The log term is finite inside the feasible set and $\to+\infty$ as any
+$g_{i}\to 0^{-}$, so the minimiser stays strictly interior---hence
+``interior point.'' As $t\to\infty$ the barrier weakens and the solution
+traces a smooth \emph{central path} converging to $\bm{z}^{\star}$.
+One can show the barrier subproblem's optimality condition reproduces
+the KKT system with complementarity relaxed to
+$\mu_{i}\,(-g_{i})=1/t$: \textbf{interior-point methods are
+complementarity-smoothing methods}. Instead of the hard ``either force
+or gap is zero'' they enforce ``force $\times$ gap $=$ small constant.''
+IPOPT, the solver behind much contact-implicit trajectory optimisation
+(Chapter~\ref{ch:trajopt-contact}), works this way, and MuJoCo's relaxed
+contact complementarity has the same flavour: small simultaneous force
+and gap, vanishing as the relaxation tightens.
+
+\begin{examplebox}[Worked Example: Log barrier on Example 1.3]
+Barrier subproblem:
+$\min\;z_{1}^{2}+z_{2}^{2}-\tfrac{1}{t}\ln(z_{1}+z_{2}-1)$.
+By symmetry $z_{1}=z_{2}=z$ with $z>1/2$ (strictly feasible).
+Stationarity: $2z-\tfrac{1}{t}\cdot\tfrac{1}{2z-1}=0$, i.e.\
+$2z(2z-1)=1/t$, giving
+$z(t)=\tfrac14\bigl(1+\sqrt{1+4/t}\,\bigr)$.
+\begin{center}
+\begin{tabular}{ccc}
+\toprule
+$t$ & $z(t)$ & distance to optimum\\
+\midrule
+1 & 0.809 & 0.309\\
+10 & 0.546 & 0.046\\
+100 & 0.5050 & 0.0050\\
+1000 & 0.50050 & 0.00050\\
+\bottomrule
+\end{tabular}
+\end{center}
+The iterates approach $z^{\star}=1/2$ from \emph{inside} the feasible
+region (compare the penalty method, which approached from outside), with
+error $\approx 1/(4t)$. The implied multiplier estimate
+$\mu(t)=\tfrac{1}{t(2z-1)}\to 1=\mu^{\star}$ recovers the true
+multiplier from Worked Example 1.3.
+\end{examplebox}
+
+\subsection{Projection Methods}
+When the feasible set $\mathcal{C}$ is \emph{simple}---a box, a ball, or
+a cone---the cheapest strategy is \emph{projected gradient descent}:
+take an unconstrained step, then snap back to the feasible set:
+\begin{equation}\label{eq:proj-grad}
+\bm{z}_{k+1}=\proj_{\mathcal{C}}\bigl(\bm{z}_{k}-\alpha\nabla J(\bm{z}_{k})\bigr),
+\qquad
+\proj_{\mathcal{C}}(\bm{y})=\argmin_{\bm{z}\in\mathcal{C}}\|\bm{z}-\bm{y}\|.
+\end{equation}
+Closed-form projections worth memorising:
+\begin{itemize}
+\item \textbf{Box} $[\bm{z}_{\text{lo}},\bm{z}_{\text{hi}}]$:
+      clamp each coordinate,
+      $\proj(\bm{y})_{i}=\min(\max(y_{i},z_{\text{lo},i}),z_{\text{hi},i})$.
+\item \textbf{Non-negative orthant} $\{\bm{z}\ge\0\}$:
+      $\proj(\bm{y})=\max(\bm{y},\0)$ componentwise. The ubiquitous
+      $\max(\cdot,0)$ in contact formulas (e.g.\ the ComFree force
+      \eqref{eq:beta-closed}) is literally this projection.
+\item \textbf{Second-order cone} $\Kc_{\mu}$: a three-case formula
+      (inside: identity; inside the polar cone: zero; otherwise: a
+      radial shrink onto the cone surface)---given explicitly in
+      Section~\ref{sec:cones}. This is the projection inside the
+      ADMM contact solver (Algorithm~\ref{alg:admm}).
+\end{itemize}
+Projected gradient and its proximal generalisations are the conceptual
+core of PGS and ADMM contact solvers: \emph{contact solvers are
+projection methods onto friction cones}.
+
+\begin{insightbox}[One table to keep]
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Strategy} & \textbf{Constraint handling} & \textbf{Contact-world descendant}\\
+\midrule
+Penalty & violated, $\to 0$ as $\rho\to\infty$ & soft/compliant contact (MuJoCo spring)\\
+Augmented Lagrangian & exact at finite $\rho$ & ADMM contact solvers\\
+Barrier / interior point & strictly feasible path & IPOPT contact-implicit trajopt\\
+Projection & feasible after each step & PGS, cone projections\\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{insightbox}
+
+%-------------------------------------------------------------
+\section{Lagrangian Duality}
+\label{sec:duality}
+
+One more concept from convex optimisation pays for itself many times
+over in Part~III: every minimisation problem has a shadow
+\emph{maximisation} problem defined over its multipliers.
+
+Define the \emph{dual function} by minimising the Lagrangian over the
+primal variable:
+\begin{equation}
+d(\bm{\mu},\bm{\nu})=\min_{\bm{z}}\;\mathcal{L}(\bm{z},\bm{\mu},\bm{\nu}),
+\end{equation}
+and the \emph{dual problem}:
+\begin{equation}\label{eq:dual-problem}
+\max_{\bm{\mu}\ge\0,\,\bm{\nu}}\;d(\bm{\mu},\bm{\nu}).
+\end{equation}
+
+\textbf{Weak duality} (always true): $d(\bm{\mu},\bm{\nu})\le J^{\star}$
+for any feasible multipliers---the dual gives lower bounds on the optimal
+cost. \textbf{Strong duality} (true for convex problems satisfying a mild
+condition such as Slater's): the bound is tight, $d^{\star}=J^{\star}$,
+and the dual optimisers are exactly the KKT multipliers.
+
+\begin{examplebox}[Worked Example: The dual of Example 1.3]
+$\mathcal{L}=z_{1}^{2}+z_{2}^{2}+\mu(1-z_{1}-z_{2})$.
+Minimising over $\bm{z}$ (set gradients to zero):
+$z_{1}=z_{2}=\mu/2$, so
+\begin{equation*}
+d(\mu)=2\cdot\frac{\mu^{2}}{4}+\mu\Bigl(1-\mu\Bigr)
+=\mu-\frac{\mu^{2}}{2}.
+\end{equation*}
+Maximising the concave parabola over $\mu\ge 0$:
+$d'(\mu)=1-\mu=0\Rightarrow\mu^{\star}=1$, $d^{\star}=1/2$.
+This matches $J^{\star}=1/2$ and $\mu^{\star}=1$ from the primal KKT
+solution exactly---strong duality in action. Notice the dual problem is
+an \emph{unconstrained-except-for-sign} maximisation of a concave
+function: often dramatically simpler than the primal.
+\end{examplebox}
+
+\begin{insightbox}[Why duality matters for contact]
+The contact problem can be posed in the \emph{primal} (find the
+post-contact velocities) or the \emph{dual} (find the contact
+impulses/multipliers). MuJoCo solves a primal formulation
+\eqref{eq:mujoco-primal}; ADMM and the complementarity-free model of
+Jin work on the dual \eqref{eq:ccp-dual-recap}, where the decision
+variables \emph{are the contact forces} and the constraint is simply
+$\bm{\beta}\ge\0$---an orthant, with a trivial projection.
+When you reach Section~\ref{sec:comfree-derivation}, the phrase
+``the CCP dual'' will mean precisely the construction above: form the
+Lagrangian of the velocity problem, minimise out the velocity
+analytically, and maximise what remains over the non-negative impulses.
+\end{insightbox}
+
+%-------------------------------------------------------------
+\section{Classes of Optimisation Problems}
+\label{sec:opt-classes}
+
+Different problem structures admit different algorithms.  In robotics we encounter all of the following.
+
+\subsection{Linear Programs (LP)}
+Objective and constraints are all affine:
+\begin{equation}
+\min_{\bm{z}}\;\bm{c}^{\!\top}\bm{z}\quad\text{s.t.}\quad
+\bm{A}\bm{z}\le\bm{b}.
+\end{equation}
+Solvable in polynomial time via interior-point methods or the simplex method.
+
+\subsection{Quadratic Programs (QP)}
+Quadratic objective, linear constraints:
+\begin{equation}\label{eq:qp}
+\min_{\bm{z}}\;\tfrac12\bm{z}^{\!\top}\bm{Q}\bm{z}+\bm{c}^{\!\top}\bm{z}
+\quad\text{s.t.}\quad\bm{A}\bm{z}\le\bm{b}.
+\end{equation}
+If $\bm{Q}\succeq 0$ (positive semidefinite), the problem is convex and can
+be solved efficiently.  QPs are the workhorse of model-predictive control
+and arise as sub-problems in many trajectory optimisation algorithms.
+
+\subsection{Second-Order Cone Programs (SOCP)}
+\begin{equation}
+\min_{\bm{z}}\;\bm{c}^{\!\top}\bm{z}\quad\text{s.t.}\quad
+\|\bm{A}_{i}\bm{z}+\bm{b}_{i}\|_{2}\le\bm{d}_{i}^{\!\top}\bm{z}+e_{i},\;
+\forall\,i.
+\end{equation}
+These generalise QPs and LPs.  The friction cone in Coulomb's law is a second-order cone, making SOCPs directly relevant to contact (Section~\ref{sec:coulomb}).
+
+\subsection{Non-linear Programs (NLP)}
+The general case~\eqref{eq:general-opt}.  No special structure is assumed.
+NLPs are solved by interior-point methods (IPOPT) or sequential quadratic programming (SNOPT).  Trajectory optimisation via direct collocation or shooting produces NLPs.
+
+\begin{insightbox}[Hierarchy of difficulty]
+LP $\subset$ QP $\subset$ SOCP $\subset$ SDP $\subset$ Convex $\subset$ NLP.
+Moving right, problems become harder.
+A central theme of contact modelling (Chapter~\ref{ch:contact}) is that the
+``true'' contact problem (an NCP) is non-convex, and various simulators
+make different relaxations to recover tractable convex sub-problems.
+\end{insightbox}
+
+%-------------------------------------------------------------
+\section{Convexity}
+
+Convexity is the dividing line between optimisation problems we can
+solve reliably and those we cannot. It comes in two flavours that work
+together: convex \emph{sets} (for the feasible region) and convex
+\emph{functions} (for the objective).
+
+\begin{definitionbox}[Convex set]
+A set $\mathcal{C}\subseteq\R^{n}$ is \emph{convex} if the line segment
+between any two of its points stays inside:
+$\bm{z}_{1},\bm{z}_{2}\in\mathcal{C}\Rightarrow
+\theta\bm{z}_{1}+(1{-}\theta)\bm{z}_{2}\in\mathcal{C}$
+for all $\theta\in[0,1]$.
+\end{definitionbox}
+
+Examples: boxes, balls, hyperplanes and half-spaces, and---crucially for
+us---\emph{cones} like the Coulomb friction cone, and intersections of
+any of these. Non-examples: any set with a hole, a notch, or two
+disconnected pieces. The set of \emph{collision-free configurations} of
+a robot is almost never convex (an obstacle punches a hole in it), which
+is one deep reason motion planning is hard.
+
+\begin{definitionbox}[Convex function]
+$J:\R^{n}\to\R$ is \emph{convex} if for all $\bm{z}_{1},\bm{z}_{2}$ and
+$\theta\in[0,1]$:
+\begin{equation}
+J\bigl(\theta\bm{z}_{1}+(1{-}\theta)\bm{z}_{2}\bigr)
+\le\theta\,J(\bm{z}_{1})+(1{-}\theta)\,J(\bm{z}_{2}).
+\end{equation}
+Equivalently, $\nabla^{2}J\succeq 0$ everywhere.
+\end{definitionbox}
+
+In words: \emph{the chord lies above the graph}. Two further
+characterisations are worth knowing because each powers a different
+proof technique:
+\begin{itemize}
+\item \textbf{First-order:} a differentiable $J$ is convex iff its
+      tangent planes are global underestimators,
+      \begin{equation}\label{eq:convex-first-order}
+      J(\bm{y})\ge J(\bm{z})+\nabla J(\bm{z})^{\!\top}(\bm{y}-\bm{z})
+      \quad\forall\,\bm{y},\bm{z}.
+      \end{equation}
+      This single inequality is the source of all the global guarantees:
+      if $\nabla J(\bm{z}^{\star})=\0$, then
+      \eqref{eq:convex-first-order} immediately gives
+      $J(\bm{y})\ge J(\bm{z}^{\star})$ for \emph{every} $\bm{y}$---a
+      stationary point of a convex function is a global minimum, with a
+      one-line proof.
+\item \textbf{Second-order:} $\nabla^{2}J\succeq 0$ everywhere.
+      Useful for checking: $J(z)=z^{4}$ is convex ($J''=12z^{2}\ge 0$);
+      our running quartic $z^{4}-4z^{2}+z+4$ is not
+      ($J''=12z^{2}-8<0$ near the origin---which is exactly where its
+      saddle-shaped local max lives).
+\end{itemize}
+
+\paragraph{Recognition rules (the practical skill).}
+Convexity is usually established not from the definition but
+compositionally. Convexity is preserved by: non-negative weighted sums;
+composition with an affine map ($J(\bm{A}\bm{z}+\bm{b})$ is convex if
+$J$ is); pointwise maximum ($\max_{i}J_{i}$ is convex if each $J_{i}$
+is); and certain monotone compositions. So
+$\|\bm{A}\bm{z}-\bm{b}\|^{2}+\lambda\|\bm{z}\|_{1}$ is convex by
+inspection (squared norm of affine, plus a norm). Note that the
+pointwise \emph{max} rule explains why the $\max(\cdot,0)$ appearing
+throughout contact modelling preserves convex structure, while a
+pointwise \emph{min}---like the mode-switching min over contact
+configurations---destroys it.
+
+The key property: \textbf{every local minimum of a convex function over a
+convex set is a global minimum}.  This is why we care about convex
+relaxations of the contact problem.
+
+\begin{insightbox}[What convexity buys you, operationally]
+For convex problems: (i)~any stationary point found by any descent
+method is \emph{the} answer---no initialisation anxiety;
+(ii)~strong duality holds, so dual formulations (Section~\ref{sec:duality})
+are exact, not just bounds; (iii)~polynomial-time interior-point solvers
+exist with certificates of optimality. For non-convex problems all three
+fail, and we settle for local minima from good initial guesses.
+Trajectory optimisation through contact is non-convex twice over:
+the dynamics constraint $\x_{t+1}=\f(\x_{t},\uu_{t})$ is a non-convex
+equality whenever $\f$ is non-linear, and the contact complementarity
+is non-convex even for linear dynamics. The art of Part~III is choosing
+\emph{which} non-convexity to relax.
+\end{insightbox}
+
+%-------------------------------------------------------------
+\section{Complementarity Problems}
+\label{sec:complementarity}
+
+Complementarity conditions are central to contact modelling.
+They formalise the idea that two non-negative quantities cannot
+both be positive simultaneously.
+
+\begin{definitionbox}[Linear Complementarity Problem (LCP)]
+Given $\bm{G}\in\R^{n\times n}$ and $\bm{g}\in\R^{n}$, find $\bm{\lambda}\in\R^{n}$ such that:
+\begin{equation}\label{eq:lcp}
+\bm{\lambda}\ge\0,\quad
+\bm{G}\bm{\lambda}+\bm{g}\ge\0,\quad
+\bm{\lambda}^{\!\top}(\bm{G}\bm{\lambda}+\bm{g})=0.
+\end{equation}
+\end{definitionbox}
+
+Condition~\eqref{eq:lcp} is written in shorthand as
+$\0\le\bm{\lambda}\perp(\bm{G}\bm{\lambda}+\bm{g})\ge\0$.
+The ``$\perp$'' symbol denotes complementarity: for each component $i$,
+either $\lambda_{i}=0$ or $(G\lambda+g)_{i}=0$ (or both).
+
+When $\bm{G}$ is positive definite, the LCP has a unique solution and
+is equivalent to a QP.  When $\bm{G}$ is only positive semidefinite
+(which occurs for over-determined contact), multiple solutions may exist.
+
+\paragraph{How LCPs are solved: case enumeration.}
+The defining feature of an LCP is its hidden combinatorial structure:
+each component $i$ is in one of two ``modes''
+($\lambda_{i}=0$, constraint inactive; or $(\bm{G}\bm{\lambda}+\bm{g})_{i}=0$,
+constraint active). With $n$ components there are $2^{n}$ mode
+combinations; \emph{guessing a mode combination reduces the LCP to a
+linear system}. Pivoting algorithms (Lemke, Dantzig) are clever ways of
+searching mode combinations without trying all $2^{n}$.
+
+\begin{examplebox}[Worked Example 1.4a: A 2D LCP by enumeration]
+Solve $\0\le\bm{\lambda}\perp\bm{G}\bm{\lambda}+\bm{g}\ge\0$ with
+\begin{equation*}
+\bm{G}=\begin{bmatrix}2&1\\1&2\end{bmatrix},\qquad
+\bm{g}=\begin{bmatrix}-1\\-3\end{bmatrix}.
+\end{equation*}
+(Think of two contact points whose forces couple through the
+off-diagonal $1$'s---pressing down at one contact reduces the load
+needed at the other.) Enumerate the four mode combinations:
+
+\textbf{Mode (inactive, inactive):} $\lambda_{1}=\lambda_{2}=0$.
+Need $\bm{g}\ge\0$: but $\bm{g}=(-1,-3)<\0$. \texttimes
+
+\textbf{Mode (active, inactive):} $\lambda_{2}=0$, solve
+$(G\lambda+g)_{1}=2\lambda_{1}-1=0\Rightarrow\lambda_{1}=1/2$.
+Check the inactive row: $(G\lambda+g)_{2}=1/2-3=-2.5<0$. \texttimes
+
+\textbf{Mode (inactive, active):} $\lambda_{1}=0$, solve
+$2\lambda_{2}-3=0\Rightarrow\lambda_{2}=3/2$.
+Check row 1: $(G\lambda+g)_{1}=3/2-1=1/2\ge 0$. \checkmark\
+And $\lambda_{2}=3/2\ge 0$. \checkmark
+
+\textbf{Mode (active, active):} solve
+$\bm{G}\bm{\lambda}=-\bm{g}$:
+$\lambda_{1}=-1/3<0$. \texttimes\ (Would require an adhesive force.)
+
+\textbf{Solution:} $\bm{\lambda}^{\star}=(0,\,3/2)$. The second contact
+carries all the load; the first separates with a residual gap velocity
+of $1/2$. Notice that three of four modes had to be \emph{tried and
+rejected}---this is the combinatorics that contact solvers spend their
+time on, and that grows as $2^{n}$ (or $3^{n_c}$ with friction modes).
+\end{examplebox}
+
+\begin{definitionbox}[Non-linear Complementarity Problem (NCP)]
+The NCP generalises the LCP by replacing the linear mapping with a
+non-linear one.  The frictional contact problem in its full generality
+is an NCP, because Coulomb friction involves a non-linear (conic)
+constraint.
+\end{definitionbox}
+
+\begin{examplebox}[Worked Example 1.4: 1D LCP --- A ball on a floor]
+A ball of mass $m=1$\,kg at height $\phi$ above a floor, with gravity $g=10$\,m/s$^{2}$ and time step $\Delta t=0.01$\,s.
+Free velocity (gravity only): $v^{f}=v^{t}+(-g)\Delta t=v^{t}-0.1$.
+
+The Signorini condition at the velocity level:
+$0\le\lambda_{N}\perp(v^{+})\ge 0$,
+where $v^{+}=v^{f}+\lambda_{N}/m$.
+This is the simplest possible LCP, with $G=1/m=1$ and $g=v^{f}$.
+
+\textbf{Case 1: Ball in air} ($\phi>0$). No contact: $\lambda_{N}=0$, $v^{+}=v^{f}$.
+
+\textbf{Case 2: Ball on floor} ($\phi=0$).
+\begin{itemize}
+\item If $v^{f}\ge 0$ (moving up): $\lambda_{N}=0$, $v^{+}=v^{f}\ge 0$.
+      Ball lifts off. \checkmark
+\item If $v^{f}<0$ (falling into floor): we need $v^{+}\ge 0$, so
+      $\lambda_{N}=-m\,v^{f}>0$, giving $v^{+}=0$ (perfectly inelastic).
+      The floor pushes up just enough to prevent penetration. \checkmark
+\end{itemize}
+
+Note that both cases satisfy complementarity: when $\lambda_{N}>0$ we have $v^{+}=0$, and when $v^{+}>0$ we have $\lambda_{N}=0$.
+\end{examplebox}
+
+\begin{center}
+\begin{tikzpicture}[scale=0.9]
+% Hard Signorini graph
+\begin{scope}
+\draw[-{Stealth}] (-0.5,0) -- (3,0) node[right] {$\phi$ (gap)};
+\draw[-{Stealth}] (0,-0.5) -- (0,3) node[above] {$\lambda_N$ (force)};
+\draw[blue, ultra thick] (0,0) -- (0,2.5);
+\draw[blue, ultra thick] (0,0) -- (2.5,0);
+\fill[blue] (0,0) circle (3pt);
+\node[above right] at (1.5,2) {\footnotesize Hard Signorini};
+\node[blue, right] at (0.1,1.5) {\footnotesize contact};
+\node[blue, above] at (1.5,0.1) {\footnotesize free};
+\end{scope}
+% Relaxed (spring) version
+\begin{scope}[xshift=7cm]
+\draw[-{Stealth}] (-1.5,0) -- (3,0) node[right] {$\phi$};
+\draw[-{Stealth}] (0,-0.5) -- (0,3) node[above] {$\lambda_N$};
+\draw[red, ultra thick, domain=-1.2:0, samples=50] plot (\x, {-2.5*\x});
+\draw[red, ultra thick] (0,0) -- (2.5,0);
+\node[above right] at (0.5,2) {\footnotesize Compliant (spring)};
+\node[red, left] at (-0.8,2) {\footnotesize $\lambda_N=-k\phi$};
+\end{scope}
+\end{tikzpicture}
+\end{center}
+
+The left graph is the true Signorini condition---\emph{set-valued} at $\phi=0$ (infinitely steep, not a function). The right graph shows the compliant relaxation used by MuJoCo: a virtual spring replaces the hard complementarity with a smooth function $\lambda_{N}=\max(0,-k\phi)$. This smoothing is what enables gradient-based methods to work through contact, at the cost of physical fidelity.
+
+
+%=============================================================================
+\chapter{Linear Algebra Essentials}
+\label{ch:linalg}
+
+%-------------------------------------------------------------
+\section{Vectors, Matrices, and Norms}
+
+We work in $\R^{n}$.  Column vectors are bold lowercase ($\x$),
+matrices bold uppercase ($\M$).
+
+\textbf{Inner product:}
+$\langle\x,\bm{y}\rangle=\x^{\!\top}\bm{y}=\sum_{i}x_{i}y_{i}$.
+
+\textbf{Norms.}
+The $p$-norm of $\x\in\R^{n}$:
+\begin{equation}
+\|\x\|_{p}=\Bigl(\sum_{i=1}^{n}|x_{i}|^{p}\Bigr)^{1/p}.
+\end{equation}
+Common cases: $p=2$ (Euclidean), $p=1$ (Manhattan), $p=\infty$ (max).
+
+\textbf{Weighted norm:}
+$\|\x\|_{\bm{W}}=\sqrt{\x^{\!\top}\bm{W}\x}$ for
+$\bm{W}\succ 0$.
+This appears throughout trajectory optimisation in cost functions.
+The notation deserves a moment: $\|\bm{v}-\bm{v}^{f}\|_{\M}^{2}$ in
+MuJoCo's contact problem \eqref{eq:mujoco-primal} measures velocity
+change \emph{in the metric of the inertia matrix}---i.e.\ it measures
+\emph{kinetic energy} of the velocity change, which is why that
+formulation is called a ``least-action'' principle.
+
+%-------------------------------------------------------------
+\section{Quadratic Forms, Eigenvalues, and Conditioning}
+\label{sec:quadratic-forms}
+
+The function $J(\bm{z})=\tfrac12\bm{z}^{\!\top}\bm{A}\bm{z}$ (with
+$\bm{A}$ symmetric) is the model problem of all of optimisation:
+every smooth function looks like a quadratic form near a minimum.
+Understanding its geometry is therefore understanding the local
+geometry of \emph{every} optimisation problem.
+
+The \emph{spectral theorem} says a symmetric $\bm{A}$ has an
+orthonormal basis of eigenvectors:
+$\bm{A}=\bm{V}\bm{\Lambda}\bm{V}^{\!\top}$ with
+$\bm{\Lambda}=\diag(\lambda_{1},\ldots,\lambda_{n})$ and
+$\bm{V}^{\!\top}\bm{V}=\I$. In eigenvector coordinates
+$\bm{y}=\bm{V}^{\!\top}\bm{z}$ the quadratic decouples completely:
+\begin{equation}
+J=\tfrac12\sum_{i}\lambda_{i}\,y_{i}^{2}.
+\end{equation}
+Each eigenvalue is the \emph{curvature} along its eigenvector.
+The level sets $J=\text{const}$ are ellipsoids whose axis lengths are
+proportional to $1/\sqrt{\lambda_{i}}$: large eigenvalue $\Rightarrow$
+steep, short axis; small eigenvalue $\Rightarrow$ shallow, long axis.
+
+\begin{definitionbox}[Condition number]
+For $\bm{A}\succ 0$, the condition number is
+$\kappa(\bm{A})=\lambda_{\max}/\lambda_{\min}$.
+$\kappa=1$ means spherical level sets (gradient descent converges in
+one step); $\kappa\gg 1$ means a long narrow valley
+(gradient descent zig-zags, see the insight box in
+Section~\ref{sec:unconstrained}); $\kappa=\infty$ means a singular
+matrix---a flat direction along which the minimiser is non-unique.
+\end{definitionbox}
+
+Conditioning is not an abstraction in this tutorial; it is the
+recurring villain:
+\begin{itemize}
+\item The trajectory-optimisation Hessian is ill-conditioned because
+      early controls affect everything and late controls almost nothing.
+\item The Delassus matrix $\bm{G}=\J\M^{-1}\J^{\!\top}$ of a
+      \emph{hyperstatic} contact configuration (more contact constraints
+      than degrees of freedom, e.g.\ a four-legged table) is singular:
+      $\kappa=\infty$, multiple force distributions produce identical
+      motion. MuJoCo's compliance $\bm{R}$, ADMM's proximal $\rho\I$, and
+      iLQR's Levenberg--Marquardt $\mu\I$ are all the same medicine:
+      add a small multiple of the identity, shifting every eigenvalue
+      up by the same amount, bounding $\kappa$ at the price of a
+      slightly perturbed answer.
+\end{itemize}
+
+%-------------------------------------------------------------
+\section{Positive Definiteness and the Cholesky Decomposition}
+
+A symmetric matrix $\bm{A}\in\R^{n\times n}$ is \emph{positive definite}
+($\bm{A}\succ 0$) if $\x^{\!\top}\bm{A}\x>0$ for all $\x\ne\0$.
+Equivalently, all eigenvalues are positive.
+
+The \emph{Cholesky decomposition} factors $\bm{A}=\bm{L}\bm{L}^{\!\top}$
+where $\bm{L}$ is lower-triangular with positive diagonal entries.
+This is numerically stable and roughly twice as fast as LU decomposition.
+It is used extensively in contact solvers (the ADMM algorithm in
+Chapter~\ref{ch:contact} requires solving
+$(\bm{G}+\rho\bm{I})\bm{\lambda}=\bm{b}$,
+which is done via Cholesky).
+
+\paragraph{Why factor instead of invert.}
+A rule that separates production code from homework code:
+\emph{never form a matrix inverse to solve a linear system}.
+To solve $\bm{A}\bm{z}=\bm{b}$, factor $\bm{A}=\bm{L}\bm{L}^{\!\top}$
+once ($\tfrac{n^{3}}{3}$ flops), then solve two triangular systems
+by substitution ($n^{2}$ flops each):
+$\bm{L}\bm{w}=\bm{b}$ (forward), $\bm{L}^{\!\top}\bm{z}=\bm{w}$ (back).
+This is faster, more accurate, and---key for ADMM, where the same
+$\bm{G}+\rho\I$ is reused every iteration---the expensive factorisation
+is paid once while each subsequent solve costs only $O(n^{2})$.
+When you read $\bm{k}_{t}=-Q_{\uu\uu}^{-1}Q_{\uu}$ in the iLQR
+equations, the implementation is a Cholesky factor-and-substitute,
+never an explicit inverse. As a bonus, Cholesky doubles as the standard
+\emph{test} for positive definiteness: the factorisation succeeds iff
+$\bm{A}\succ 0$, and iLQR implementations use exactly this failure
+signal to trigger regularisation of $Q_{\uu\uu}$.
+
+\begin{examplebox}[Worked Example: A $2\times 2$ Cholesky solve]
+Solve $\bm{A}\bm{z}=\bm{b}$ with
+$\bm{A}=\begin{bmatrix}4&2\\2&3\end{bmatrix}$,
+$\bm{b}=\begin{bmatrix}2\\1\end{bmatrix}$.
+
+\textbf{Factor.} Match entries of $\bm{L}\bm{L}^{\!\top}$:
+$L_{11}=\sqrt{4}=2$;\;
+$L_{21}=2/L_{11}=1$;\;
+$L_{22}=\sqrt{3-L_{21}^{2}}=\sqrt{2}$. So
+$\bm{L}=\begin{bmatrix}2&0\\1&\sqrt{2}\end{bmatrix}$.
+
+\textbf{Forward solve} $\bm{L}\bm{w}=\bm{b}$:
+$2w_{1}=2\Rightarrow w_{1}=1$;\;
+$w_{1}+\sqrt{2}\,w_{2}=1\Rightarrow w_{2}=0$.
+
+\textbf{Back solve} $\bm{L}^{\!\top}\bm{z}=\bm{w}$:
+$\sqrt{2}\,z_{2}=0\Rightarrow z_{2}=0$;\;
+$2z_{1}+z_{2}=1\Rightarrow z_{1}=1/2$.
+
+Check: $\bm{A}[1/2,\,0]^{\!\top}=[2,\,1]^{\!\top}$. \checkmark
+\end{examplebox}
+
+%-------------------------------------------------------------
+\section{Least Squares and the Normal Equations}
+\label{sec:least-squares}
+
+Given an overdetermined system $\bm{A}\bm{z}\approx\bm{b}$
+($\bm{A}\in\R^{m\times n}$, $m>n$), the least-squares solution
+minimises $J(\bm{z})=\tfrac12\|\bm{A}\bm{z}-\bm{b}\|^{2}$.
+Setting the gradient to zero,
+$\nabla J=\bm{A}^{\!\top}(\bm{A}\bm{z}-\bm{b})=\0$, gives the
+\emph{normal equations}:
+\begin{equation}\label{eq:normal-eqs}
+\bm{A}^{\!\top}\bm{A}\,\bm{z}=\bm{A}^{\!\top}\bm{b}
+\quad\Longrightarrow\quad
+\bm{z}^{\star}=(\bm{A}^{\!\top}\bm{A})^{-1}\bm{A}^{\!\top}\bm{b}
+=\bm{A}^{+}\bm{b},
+\end{equation}
+where $\bm{A}^{+}$ is the (Moore--Penrose) \emph{pseudo-inverse}.
+Geometrically, $\bm{A}\bm{z}^{\star}$ is the orthogonal projection of
+$\bm{b}$ onto the column space of $\bm{A}$, and the residual
+$\bm{b}-\bm{A}\bm{z}^{\star}$ is perpendicular to it.
+Three places this exact computation appears in robotics:
+solving differential inverse kinematics $\J\dot{\q}=\dot{\x}_{\text{des}}$;
+fitting dynamics models to data; and the Gauss--Newton step of
+Section~\ref{sec:unconstrained}, which is nothing but the normal
+equations for the \emph{linearised} residual:
+$\J_{r}^{\!\top}\J_{r}\,\bm{\delta}=-\J_{r}^{\!\top}\rr$.
+If $\bm{A}^{\!\top}\bm{A}$ is ill-conditioned, one adds Tikhonov
+regularisation $(\bm{A}^{\!\top}\bm{A}+\mu\I)$---the same
+identity-shift medicine as everywhere else, here also interpretable as
+a penalty $\mu\|\bm{z}\|^{2}$ on the solution norm (in IK: damped
+least squares, which trades tracking accuracy for bounded joint
+velocities near singularities).
+
+%-------------------------------------------------------------
+\section{Block Matrices and the Schur Complement}
+\label{sec:schur}
+
+Partition a symmetric matrix and consider minimising a quadratic over
+only the second block of variables:
+\begin{equation}
+\min_{\bm{u}}\;
+\frac12
+\begin{bmatrix}\bm{x}\\\bm{u}\end{bmatrix}^{\!\top}
+\begin{bmatrix}\bm{A}&\bm{B}\\\bm{B}^{\!\top}&\bm{C}\end{bmatrix}
+\begin{bmatrix}\bm{x}\\\bm{u}\end{bmatrix}
++
+\begin{bmatrix}\bm{a}\\\bm{c}\end{bmatrix}^{\!\top}
+\begin{bmatrix}\bm{x}\\\bm{u}\end{bmatrix}.
+\end{equation}
+Setting the gradient w.r.t.\ $\bm{u}$ to zero:
+$\bm{u}^{\star}=-\bm{C}^{-1}(\bm{c}+\bm{B}^{\!\top}\bm{x})$.
+Substituting back yields a quadratic in $\bm{x}$ alone with matrix
+\begin{equation}\label{eq:schur}
+\bm{A}-\bm{B}\bm{C}^{-1}\bm{B}^{\!\top}
+\qquad\text{(the \emph{Schur complement} of }\bm{C}\text{)}.
+\end{equation}
+\emph{Minimising a quadratic over a subset of variables produces a
+Schur complement in the remaining variables.}
+Compare this with the iLQR value-function update
+\eqref{eq:Vxx-update}:
+$V_{\x\x}=Q_{\x\x}-Q_{\x\uu}Q_{\uu\uu}^{-1}Q_{\uu\x}$
+---it is precisely \eqref{eq:schur} with
+$(\bm{A},\bm{B},\bm{C})=(Q_{\x\x},Q_{\x\uu},Q_{\uu\uu})$.
+The entire DDP backward pass is one Schur complement per time step:
+``minimise out the control, leave a quadratic in the state.''
+A useful fact follows for free: the Schur complement of a positive
+definite matrix is positive definite, which is why the backward pass
+preserves $V_{\x\x}\succ 0$ when $Q_{\uu\uu}\succ 0$.
+
+%-------------------------------------------------------------
+\section{Matrix Calculus}
+
+For a scalar-valued function $J(\bm{z})$, the \emph{gradient} is
+$\nabla J\in\R^{n}$ with $(\nabla J)_{i}=\partial J/\partial z_{i}$.
+The \emph{Hessian} is $\nabla^{2}J\in\R^{n\times n}$ with
+$(\nabla^{2}J)_{ij}=\partial^{2}J/\partial z_{i}\partial z_{j}$.
+
+For a vector-valued function $\f(\x)\in\R^{m}$, the \emph{Jacobian} is:
+\begin{equation}
+\J=\frac{\partial\f}{\partial\x}\in\R^{m\times n},\quad
+J_{ij}=\frac{\partial f_{i}}{\partial x_{j}}.
+\end{equation}
+
+\paragraph{Chain rule for Jacobians.}
+If $\bm{z}=\f(\x)$ and $\bm{w}=\bm{g}(\bm{z})$, then
+$\frac{\partial\bm{w}}{\partial\x}=\frac{\partial\bm{g}}{\partial\bm{z}}\frac{\partial\f}{\partial\x}$.
+This is how sensitivities propagate through dynamics in DDP/iLQR.
+
+%-------------------------------------------------------------
+\section{Cones}
+\label{sec:cones}
+
+\begin{definitionbox}[Cone]
+A set $\Kc\subset\R^{n}$ is a \emph{cone} if for every $\x\in\Kc$ and
+$\alpha\ge 0$, we have $\alpha\x\in\Kc$.
+\end{definitionbox}
+
+\begin{definitionbox}[Second-order (Lorentz / ice-cream) cone]
+\begin{equation}\label{eq:soc}
+\Kc_{\mu}=\bigl\{\bm{\lambda}=(\lambda_{N},\bm{\lambda}_{T})
+\in\R\times\R^{2}\;\big|\;\lambda_{N}\ge 0,\;
+\|\bm{\lambda}_{T}\|_{2}\le\mu\,\lambda_{N}\bigr\}.
+\end{equation}
+\end{definitionbox}
+
+This is exactly the Coulomb friction cone (Section~\ref{sec:coulomb}).
+The \emph{dual cone} $\Kc^{*}$ satisfies $\langle\bm{\lambda},\bm{c}\rangle\ge 0$
+for all $\bm{\lambda}\in\Kc$ and $\bm{c}\in\Kc^{*}$.
+For the second-order cone, $\Kc_{\mu}^{*}=\Kc_{1/\mu}$.
+
+\paragraph{Dual cones, slowly.}
+The dual cone collects every vector that makes a non-obtuse angle
+($\le 90^{\circ}$) with the \emph{entire} primal cone:
+\begin{equation}
+\Kc^{*}=\{\bm{c}\;|\;\bm{c}^{\!\top}\bm{\lambda}\ge 0
+\;\;\forall\,\bm{\lambda}\in\Kc\}.
+\end{equation}
+Intuition by example:
+\begin{itemize}
+\item The non-negative orthant is \emph{self-dual}:
+      $(\R^{n}_{+})^{*}=\R^{n}_{+}$. (Only vectors with all
+      non-negative entries have non-negative inner product with every
+      non-negative vector.) This self-duality is why the LCP
+      $\0\le\bm{\lambda}\perp\bm{w}\ge\0$ has the same cone on both
+      sides.
+\item A \emph{narrow} second-order cone has a \emph{wide} dual and
+      vice versa: $\Kc_{\mu}^{*}=\Kc_{1/\mu}$. A high-friction cone
+      ($\mu$ large, wide) has a narrow dual; a frictionless cone
+      ($\mu=0$, a ray) has a half-space as its dual.
+      Check the formula at $\mu=1$: $\Kc_{1}$ is self-dual,
+      and indeed the $45^{\circ}$ cone is its own dual.
+\item Why the dual cone appears in contact: the contact-point velocity
+      in the CCP \eqref{eq:ccp} is constrained to the \emph{dual} of
+      the friction cone. Forces live in $\Kc_{\mu}$; the
+      complementarity partner (a velocity-like quantity) lives in
+      $\Kc_{\mu}^{*}$. This generalises the 1D pairing
+      ``$\lambda_{N}\ge 0$ vs.\ $v_{N}\ge 0$,'' where both sides used
+      the self-dual cone $\R_{+}$, to the frictional setting where
+      the two cones differ.
+\end{itemize}
+
+\paragraph{Projection onto the second-order cone.}
+Section~\ref{sec:solving-constrained} promised the formula; here it is.
+Write a point as $(\lambda_{N},\bm{\lambda}_{T})$ with
+$s=\|\bm{\lambda}_{T}\|$. Then
+\begin{equation}\label{eq:soc-projection}
+\proj_{\Kc_{\mu}}(\lambda_{N},\bm{\lambda}_{T})=
+\begin{cases}
+(\lambda_{N},\bm{\lambda}_{T}) & s\le\mu\lambda_{N}
+\quad\text{(already inside: keep)},\\[2pt]
+(0,\0) & \mu s\le-\lambda_{N}
+\quad\text{(inside the polar cone: project to tip)},\\[2pt]
+\dfrac{\lambda_{N}+\mu s}{1+\mu^{2}}\,
+\Bigl(1,\;\mu\,\dfrac{\bm{\lambda}_{T}}{s}\Bigr)
+& \text{otherwise (project radially onto the surface)}.
+\end{cases}
+\end{equation}
+The three cases have physical readings for a tentative contact force:
+(i)~force already satisfies Coulomb: leave it;
+(ii)~force is so adhesive/backwards that the closest admissible force is
+zero: release the contact;
+(iii)~force exceeds the friction limit: scale the tangential part down
+to the cone surface---the contact \emph{slides}.
+The $\bm{z}$-update of the ADMM contact solver
+(Algorithm~\ref{alg:admm}) evaluates exactly
+\eqref{eq:soc-projection} once per contact per iteration; stick, slip,
+and separation emerge from which branch fires, with no explicit mode
+enumeration.
+
+\begin{examplebox}[Visualising the friction cone in 3D]
+In 3D, each contact produces forces $\bm{\lambda}=(\lambda_{N},\lambda_{T_{x}},\lambda_{T_{y}})$.
+The Coulomb cone $\|\bm{\lambda}_{T}\|_{2}\le\mu\lambda_{N}$ has a circular cross-section.
+The LCP linearisation replaces it with a \emph{pyramid}: $\|\bm{\lambda}_{T}\|_{\infty}\le\mu\lambda_{N}$ (4 facets).
+\end{examplebox}
+
+\begin{center}
+\begin{tikzpicture}[scale=0.9]
+% Cross-section view
+\draw[-{Stealth}] (-2.5,0) -- (2.5,0) node[right] {$\lambda_{T_{x}}$};
+\draw[-{Stealth}] (0,-2.5) -- (0,2.5) node[above] {$\lambda_{T_{y}}$};
+\draw[blue, very thick] (0,0) circle (1.8);
+\node[blue, above right] at (1.2,1.2) {\footnotesize Coulomb (circle)};
+\draw[orange, very thick] (-1.8,0) -- (0,1.8) -- (1.8,0) -- (0,-1.8) -- cycle;
+\node[orange, below left] at (-1.5,1.5) {\footnotesize LCP (diamond)};
+\draw[-{Stealth}, red, thick] (0,0) -- (1.27,1.27);
+\node[red, right] at (1.3,1.3) {\footnotesize friction bias};
+\node[below] at (0,-3) {\footnotesize Cross-section at fixed $\lambda_{N}$};
+\end{tikzpicture}
+\end{center}
+
+The red arrow shows the MDP-induced bias: with the pyramid approximation, friction forces are drawn toward the corners.  A cube pushed diagonally on a flat plane will \emph{curve} instead of travelling straight---a purely numerical artifact of the LCP model.
+
+
+%=============================================================================
+% PART II: TRAJECTORY OPTIMISATION
+%=============================================================================
+\part{Trajectory Optimisation}
+
+\chapter{Fundamentals of Trajectory Optimisation}
+\label{ch:trajopt-fund}
+
+%-------------------------------------------------------------
+\section{The Optimal Control Problem}
+
+We consider a discrete-time\footnote{Continuous-time formulations are
+generally equivalent; we use discrete time for direct connection to
+implementation and to MuJoCo's time-stepping.} dynamical system
+with state $\x_{t}\in\R^{n}$ and control $\uu_{t}\in\R^{m}$:
+\begin{equation}\label{eq:dynamics-discrete}
+\x_{t+1}=\f(\x_{t},\uu_{t}),\quad t=0,1,\ldots,T{-}1.
+\end{equation}
+
+\begin{definitionbox}[Finite-Horizon Optimal Control]
+Given initial state $\x_{0}$, find the control sequence
+$\uu_{0:T-1}=(\uu_{0},\ldots,\uu_{T-1})$ that minimises the total cost:
+\begin{equation}\label{eq:oc-objective}
+\boxed{
+J(\x_{0},\uu_{0:T-1})
+=\sum_{t=0}^{T-1}c(\x_{t},\uu_{t})+c_{T}(\x_{T})
+}
+\end{equation}
+subject to the dynamics~\eqref{eq:dynamics-discrete} and possibly
+path constraints $\bm{h}(\x_{t},\uu_{t})\le\0$
+and control bounds $\uu_{\min}\le\uu_{t}\le\uu_{\max}$.
+\end{definitionbox}
+
+The running cost $c(\x,\uu)$ penalises deviations from desired behaviour at each time step.
+The terminal cost $c_{T}(\x_{T})$ penalises the final state.
+
+\paragraph{From open-loop plans to MPC.}
+Solving \eqref{eq:oc-objective} once produces an \emph{open-loop} plan:
+a control tape that is correct only if the model is perfect and nothing
+disturbs the system---neither of which is ever true with contact.
+\emph{Model-predictive control} (MPC) converts the optimiser into a
+feedback controller by re-planning constantly:
+\begin{enumerate}
+\item Measure (or estimate) the current state $\x_{0}$.
+\item Solve (or merely \emph{improve}) the finite-horizon problem from
+      $\x_{0}$.
+\item Apply only the first portion of the plan to the real system.
+\item Shift the previous solution forward in time to \emph{warm-start}
+      the next solve; go to 1.
+\end{enumerate}
+The horizon recedes ahead of the system like a headlight beam---hence
+``receding-horizon control.'' Feedback arises not from explicit gains
+but from the re-measurement in step 1: disturbances and model errors
+are absorbed at the next replan. Everything in
+Chapters~\ref{ch:ddp}--\ref{ch:mjpc} should be read with this loop in
+mind; in particular, the planner's job inside MPC is much easier than
+solving \eqref{eq:oc-objective} to convergence, a point the next
+section makes precise.
+
+\begin{insightbox}[MuJoCo MPC notation]
+In MuJoCo MPC, the running cost takes the specific form
+\begin{equation}\label{eq:mjpc-cost}
+c(\x,\uu)=\rho\!\left(\sum_{i=0}^{M}w_{i}\cdot\mathsf{n}_{i}\bigl(\rr_{i}(\x,\uu)\bigr);\;R\right),
+\end{equation}
+where $\rr_{i}$ are \emph{residuals} (sensor-based quantities that are
+``small when the task is solved''), $\mathsf{n}_{i}$ are norms, $w_{i}$
+are weights, and $\rho(\cdot;R)$ is a risk-sensitive exponential
+transformation.  We will unpack this in Chapter~\ref{ch:mjpc}.
+\end{insightbox}
+
+%-------------------------------------------------------------
+\section{Direct vs.\ Indirect Methods}
+
+\textbf{Indirect methods} first derive analytical necessary conditions
+(the Pontryagin Maximum Principle / Euler--Lagrange equations) and
+then discretise these conditions for numerical solution.
+
+\textbf{Direct methods} discretise the trajectory first, converting
+the infinite-dimensional optimal control problem into a finite-dimensional
+NLP.  Direct methods are broadly divided into:
+\begin{itemize}
+\item \textbf{Collocation (simultaneous) methods:} Both states and controls
+at collocation points become decision variables.  The dynamics are
+enforced as equality constraints.
+\item \textbf{Shooting methods:} Only the controls (and possibly the initial
+state) are decision variables.  States are determined by forward
+simulation.  This is the approach used by MuJoCo MPC.
+\item \textbf{Sampling-based methods:} Controls are sampled from a distribution,
+rolled out, evaluated, and the distribution is updated.  No gradient
+information is needed.  This includes Predictive Sampling, MPPI,
+CEM, and DIAL-MPC.
+\end{itemize}
+
+\begin{insightbox}[Why shooting for MPC?]
+In \emph{predictive control} (model-predictive control / receding-horizon
+control), the optimisation runs in real time as the system evolves.
+The key observation from Howell et al.\ (MJPC) is:
+\begin{enumerate}
+\item The optimiser does not need to \emph{converge}---it only needs to
+      \emph{improve}.
+\item \emph{Warm-starting} from the previous plan means only small
+      corrections are needed.
+\item Faster computation directly improves performance, because
+      more optimisation steps occur per unit of real time.
+\end{enumerate}
+Shooting methods are natural for this setting because they produce
+dynamically feasible trajectories at every iteration (unlike
+collocation, which only satisfies dynamics at convergence).
+\end{insightbox}
+
+%-------------------------------------------------------------
+\section{The Bellman Equation and Dynamic Programming}
+\label{sec:bellman}
+
+Define the \emph{cost-to-go} (value function) from state $\x$ at time $t$:
+\begin{equation}\label{eq:value-fn}
+V_{t}(\x)=\min_{\uu_{t:T-1}}\left[\sum_{\tau=t}^{T-1}c(\x_{\tau},\uu_{\tau})+c_{T}(\x_{T})\right],
+\quad V_{T}(\x)=c_{T}(\x).
+\end{equation}
+The \emph{Bellman equation} (principle of optimality) states:
+\begin{equation}\label{eq:bellman}
+\boxed{
+V_{t}(\x)=\min_{\uu}\bigl[c(\x,\uu)+V_{t+1}\bigl(\f(\x,\uu)\bigr)\bigr].
+}
+\end{equation}
+
+This recursive structure is the foundation of DDP and iLQR:
+we approximate $V_{t}$ locally as a quadratic function and solve the
+minimisation~\eqref{eq:bellman} analytically at each time step.
+
+\paragraph{Why the Bellman equation is true.}
+The principle of optimality says: \emph{if a trajectory from $\x_{0}$ to
+the goal is optimal, then its tail---from any intermediate state
+onward---must itself be optimal} (otherwise we could splice in a better
+tail and improve the whole, a contradiction).
+The Bellman equation is this principle written as algebra:
+the best cost from $\x$ at time $t$ equals the best over the
+\emph{first action only} of (immediate cost) $+$ (best cost from
+wherever that action lands you). The minimisation over a length-$(T{-}t)$
+control sequence collapses into a sequence of minimisations over a
+\emph{single} control each---this collapse is the entire magic of
+dynamic programming.
+
+\paragraph{Exact DP and the curse of dimensionality.}
+If the state space is small and discrete, the Bellman recursion can be
+evaluated \emph{exactly}: tabulate $V_{T}=c_{T}$ on a grid, then sweep
+backward, evaluating the min over $\uu$ at each grid cell. This yields
+the globally optimal feedback policy---no local minima, no
+initialisation. The catch is cost: a grid with $g$ points per dimension
+in an $n$-dimensional state space has $g^{n}$ cells. For our 9-DOF hand
+with $n\approx 36$ (positions + velocities) and a coarse $g=10$:
+$10^{36}$ cells. Hopeless. Every practical method in this tutorial is a
+way of \emph{cheating} the curse:
+\begin{itemize}
+\item \textbf{DDP/iLQR} represents $V_{t}$ not on a grid but as a local
+      quadratic around a single trajectory---exact DP on a quadratic
+      approximation, valid in a tube around the nominal.
+\item \textbf{Sampling MPC} skips $V$ entirely and just evaluates
+      candidate trajectories.
+\item \textbf{RL} fits $V$ (or $Q$) with a function approximator
+      trained from rollouts.
+\end{itemize}
+Keeping ``local quadratic model of the value function'' in mind makes
+the DDP equations of Chapter~\ref{ch:ddp} read as bookkeeping rather
+than as revelation.
+
+%-------------------------------------------------------------
+\section{The Linear-Quadratic Regulator (LQR)}
+\label{sec:lqr}
+
+Before tackling non-linear problems, solve the one case where dynamic
+programming is \emph{exact and finite-dimensional}: linear dynamics with
+quadratic cost. This is not just a warm-up---iLQR is literally
+``solve an LQR problem around the current trajectory, repeat,'' so
+every formula here returns in Chapter~\ref{ch:ddp} wearing a $Q$.
+
+\begin{definitionbox}[Discrete-time finite-horizon LQR]
+\begin{equation}
+\min_{\uu_{0:T-1}}\;
+\sum_{t=0}^{T-1}\Bigl(\tfrac12\x_{t}^{\!\top}\bm{Q}_{c}\x_{t}
++\tfrac12\uu_{t}^{\!\top}\bm{R}_{c}\uu_{t}\Bigr)
++\tfrac12\x_{T}^{\!\top}\bm{Q}_{f}\x_{T}
+\quad\text{s.t.}\quad
+\x_{t+1}=\bm{A}\x_{t}+\bm{B}\uu_{t},
+\end{equation}
+with $\bm{Q}_{c},\bm{Q}_{f}\succeq 0$ and $\bm{R}_{c}\succ 0$.
+\end{definitionbox}
+
+\textbf{Claim:} the value function is exactly quadratic at every time,
+$V_{t}(\x)=\tfrac12\x^{\!\top}\bm{P}_{t}\x$.
+\textbf{Proof by backward induction}, which doubles as the algorithm.
+The base case is $\bm{P}_{T}=\bm{Q}_{f}$. For the inductive step,
+substitute into the Bellman equation:
+\begin{equation*}
+V_{t}(\x)=\min_{\uu}\Bigl[
+\tfrac12\x^{\!\top}\bm{Q}_{c}\x+\tfrac12\uu^{\!\top}\bm{R}_{c}\uu
++\tfrac12(\bm{A}\x+\bm{B}\uu)^{\!\top}\bm{P}_{t+1}(\bm{A}\x+\bm{B}\uu)
+\Bigr].
+\end{equation*}
+The bracket is jointly quadratic in $(\x,\uu)$. Setting its
+$\uu$-gradient to zero:
+\begin{equation*}
+\bm{R}_{c}\uu+\bm{B}^{\!\top}\bm{P}_{t+1}(\bm{A}\x+\bm{B}\uu)=\0
+\;\Longrightarrow\;
+\uu^{\star}=-\underbrace{(\bm{R}_{c}+\bm{B}^{\!\top}\bm{P}_{t+1}\bm{B})^{-1}
+\bm{B}^{\!\top}\bm{P}_{t+1}\bm{A}}_{\displaystyle\bm{K}_{t}}\;\x.
+\end{equation*}
+The optimal control is a \emph{linear feedback law}
+$\uu^{\star}=-\bm{K}_{t}\x$---not a precomputed sequence but a policy
+that reacts to wherever the state actually is.
+Substituting $\uu^{\star}$ back (a Schur complement,
+Section~\ref{sec:schur}) gives the \emph{Riccati recursion}:
+\begin{equation}\label{eq:riccati}
+\boxed{
+\bm{P}_{t}=\bm{Q}_{c}+\bm{A}^{\!\top}\bm{P}_{t+1}\bm{A}
+-\bm{A}^{\!\top}\bm{P}_{t+1}\bm{B}
+(\bm{R}_{c}+\bm{B}^{\!\top}\bm{P}_{t+1}\bm{B})^{-1}
+\bm{B}^{\!\top}\bm{P}_{t+1}\bm{A}.
+}
+\end{equation}
+The quadratic form survives the induction, so the claim holds:
+LQR is solved \emph{exactly} by one backward sweep
+(compute $\bm{P}_{t},\bm{K}_{t}$ for $t=T{-}1,\ldots,0$) and one forward
+rollout. Compare with Algorithm~\ref{alg:ilqr} and you will recognise
+the skeleton: iLQR's backward/forward structure \emph{is} LQR's, applied
+to the Taylor-expanded problem, with the additions of a feedforward term
+$\bm{k}_{t}$ (because the expansion point is not the origin) and a line
+search (because the expansion is only locally valid).
+
+\begin{examplebox}[Worked Example: scalar LQR by hand]
+Take $x_{t+1}=x_{t}+u_{t}$ ($A=B=1$), cost
+$\sum_{t}\tfrac12(x_{t}^{2}+u_{t}^{2})$, horizon $T=3$,
+$Q_{c}=R_{c}=1$, $Q_{f}=1$. Riccati backward
+($P_{t}=1+P'-P'^{2}/(1+P')$ with $P'=P_{t+1}$, and
+$K_{t}=P'/(1+P')$):
+\begin{center}
+\begin{tabular}{cccc}
+\toprule
+$t$ & $P_{t+1}$ & $K_{t}$ & $P_{t}$\\
+\midrule
+2 & 1.000 & 0.500 & 1.500\\
+1 & 1.500 & 0.600 & 1.600\\
+0 & 1.600 & 0.615 & 1.615\\
+\bottomrule
+\end{tabular}
+\end{center}
+From $x_{0}=1$: $u_{0}=-0.615$, $x_{1}=0.385$;
+$u_{1}=-0.231$, $x_{2}=0.154$; $u_{2}=-0.077$, $x_{3}=0.077$.
+Total cost $=\tfrac12 P_{0}x_{0}^{2}=0.808$---the value function
+predicts the achieved cost \emph{exactly}, a luxury unique to the
+linear-quadratic world. Note the gains converging
+($0.500\to 0.600\to 0.615$) toward the infinite-horizon value
+$K_{\infty}=0.618$ (the golden-ratio conjugate---the fixed point of
+this Riccati equation); for long horizons LQR controllers become
+effectively stationary.
+\end{examplebox}
+
+%-------------------------------------------------------------
+\section{A Running Example: The Sliding Block}
+\label{sec:block-example}
+
+\begin{examplebox}[1D Block on a Frictionless Surface]
+\textbf{State:} $\x=[x,\,v]^{\!\top}$ (position and velocity).\\
+\textbf{Control:} $u$ (force, scalar).\\
+\textbf{Dynamics} (unit mass, Euler integration with step $h$):
+\begin{equation}\label{eq:block-dynamics}
+\x_{t+1}=\begin{bmatrix}x_{t}+h\,v_{t}\\v_{t}+h\,u_{t}\end{bmatrix}
+=\underbrace{\begin{bmatrix}1&h\\0&1\end{bmatrix}}_{\bm{A}}\x_{t}
++\underbrace{\begin{bmatrix}0\\h\end{bmatrix}}_{\bm{B}}\,u_{t}.
+\end{equation}
+\textbf{Boundary conditions:} $\x_{0}=[0,0]^{\!\top}$,
+$\x_{T}=[1,0]^{\!\top}$.\\
+\textbf{Objective (minimum effort):}
+$J=\sum_{t=0}^{T-1}u_{t}^{2}$.\\[4pt]
+Because the dynamics are linear and the cost quadratic, this is a
+\emph{linear-quadratic} problem with an analytic solution.
+The optimal force is $u^{\star}(t)=6-12t$ (on the unit interval).
+\end{examplebox}
+
+We will use this example repeatedly as we develop each algorithm.
+
+\begin{center}
+\begin{tikzpicture}[scale=1]
+\fill[gray!20] (-1,-0.3) rectangle (6,-0.1);
+\draw[thick] (-1,-0.1) -- (6,-0.1);
+\draw[fill=blue!30, thick] (0,0) rectangle (0.8,0.6);
+\node[below] at (0.4,-0.3) {\footnotesize $t=0$};
+\draw[-{Stealth}, red, very thick] (0.8,0.3) -- (1.8,0.3) node[above] {$u$};
+\draw[fill=green!30, thick, dashed] (4,0) rectangle (4.8,0.6);
+\node[below] at (4.4,-0.3) {\footnotesize $t=T$};
+\node[above] at (0.4,0.7) {\footnotesize $x=0,\;v=0$};
+\node[above] at (4.4,0.7) {\footnotesize $x=1,\;v=0$};
+\draw[<->, thick] (0,-0.8) -- node[below] {1 unit} (4,-0.8);
+\end{tikzpicture}
+\end{center}
+
+\begin{examplebox}[Worked Example: Numerical solution with $T=4$, $h=0.25$]
+We have 4 time steps and 4 controls $u_{0},u_{1},u_{2},u_{3}$. The boundary conditions $x_{4}=1$, $v_{4}=0$ give two linear equations in the four unknowns.  Combined with the quadratic cost $J=\sum u_{t}^{2}$, this is a small QP whose solution is:
+\begin{center}
+\begin{tabular}{ccccccc}
+\toprule
+$t$ & 0 & 1 & 2 & 3 & 4\\
+\midrule
+$u_{t}^{\star}$ & 4.80 & 1.60 & $-1.60$ & $-4.80$ & ---\\
+$x_{t}$ & 0.00 & 0.00 & 0.30 & 0.70 & 1.00\\
+$v_{t}$ & 0.00 & 1.20 & 1.60 & 1.20 & 0.00\\
+\bottomrule
+\end{tabular}
+\end{center}
+The force profile is anti-symmetric: accelerate then decelerate.
+The velocity is bell-shaped: peak in the middle, zero at both ends.
+As $T\to\infty$ with $h\to 0$, this converges to $u^{\star}(t)=6-12t$.
+\end{examplebox}
+
+\begin{center}
+\begin{tikzpicture}
+\begin{axis}[
+  width=10cm, height=5cm, xlabel={$t$}, ylabel={},
+  legend pos=north west, grid=major, grid style={gray!30},
+  xtick={0,0.25,0.5,0.75,1}
+]
+\addplot[blue, thick, mark=*] coordinates {(0,0)(0.25,0)(0.5,0.30)(0.75,0.70)(1,1)};
+\addlegendentry{$x(t)$ position}
+\addplot[red, thick, mark=square*] coordinates {(0,0)(0.25,1.2)(0.5,1.6)(0.75,1.2)(1,0)};
+\addlegendentry{$v(t)$ velocity}
+\addplot[green!60!black, thick, mark=triangle*] coordinates {(0,4.8)(0.25,1.6)(0.5,-1.6)(0.75,-4.8)};
+\addlegendentry{$u(t)$ force}
+\end{axis}
+\end{tikzpicture}
+\end{center}
+
+
+%=============================================================================
+\chapter{Differential Dynamic Programming and iLQR}
+\label{ch:ddp}
+
+Differential Dynamic Programming (DDP) and its Gauss--Newton
+approximation, the iterative Linear-Quadratic Regulator (iLQR),
+are the most important derivative-based shooting methods for
+trajectory optimisation.  MuJoCo MPC implements iLQG---which is
+effectively iLQR with a slightly different historical name.
+
+%-------------------------------------------------------------
+\section{Setup and Notation}
+
+We have the discrete-time system~\eqref{eq:dynamics-discrete} with
+cost~\eqref{eq:oc-objective}.  We denote a \emph{nominal trajectory}
+$(\bar\x_{0:T},\bar\uu_{0:T-1})$ satisfying the dynamics.
+We seek perturbations $\delta\x_{t}=\x_{t}-\bar\x_{t}$,
+$\delta\uu_{t}=\uu_{t}-\bar\uu_{t}$ that reduce the total cost.
+
+%-------------------------------------------------------------
+\section{The Q-Function}
+\label{sec:q-function}
+
+Define the \emph{state-action value function} (Q-function):
+\begin{equation}\label{eq:Q-function}
+Q_{t}(\x,\uu)=c(\x,\uu)+V_{t+1}\bigl(\f(\x,\uu)\bigr).
+\end{equation}
+
+The Bellman equation~\eqref{eq:bellman} becomes $V_{t}(\x)=\min_{\uu}Q_{t}(\x,\uu)$.
+
+Now expand $Q_{t}$ to second order around the nominal $(\bar\x_{t},\bar\uu_{t})$.
+Writing $\delta\x=\x-\bar\x$, $\delta\uu=\uu-\bar\uu$:
+\begin{equation}\label{eq:Q-expansion}
+Q_{t}\approx Q_{t}^{(0)}
++\begin{bmatrix}Q_{\x}\\Q_{\uu}\end{bmatrix}^{\!\top}
+\begin{bmatrix}\delta\x\\\delta\uu\end{bmatrix}
++\frac{1}{2}
+\begin{bmatrix}\delta\x\\\delta\uu\end{bmatrix}^{\!\top}
+\begin{bmatrix}Q_{\x\x}&Q_{\x\uu}\\Q_{\uu\x}&Q_{\uu\uu}\end{bmatrix}
+\begin{bmatrix}\delta\x\\\delta\uu\end{bmatrix}.
+\end{equation}
+
+The partial derivatives are (suppressing time subscripts):
+\begin{align}
+Q_{\x}&=c_{\x}+\f_{\x}^{\!\top}V_{\x}',\label{eq:Qx}\\
+Q_{\uu}&=c_{\uu}+\f_{\uu}^{\!\top}V_{\x}',\label{eq:Qu}\\
+Q_{\x\x}&=c_{\x\x}+\f_{\x}^{\!\top}V_{\x\x}'\,\f_{\x}
++V_{\x}'\cdot\f_{\x\x},\label{eq:Qxx}\\
+Q_{\uu\uu}&=c_{\uu\uu}+\f_{\uu}^{\!\top}V_{\x\x}'\,\f_{\uu}
++V_{\x}'\cdot\f_{\uu\uu},\label{eq:Quu}\\
+Q_{\x\uu}&=c_{\x\uu}+\f_{\x}^{\!\top}V_{\x\x}'\,\f_{\uu}
++V_{\x}'\cdot\f_{\x\uu},\label{eq:Qxu}
+\end{align}
+where primes denote evaluation at $t{+}1$, and
+$\f_{\x}=\partial\f/\partial\x$,
+$\f_{\uu}=\partial\f/\partial\uu$ are the dynamics Jacobians.
+The terms $V_{\x}'\cdot\f_{\x\x}$, etc., involve contractions of the
+value-function gradient with the dynamics Hessians (second derivatives of $\f$).
+
+\paragraph{Where these five equations come from.}
+Nothing here is new machinery---it is the chain rule applied to the
+composition $Q(\x,\uu)=c(\x,\uu)+V'(\f(\x,\uu))$, and it is worth
+deriving once by hand. For the gradient:
+\begin{equation*}
+\frac{\partial Q}{\partial\x}
+=\frac{\partial c}{\partial\x}
++\Bigl(\frac{\partial\f}{\partial\x}\Bigr)^{\!\top}
+\frac{\partial V'}{\partial\x'}
+=c_{\x}+\f_{\x}^{\!\top}V_{\x}',
+\end{equation*}
+which is \eqref{eq:Qx}; equation \eqref{eq:Qu} is identical with
+$\uu$ in place of $\x$. Differentiating once more produces two kinds of
+terms by the product rule: differentiating $V_{\x}'$ (which depends on
+$\x$ through $\f$) gives the \emph{Gauss--Newton} terms
+$\f^{\!\top}V_{\x\x}'\f$, while differentiating the Jacobian
+$\f_{\x}^{\!\top}$ itself gives the \emph{dynamics-curvature} terms
+$V_{\x}'\cdot\f_{\x\x}$.
+Pattern-match against Section~\ref{sec:unconstrained}: with
+$V_{\x}'$ playing the role of the residual $\rr$ and $\f$ the role of
+the residual map, this is exactly the full-Hessian-vs-Gauss--Newton
+split of the least-squares Hessian
+$\J_{r}^{\!\top}\J_{r}+\sum_{i}r_{i}\nabla^{2}r_{i}$.
+That correspondence is the entire content of the DDP-vs-iLQR
+distinction in Section~\ref{sec:ilqr}.
+
+%-------------------------------------------------------------
+\section{The DDP Backward Pass}
+\label{sec:ddp-backward}
+
+\textbf{Full DDP} retains all terms in \eqref{eq:Qxx}--\eqref{eq:Qxu},
+including the dynamics Hessians $\f_{\x\x}$, $\f_{\uu\uu}$, $\f_{\x\uu}$.
+
+Minimising the quadratic~\eqref{eq:Q-expansion} over $\delta\uu$:
+\begin{equation}\label{eq:opt-du}
+\delta\uu^{\star}=\argmin_{\delta\uu}Q_{t}
+=-Q_{\uu\uu}^{-1}\bigl(Q_{\uu}+Q_{\uu\x}\,\delta\x\bigr)
+=\bm{k}_{t}+\bm{K}_{t}\,\delta\x_{t},
+\end{equation}
+where
+\begin{equation}\label{eq:gains}
+\boxed{
+\bm{k}_{t}=-Q_{\uu\uu}^{-1}Q_{\uu},\qquad
+\bm{K}_{t}=-Q_{\uu\uu}^{-1}Q_{\uu\x}.
+}
+\end{equation}
+Here $\bm{k}_{t}$ is the \emph{feedforward} correction and
+$\bm{K}_{t}$ is the \emph{feedback gain} matrix.
+
+\paragraph{Deriving the gains (do this once with a pencil).}
+Hold $\delta\x$ fixed and minimise the quadratic
+\eqref{eq:Q-expansion} over $\delta\uu$. Collect the
+$\delta\uu$-dependent terms:
+\begin{equation*}
+Q_{\uu}^{\!\top}\delta\uu
++\delta\x^{\!\top}Q_{\x\uu}\,\delta\uu
++\tfrac12\,\delta\uu^{\!\top}Q_{\uu\uu}\,\delta\uu.
+\end{equation*}
+Set the $\delta\uu$-gradient to zero:
+$Q_{\uu}+Q_{\uu\x}\delta\x+Q_{\uu\uu}\delta\uu=\0$, and solve.
+The structure of the answer is meaningful:
+the feedforward $\bm{k}_{t}=-Q_{\uu\uu}^{-1}Q_{\uu}$ is a
+\emph{Newton step on the control} (gradient preconditioned by
+curvature---compare \eqref{eq:newton}), telling us how to improve the
+nominal control itself; the feedback
+$\bm{K}_{t}=-Q_{\uu\uu}^{-1}Q_{\uu\x}$ tells us how to \emph{adjust}
+that improvement when the state arrives off-nominal, because earlier
+controls in the rollout will have changed.
+Without the feedback term, an improvement at $t=0$ would invalidate the
+corrections computed for $t=1,\ldots,T-1$; with it, downstream
+corrections automatically adapt. This is what lets shooting methods
+take large steps.
+
+\paragraph{Deriving the value update.}
+Substitute $\delta\uu^{\star}=\bm{k}+\bm{K}\delta\x$ back into the
+quadratic model of $Q$ and collect terms by power of $\delta\x$.
+The quadratic coefficient is
+\begin{equation*}
+V_{\x\x}=Q_{\x\x}+\bm{K}^{\!\top}Q_{\uu\uu}\bm{K}
++\bm{K}^{\!\top}Q_{\uu\x}+Q_{\x\uu}\bm{K}
+=Q_{\x\x}-Q_{\x\uu}Q_{\uu\uu}^{-1}Q_{\uu\x},
+\end{equation*}
+where the second equality follows by inserting
+$\bm{K}=-Q_{\uu\uu}^{-1}Q_{\uu\x}$ (two of the three correction terms
+cancel against each other). The linear coefficient simplifies the same
+way to \eqref{eq:Vx-update}. The result is precisely the
+\emph{Schur complement} construction of Section~\ref{sec:schur}:
+minimising a joint quadratic in $(\delta\x,\delta\uu)$ over
+$\delta\uu$ leaves a quadratic in $\delta\x$ with the Schur-complement
+matrix. Since the Schur complement of a positive definite block matrix
+is positive definite, the backward pass propagates
+$V_{\x\x}\succ 0$ as long as each $Q_{\uu\uu}\succ 0$---this is why
+regularising $Q_{\uu\uu}$ (Section below) stabilises the whole
+recursion and not just one step.
+
+Substituting back into the value-function expansion:
+\begin{align}
+V_{\x,t}&=Q_{\x}-Q_{\x\uu}\,Q_{\uu\uu}^{-1}\,Q_{\uu},\label{eq:Vx-update}\\
+V_{\x\x,t}&=Q_{\x\x}-Q_{\x\uu}\,Q_{\uu\uu}^{-1}\,Q_{\uu\x}.\label{eq:Vxx-update}
+\end{align}
+The backward pass sweeps from $t=T{-}1$ down to $t=0$, computing
+$(\bm{k}_{t},\bm{K}_{t})$ and updating $(V_{\x},V_{\x\x})$ at each step.
+
+%-------------------------------------------------------------
+\section{From DDP to iLQR: Dropping the Hessian}
+\label{sec:ilqr}
+
+\begin{warningbox}[The key simplification]
+Computing the dynamics Hessians $\f_{\x\x}$, $\f_{\uu\uu}$, $\f_{\x\uu}$
+is expensive and can yield indefinite $Q_{\uu\uu}$ matrices.
+The \textbf{Gauss--Newton approximation} drops these terms entirely:
+\begin{align}
+Q_{\x\x}&\approx c_{\x\x}+\f_{\x}^{\!\top}V_{\x\x}'\,\f_{\x},\label{eq:Qxx-ilqr}\\
+Q_{\uu\uu}&\approx c_{\uu\uu}+\f_{\uu}^{\!\top}V_{\x\x}'\,\f_{\uu},\label{eq:Quu-ilqr}\\
+Q_{\x\uu}&\approx c_{\x\uu}+\f_{\x}^{\!\top}V_{\x\x}'\,\f_{\uu}.\label{eq:Qxu-ilqr}
+\end{align}
+This is the \textbf{iLQR} (iterative Linear-Quadratic Regulator) algorithm.
+\end{warningbox}
+
+\textbf{Why this works well:}
+\begin{enumerate}
+\item The approximated $Q_{\uu\uu}$ is guaranteed positive semidefinite
+      (since $c_{\uu\uu}\succeq 0$ and $\f_{\uu}^{\!\top}V_{\x\x}'\f_{\uu}\succeq 0$
+      when $V_{\x\x}'\succeq 0$), ensuring the control update is
+      well-defined.
+\item Near the solution, the dropped terms are small
+      (they are multiplied by $V_{\x}'$ which vanishes at optimality).
+\item Convergence changes from quadratic (DDP) to superlinear (iLQR),
+      but each iteration is much cheaper.
+\end{enumerate}
+
+%-------------------------------------------------------------
+\section{The Forward Pass (Rollout with Line Search)}
+\label{sec:forward-pass}
+
+After the backward pass, we have $(\bm{k}_{t},\bm{K}_{t})$ for each $t$.
+The forward pass applies these with a step-size parameter $\alpha\in[\alpha_{\min},1]$:
+\begin{equation}\label{eq:forward-pass}
+\boxed{
+\uu_{t}=\bar\uu_{t}+\alpha\,\bm{k}_{t}+\bm{K}_{t}(\x_{t}-\bar\x_{t}),
+\qquad
+\x_{t+1}=\f(\x_{t},\uu_{t}).
+}
+\end{equation}
+Multiple values of $\alpha$ are tried in parallel (line search), and the
+trajectory with the lowest total cost becomes the new nominal.
+
+\paragraph{Why scale only the feedforward.}
+Note that $\alpha$ multiplies $\bm{k}_{t}$ but \emph{not} the feedback
+term. The feedforward is the part that deliberately moves away from the
+nominal (and is only trustworthy while the quadratic model is); the
+feedback merely keeps the rollout near whatever trajectory the
+feedforward is producing. Shrinking $\alpha$ therefore interpolates
+between ``full Newton-like step'' ($\alpha=1$) and ``stay on the
+nominal'' ($\alpha=0$), while keeping the rollout stabilised throughout.
+For very non-linear systems, the $\alpha=1$ rollout can diverge
+wildly---the feedback gains were computed for the old neighbourhood---so
+small-$\alpha$ fallbacks are essential in practice.
+
+\paragraph{Accepting a step: expected vs.\ actual improvement.}
+The backward pass furnishes a prediction of how much a step of size
+$\alpha$ should help. Summing the model decrease over time:
+\begin{equation}\label{eq:expected-improvement}
+\Delta J(\alpha)=
+-\alpha\sum_{t}\bm{k}_{t}^{\!\top}Q_{\uu,t}
+-\frac{\alpha^{2}}{2}\sum_{t}\bm{k}_{t}^{\!\top}Q_{\uu\uu,t}\bm{k}_{t}.
+\end{equation}
+A robust implementation (e.g.\ Tassa's) accepts the rollout only if
+the \emph{actual} cost reduction is at least a fraction
+$c_{1}\in(0,\tfrac12)$ of $\Delta J(\alpha)$---the Armijo condition
+\eqref{eq:armijo} transplanted to trajectory space. The ratio
+(actual)/(expected) is also the standard health signal:
+ratios near 1 mean the quadratic model is trustworthy (decrease
+regularisation, be aggressive); small or negative ratios mean the model
+is over-reaching (increase regularisation $\mu$, shrink steps).
+This model-trust feedback loop is what makes iLQR reliable on
+hard problems, and it is exactly the trust-region logic of classical
+nonlinear optimisation in trajectory clothing.
+
+%-------------------------------------------------------------
+\section{The Complete iLQR Algorithm}
+
+\begin{algorithm}[H]
+\caption{iLQR / iLQG}\label{alg:ilqr}
+\KwIn{Initial state $\x_{0}$, nominal plan $\bar\uu_{0:T-1}$}
+\KwOut{Improved plan $\uu_{0:T-1}^{\star}$}
+\Repeat{convergence}{
+  \textbf{Forward rollout:} Compute $\bar\x_{0:T}$ from $\x_{0}$ using $\bar\uu_{0:T-1}$\;
+  \textbf{Backward pass:}\;
+  $V_{\x,T}\leftarrow\nabla c_{T}(\bar\x_{T})$,\;
+  $V_{\x\x,T}\leftarrow\nabla^{2}c_{T}(\bar\x_{T})$\;
+  \For{$t=T{-}1$ \KwTo $0$}{
+    Compute $\f_{\x},\f_{\uu}$ at $(\bar\x_{t},\bar\uu_{t})$\;
+    Compute $Q_{\x},Q_{\uu},Q_{\x\x},Q_{\uu\uu},Q_{\x\uu}$
+      via \eqref{eq:Qx}--\eqref{eq:Qu}, \eqref{eq:Qxx-ilqr}--\eqref{eq:Qxu-ilqr}\;
+    $\bm{k}_{t}\leftarrow-Q_{\uu\uu}^{-1}Q_{\uu}$,\;
+    $\bm{K}_{t}\leftarrow-Q_{\uu\uu}^{-1}Q_{\uu\x}$\;
+    Update $V_{\x,t},V_{\x\x,t}$ via \eqref{eq:Vx-update}--\eqref{eq:Vxx-update}\;
+  }
+  \textbf{Forward pass with line search:}\;
+  \For{each $\alpha\in\{\alpha_{1},\alpha_{2},\ldots\}$}{
+    Roll out trajectory using \eqref{eq:forward-pass}\;
+  }
+  Set $\bar\uu\leftarrow$ best trajectory from line search\;
+}
+\end{algorithm}
+
+%-------------------------------------------------------------
+\section{Regularisation and Control Limits}
+
+In practice, $Q_{\uu\uu}$ can become ill-conditioned.
+Adding a regularisation term $\mu\I$ to $Q_{\uu\uu}$ before inversion
+(\emph{Levenberg--Marquardt} style) ensures numerical stability:
+\begin{equation}
+\bm{k}_{t}=-(Q_{\uu\uu}+\mu\I)^{-1}Q_{\uu},\qquad
+\bm{K}_{t}=-(Q_{\uu\uu}+\mu\I)^{-1}Q_{\uu\x}.
+\end{equation}
+
+Control limits $\uu_{\min}\le\uu\le\uu_{\max}$ are handled by the
+\emph{control-limited} variant of DDP (Tassa et al., 2014), which
+solves a box-constrained QP at each time step instead of the
+unconstrained minimisation~\eqref{eq:opt-du}.
+
+%-------------------------------------------------------------
+\section{Worked Example: iLQR on the Sliding Block}
+\label{sec:ilqr-block}
+
+For the block \eqref{eq:block-dynamics} with $\bm{A}$, $\bm{B}$ constant:
+\begin{equation}
+\f_{\x}=\bm{A}=\begin{bmatrix}1&h\\0&1\end{bmatrix},\quad
+\f_{\uu}=\bm{B}=\begin{bmatrix}0\\h\end{bmatrix}.
+\end{equation}
+Running cost $c=u^{2}$: $c_{\x}=\0$, $c_{\uu}=2u$, $c_{\uu\uu}=2$,
+$c_{\x\x}=\0$, $c_{\x\uu}=\0$.
+Terminal cost $c_{T}=w\|\x_{T}-\x_{\text{goal}}\|^{2}$:
+$V_{\x,T}=2w(\bar\x_{T}-\x_{\text{goal}})$, $V_{\x\x,T}=2w\I$.
+
+Since $\f_{\x\x}=\f_{\uu\uu}=\0$ (linear dynamics),
+\textbf{iLQR and DDP are identical} for this problem.
+The backward pass yields time-varying $\bm{k}_{t},\bm{K}_{t}$.
+With large enough $w$, the solution converges to $u^{\star}(t)=6-12t$
+in a single iteration (because the sub-problem is exactly quadratic).
+
+\begin{stepbox}[Step-by-step: iLQR backward pass on the block ($T=3$, $h=1/3$, $w=100$)]
+
+\textbf{Setup.}
+$\bm{A}=\begin{bmatrix}1&1/3\\0&1\end{bmatrix}$,
+$\bm{B}=\begin{bmatrix}0\\1/3\end{bmatrix}$,
+$\x_{\text{goal}}=[1,0]^{\!\top}$.
+
+Cost derivatives: $c_{\x}=\0$, $c_{\uu}=2u$, $c_{\uu\uu}=2$, $c_{\x\x}=\0$, $c_{\x\uu}=\0$.
+
+\textbf{Initialisation.} $\bar{u}_{0}=\bar{u}_{1}=\bar{u}_{2}=0$.
+Rollout: $\bar\x_{0}=\bar\x_{1}=\bar\x_{2}=\bar\x_{3}=[0,0]^{\!\top}$.
+
+\textbf{Terminal:}
+$V_{\x,3}=2w(\bar\x_{3}-\x_{\text{goal}})=200\bigl([0,0]-[1,0]\bigr)^{\!\top}=[-200,\;0]^{\!\top}$, \quad
+$V_{\x\x,3}=2w\I=200\I$.
+
+\textbf{Backward pass at $t=2$:}
+\begin{align*}
+Q_{\uu}&=c_{\uu}+\bm{B}^{\!\top}V_{\x,3}
+=\underbrace{2\bar{u}_{2}}_{=0}
++\begin{bmatrix}0&\tfrac13\end{bmatrix}\!\begin{bmatrix}-200\\0\end{bmatrix}
+=0.
+\end{align*}
+Pause on this: the gradient came out \emph{exactly zero}, even though we
+are nowhere near the goal. Why? The terminal-cost gradient
+$V_{\x,3}=[-200,\,0]^{\!\top}$ has a zero \emph{velocity} component
+(the nominal already satisfies $v_{3}=0$), while
+$\bm{B}=[0,\,h]^{\!\top}$ couples the control only to the velocity
+component. The position error is enormous, but a force applied at the
+\emph{last} step cannot change the final position (it only changes the
+final velocity), so the model correctly reports ``no first-order
+improvement available at $t=2$.'' The position error will instead flow
+backward through the value function and create non-zero gradients at
+$t=1$ and $t=0$, where forces \emph{do} have time to move the block.
+This is the value function doing its job: routing credit to the time
+steps that can actually act on it.
+
+The curvature $Q_{\uu\uu}$, however, is non-zero:
+\begin{align*}
+Q_{\uu\uu}&=c_{\uu\uu}+\bm{B}^{\!\top}V_{\x\x,3}\bm{B}
+=2+\begin{bmatrix}0&\tfrac13\end{bmatrix}\begin{bmatrix}200&0\\0&200\end{bmatrix}\begin{bmatrix}0\\\tfrac13\end{bmatrix}
+=2+\tfrac{200}{9}=24.22.
+\end{align*}
+And the cross-term:
+\begin{align*}
+Q_{\uu\x}&=c_{\uu\x}+\bm{B}^{\!\top}V_{\x\x,3}\bm{A}
+=\0+\begin{bmatrix}0&\tfrac13\end{bmatrix}\begin{bmatrix}200&0\\0&200\end{bmatrix}\begin{bmatrix}1&\tfrac13\\0&1\end{bmatrix}
+=\begin{bmatrix}0&\tfrac{200}{3}\end{bmatrix}\begin{bmatrix}1&\tfrac13\\0&1\end{bmatrix}
+=\begin{bmatrix}0&\tfrac{200}{3}\end{bmatrix}.
+\end{align*}
+(Watch the bookkeeping: $\bm{B}^{\!\top}V_{\x\x,3}=[0,\;200h]=[0,\;66.7]$
+picks up \emph{one} factor of $h$, unlike the $Q_{\uu\uu}$ computation
+above, where $\bm{B}$ appears on both sides and contributes $h^{2}$.)
+
+So the gains at $t=2$ are:
+\begin{align*}
+\bm{k}_{2}&=-Q_{\uu\uu}^{-1}Q_{\uu}=-\frac{1}{24.22}\cdot 0=0,\\
+\bm{K}_{2}&=-Q_{\uu\uu}^{-1}Q_{\uu\x}=-\frac{1}{24.22}\begin{bmatrix}0&66.7\end{bmatrix}=\begin{bmatrix}0&-2.752\end{bmatrix}.
+\end{align*}
+
+The feedforward $\bm{k}_{2}=0$ (no improvement at the nominal), but the feedback gain $\bm{K}_{2}$ is non-zero: if the block has positive velocity at $t=2$, the controller applies \emph{negative} force (braking).
+
+Continuing backward to $t=1$ and $t=0$ builds up increasingly large feedforward terms as the value function propagates the position error backward.  After the forward pass with $\alpha=1$, the block moves substantially toward the goal.
+
+\textbf{Key insight:} For this linear-quadratic problem, the backward pass computes the \emph{exact} optimal feedback policy. One forward pass gives the optimal trajectory. For non-linear problems, multiple iLQR iterations are needed, each re-linearising around the improved trajectory.
+\end{stepbox}
+
+\begin{center}
+\begin{tikzpicture}
+\begin{axis}[
+  width=9cm, height=4.5cm,
+  xlabel={iLQR iteration}, ylabel={Total cost $J$},
+  grid=major, grid style={gray!30},
+  ymode=log, title={iLQR convergence on block problem},
+  xtick={0,1,2,3}
+]
+\addplot[blue, thick, mark=*] coordinates {(0,10000)(1,12.1)(2,12.0)(3,12.0)};
+\node[right] at (axis cs:1.2,12.1) {\footnotesize converged};
+\end{axis}
+\end{tikzpicture}
+\end{center}
+
+
+%=============================================================================
+\chapter{Sampling-Based Trajectory Optimisation}
+\label{ch:sampling}
+
+Sampling-based methods optimise trajectories without computing
+gradients or Hessians.  They are well-suited to:
+\begin{itemize}
+\item Non-smooth dynamics (contacts, impacts).
+\item Parallelisable rollouts (GPU-friendly).
+\item Simple implementation---no need for dynamics derivatives.
+\end{itemize}
+
+%-------------------------------------------------------------
+\section{The Common Framework}
+\label{sec:sampling-framework}
+
+All sampling-based shooting methods share the following structure:
+\begin{enumerate}
+\item Maintain a \emph{nominal} parameter vector $\bm{\theta}$
+      parameterising the control trajectory (e.g.\ spline knots).
+\item \textbf{Sample} $N{-}1$ perturbations
+      $\bm{\theta}^{(i)}\sim p(\bm{\theta}\,|\,\bm{\theta}_{\text{nom}})$.
+\item \textbf{Rollout} each sample (and the nominal) through the dynamics.
+\item \textbf{Evaluate} the total cost $J^{(i)}$ for each sample.
+\item \textbf{Update} $\bm{\theta}_{\text{nom}}$ based on the costs.
+\end{enumerate}
+
+The methods differ primarily in steps~2 (the sampling distribution)
+and~5 (the update rule).
+
+%-------------------------------------------------------------
+\section{Predictive Sampling (MJPC Baseline)}
+\label{sec:pred-sampling}
+
+The simplest possible method.
+
+\begin{algorithm}[H]
+\caption{Predictive Sampling}\label{alg:pred-sampling}
+\KwIn{State $\x_{0}$, nominal parameters $\bm{\theta}$, noise $\sigma$, $N$ rollouts}
+Sample $\bm{\theta}^{(i)}=\bm{\theta}+\bm{\epsilon}^{(i)}$
+  where $\bm{\epsilon}^{(0)}=\0$,
+  $\bm{\epsilon}^{(i)}\sim\mathcal{N}(\0,\sigma^{2}\I)$ for $i\ge 1$\;
+Roll out all $N$ trajectories from $\x_{0}$, compute costs $J^{(i)}$\;
+$\bm{\theta}\leftarrow\bm{\theta}^{(i^{\star})}$ where
+$i^{\star}=\argmin_{i}J^{(i)}$\;
+\end{algorithm}
+
+This is ``trivial random search''---pick the best sample.
+Despite its simplicity, it works surprisingly well in the
+predictive control setting because:
+\begin{itemize}
+\item Warm-starting means $\bm{\theta}$ is already near-optimal.
+\item The optimiser only needs to \emph{stay in the basin of attraction}
+      of the minimum, not converge to it precisely.
+\item It runs faster per iteration than derivative-based methods,
+      offsetting the lower per-iteration improvement.
+\end{itemize}
+
+%-------------------------------------------------------------
+\section{Model Predictive Path Integral (MPPI)}
+\label{sec:mppi}
+
+MPPI (Williams et al., 2017) uses a \emph{soft} update instead of hard selection.
+
+\begin{algorithm}[H]
+\caption{MPPI}\label{alg:mppi}
+\KwIn{State $\x_{0}$, nominal $\uu_{0:T-1}$, temperature $\lambda$}
+\For{$i=1,\ldots,N$}{
+  Sample $\bm{\epsilon}_{t}^{(i)}\sim\mathcal{N}(\0,\bm{\Sigma})$\;
+  $\uu_{t}^{(i)}=\bar\uu_{t}+\bm{\epsilon}_{t}^{(i)}$\;
+  Rollout, compute $J^{(i)}$\;
+}
+Compute weights:
+$w^{(i)}=\dfrac{\exp\bigl(-J^{(i)}/\lambda\bigr)}%
+{\sum_{j}\exp\bigl(-J^{(j)}/\lambda\bigr)}$\;
+Update: $\bar\uu_{t}\leftarrow\bar\uu_{t}+\sum_{i}w^{(i)}\bm{\epsilon}_{t}^{(i)}$
+  for all $t$\;
+\end{algorithm}
+
+\textbf{Key differences from Predictive Sampling:}
+\begin{itemize}
+\item \emph{Soft} (weighted average) update vs.\ \emph{hard} (best-of-$N$).
+\item The temperature $\lambda$ controls exploration: $\lambda\to 0$ recovers
+      hard selection; $\lambda\to\infty$ gives uniform weighting.
+\item The information-theoretic derivation relates to minimising
+      KL divergence between the sampling distribution and the
+      optimal (Boltzmann) distribution over controls.
+\end{itemize}
+
+\paragraph{Where the exponential weights come from.}
+The derivation is short enough to sketch, and it explains every design
+choice. Treat the control sequence as a random variable and define the
+``optimal'' distribution over control sequences as the Boltzmann
+distribution $p^{\star}(U)\propto q(U)\,e^{-J(U)/\lambda}$, where $q$ is
+the sampling distribution (Gaussian noise around the nominal):
+low-cost trajectories get exponentially more probability mass, with
+$\lambda$ setting how sharply.
+We cannot sample from $p^{\star}$ directly, but we want our new nominal
+to be the \emph{mean} of $p^{\star}$ (the distribution-level analogue of
+``move toward good trajectories''). Estimate that mean by
+\emph{importance sampling} with samples drawn from $q$:
+\begin{equation*}
+\mathbb{E}_{p^{\star}}[U]
+=\mathbb{E}_{q}\!\left[U\,\frac{p^{\star}(U)}{q(U)}\right]
+\approx\frac{\sum_{i}U^{(i)}\,e^{-J^{(i)}/\lambda}}
+{\sum_{i}e^{-J^{(i)}/\lambda}}
+=\sum_{i}w^{(i)}U^{(i)},
+\end{equation*}
+which is precisely the MPPI update. So the algorithm is: define a
+target distribution that reweights your samples by exponentiated cost,
+then move the nominal to its estimated mean. Two practical notes follow
+directly. First, the weights are invariant to adding a constant to all
+costs, so implementations subtract $\min_{i}J^{(i)}$ before
+exponentiating---otherwise $e^{-J/\lambda}$ underflows to zero for
+large costs. Second, the \emph{effective sample size}
+$N_{\text{eff}}=1/\sum_{i}(w^{(i)})^{2}$ diagnoses the temperature:
+$N_{\text{eff}}\approx 1$ means hard selection in disguise
+($\lambda$ too small), $N_{\text{eff}}\approx N$ means the costs are
+being ignored ($\lambda$ too large). A common heuristic adapts
+$\lambda$ to hold $N_{\text{eff}}$ at a target fraction of $N$.
+
+\begin{insightbox}[Predictive Sampling as MPPI with $\lambda\to 0$]
+In the zero-temperature limit, only the best sample receives
+non-zero weight, recovering Predictive Sampling.
+Conversely, Predictive Sampling can be seen as
+``MPPI with infinite temperature'' (from the MJPC paper's
+perspective of CEM) or equivalently ``CEM with a non-adaptive
+distribution.''
+\end{insightbox}
+
+\begin{examplebox}[Worked Example: MPPI hard vs.\ soft selection]
+Suppose 5 samples produce costs $J^{(1:5)}=[10,\;3,\;7,\;2,\;8]$.
+
+\textbf{Predictive Sampling} (hard selection): picks sample~4 ($J=2$).
+
+\textbf{MPPI} with $\lambda=1$: weights $w^{(i)}\propto e^{-J^{(i)}/\lambda}$:
+\begin{center}
+\begin{tabular}{lccccc}
+\toprule
+Sample $i$ & 1 & 2 & 3 & 4 & 5\\
+\midrule
+$J^{(i)}$ & 10 & 3 & 7 & 2 & 8\\
+$e^{-J/1}$ & $4.5\!\times\!10^{-5}$ & 0.050 & $9.1\!\times\!10^{-4}$ & 0.135 & $3.4\!\times\!10^{-4}$\\
+$w^{(i)}$ (normalised) & 0.000 & 0.268 & 0.005 & \textbf{0.726} & 0.002\\
+\bottomrule
+\end{tabular}
+\end{center}
+MPPI mostly uses sample~4 but blends in some of sample~2.
+
+\textbf{MPPI} with $\lambda=5$ (higher temperature, more exploration):
+\begin{center}
+\begin{tabular}{lccccc}
+\toprule
+Sample $i$ & 1 & 2 & 3 & 4 & 5\\
+\midrule
+$w^{(i)}$ & 0.075 & 0.304 & 0.137 & \textbf{0.372} & 0.112\\
+\bottomrule
+\end{tabular}
+\end{center}
+Much more uniform: all samples contribute. Higher temperature means more exploration but slower convergence.
+\end{examplebox}
+
+%-------------------------------------------------------------
+\section{Cross-Entropy Method (CEM)}
+\label{sec:cem}
+
+CEM adapts both the \emph{mean} and \emph{covariance} of the sampling
+distribution.
+
+\begin{algorithm}[H]
+\caption{Cross-Entropy Method}\label{alg:cem}
+\KwIn{Initial distribution $\mathcal{N}(\bm{\mu},\bm{\Sigma})$, elite fraction $\rho$}
+\Repeat{convergence}{
+  Sample $\bm{\theta}^{(1)},\ldots,\bm{\theta}^{(N)}\sim\mathcal{N}(\bm{\mu},\bm{\Sigma})$\;
+  Rollout each, compute $J^{(i)}$\;
+  Sort by cost; let $\mathcal{E}$ = top-$\lfloor\rho N\rfloor$ samples\;
+  $\bm{\mu}\leftarrow\frac{1}{|\mathcal{E}|}\sum_{i\in\mathcal{E}}\bm{\theta}^{(i)}$\;
+  $\bm{\Sigma}\leftarrow\frac{1}{|\mathcal{E}|}\sum_{i\in\mathcal{E}}
+    (\bm{\theta}^{(i)}-\bm{\mu})(\bm{\theta}^{(i)}-\bm{\mu})^{\!\top}$\;
+}
+\end{algorithm}
+
+CEM fits a new Gaussian to the best (``elite'') samples.
+This adapts the covariance, which can be advantageous when different
+control dimensions have very different scales.
+
+\begin{examplebox}[Worked Example: One CEM iteration in 1D]
+Suppose we sample $N=10$ scalar parameters from
+$\mathcal{N}(\mu=0,\sigma^{2}=1)$ and obtain (sorted by their rollout
+cost, best first):
+\begin{equation*}
+\theta:\;\{0.9,\;1.1,\;0.7,\;1.4,\;|\;{-0.3},\;0.1,\;2.2,\;{-1.0},\;0.4,\;{-1.7}\},
+\end{equation*}
+with elite fraction $\rho=0.4$, so the elite set is the first four
+samples. The update fits a Gaussian to the elites:
+\begin{equation*}
+\mu\leftarrow\tfrac14(0.9+1.1+0.7+1.4)=1.025,\qquad
+\sigma^{2}\leftarrow\tfrac14\textstyle\sum(\theta_{i}-1.025)^{2}=0.0669
+\;\;(\sigma\approx 0.26).
+\end{equation*}
+Two things happened at once: the mean \emph{moved} toward the
+good region (0 $\to$ 1.025), and the distribution \emph{contracted}
+($\sigma$: $1\to 0.26$) because the elites cluster.
+This automatic contraction is CEM's signature---and its danger:
+if the variance collapses before finding the right basin, the search
+freezes (\emph{premature convergence}). Implementations counter this
+with a variance floor $\sigma^{2}\ge\sigma_{\min}^{2}$ or by smoothing
+the update, $\sigma^{2}\leftarrow(1-\beta)\sigma_{\text{old}}^{2}
++\beta\,\sigma_{\text{elite}}^{2}$.
+Contrast with MPPI, whose covariance is \emph{fixed}: MPPI never
+contracts (robust, but never refines), CEM contracts automatically
+(refines, but can collapse). The annealed methods below get the best of
+both by \emph{scheduling} the contraction explicitly.
+\end{examplebox}
+
+%-------------------------------------------------------------
+\section{Annealed Sampling and DIAL-MPC}
+\label{sec:dial-mpc}
+
+Recent work (DIAL-MPC, LeCAR Lab) draws inspiration from
+\emph{diffusion models} and \emph{simulated annealing} to construct
+a sequence of sampling distributions that gradually concentrate
+around the optimum.
+
+The key idea: instead of a single round of sampling,
+run $K$ rounds with \emph{decreasing} noise levels
+$\sigma_{1}>\sigma_{2}>\cdots>\sigma_{K}$, re-centering the
+distribution at the best (or weighted-average) sample after each round.
+
+\begin{algorithm}[H]
+\caption{Annealed / Diffusion-Inspired Sampling}\label{alg:annealed}
+\KwIn{State $\x_{0}$, nominal $\bm{\theta}$, noise schedule $\sigma_{1:K}$}
+\For{$k=1,\ldots,K$}{
+  Sample $\bm{\theta}^{(i)}\sim\mathcal{N}(\bm{\theta},\sigma_{k}^{2}\I)$,
+    $i=1,\ldots,N$\;
+  Rollout each, compute $J^{(i)}$\;
+  Update $\bm{\theta}$ (e.g.\ MPPI-style weighted average
+    or best-of-$N$)\;
+}
+\end{algorithm}
+
+This combines the broad exploration of large $\sigma$ in early rounds
+with the fine-grained refinement of small $\sigma$ in later rounds,
+often outperforming single-round methods for the same total number
+of samples.
+
+%-------------------------------------------------------------
+\section{Spline Parameterisation}
+\label{sec:splines}
+
+All sampling methods in MuJoCo MPC do not sample the full
+$m\times T$ control trajectory directly.  Instead, the control is
+parameterised as a \emph{spline} with knot points
+$(\tau_{0:P},\bm{\theta}_{0:P})$, and at each time step:
+\begin{equation}
+\uu_{t}=s\bigl(t;\,(\tau_{0:P},\bm{\theta}_{0:P})\bigr),
+\end{equation}
+where $s$ is the spline interpolant (zero-order hold, linear, or cubic).
+This reduces the search space from $mT$ to $mP$ where $P\ll T$,
+smooths the control trajectory, and makes the spline
+parameters $\bm{\theta}$ the natural sampling target.
+
+\paragraph{Why this matters: a concrete count.}
+Take a 9-DOF hand ($m=9$) planned over a 1-second horizon at 100\,Hz
+($T=100$): the raw control trajectory has $mT=900$ dimensions.
+Random search in $\R^{900}$ is hopeless---almost every random
+perturbation direction is useless, and the probability that Gaussian
+noise happens to point along the narrow subspace of \emph{coordinated,
+smooth} improvements is vanishing. With $P=5$ cubic spline knots, the
+search space is $mP=45$ dimensions, a $20\times$ reduction, and---more
+importantly---\emph{every} point in the reduced space is a smooth,
+physically plausible control signal. The spline is acting as a strong
+prior: it spends the sampling budget exclusively on candidates that a
+robot could actually execute.
+The trade-offs to keep in mind:
+\begin{itemize}
+\item \textbf{Expressiveness vs.\ sample efficiency.} Few knots
+      $\Rightarrow$ cheap search but the optimal control may not be
+      representable (e.g.\ a sharp contact-breaking force spike needs a
+      knot nearby). MJPC exposes the knot count as a per-task tuning
+      parameter for exactly this reason.
+\item \textbf{Interpolation order.} Zero-order hold can represent
+      bang-bang solutions but injects steps; cubic splines are smooth
+      but round off sharp switches. For contact-rich tasks,
+      lower-order interpolants often work better than intuition
+      suggests, because contact events themselves provide the sharpness.
+\item \textbf{Receding-horizon bookkeeping.} As the horizon slides
+      forward in MPC, knot times slide with it and the oldest knot is
+      dropped while a new one is appended (warm-starting,
+      Section~\ref{sec:pred-sampling})---cheap precisely because the
+      representation is low-dimensional.
+\end{itemize}
+
+
+%=============================================================================
+\chapter{MuJoCo MPC: Architecture and Implementation}
+\label{ch:mjpc}
+
+%-------------------------------------------------------------
+\section{Overview}
+
+MuJoCo MPC (MJPC) is an open-source, interactive framework for
+real-time predictive control built on MuJoCo physics.
+It supports three planners:
+\begin{enumerate}
+\item \textbf{iLQG} (second-order, derivative-based),
+\item \textbf{Gradient Descent} (first-order, derivative-based),
+\item \textbf{Predictive Sampling} (zero-order, sampling-based).
+\end{enumerate}
+
+%-------------------------------------------------------------
+\section{Cost Specification via Residuals and Norms}
+\label{sec:mjpc-cost}
+
+The running cost is:
+\begin{equation}
+l(\x,\uu)=\sum_{i=0}^{M}w_{i}\cdot\mathsf{n}_{i}\!\bigl(\rr_{i}(\x,\uu)\bigr),
+\end{equation}
+where each $\rr_{i}\in\R^{p_{i}}$ is a \emph{residual}---a vector-valued
+quantity computed from MuJoCo \emph{sensors} that should be ``small when the
+task is solved.''  The norm $\mathsf{n}_{i}:\R^{p_{i}}\to\R_{+}$ can be
+quadratic, smooth-$\ell_{1}$, hyperbolic-cosine, etc.
+
+The final running cost includes a risk-sensitive transformation:
+\begin{equation}\label{eq:risk}
+c(\x,\uu)=\rho\bigl(l(\x,\uu);R\bigr)=\frac{e^{R\cdot l(\x,\uu)}-1}{R},
+\end{equation}
+with $R=0$ (risk-neutral, identity), $R>0$ (risk-averse), $R<0$ (risk-seeking).
+
+\paragraph{Why the norms matter.}
+The choice of $\mathsf{n}_{i}$ is a behaviour-shaping decision, not a
+formality. A quadratic norm has a gradient proportional to the residual:
+large errors generate large corrective pressure, but near zero the
+gradient vanishes---tasks converge quickly from far away and then stall
+politely near the goal. A smooth-$\ell_{1}$ norm keeps a roughly
+constant gradient at large error (robust to outliers; one bad residual
+cannot dominate the cost) while remaining smooth at the origin so
+derivative-based planners stay happy. Rule of thumb: quadratic for
+regulation-style terms (velocities, postures), smooth-$\ell_{1}$ for
+goal-reaching terms where the residual starts large.
+
+\paragraph{Why the exponential, and a feel for $R$.}
+The transformation \eqref{eq:risk} is the standard
+\emph{risk-sensitive} (exponential-utility) construction. Two ways to
+see what it does:
+\begin{itemize}
+\item \textbf{Convexity surgery.} $\rho(\cdot;R)$ is increasing, so it
+      never changes \emph{which} state is better, only \emph{by how
+      much}. For $R>0$ it is convex: high-cost moments get amplified
+      disproportionately, so the planner works hardest on the
+      \emph{worst} time steps of the trajectory---useful when a single
+      bad instant (dropping the object) is catastrophic. For $R<0$ it is
+      concave and saturating: beyond some badness, things can't get
+      much worse, so the planner gambles---useful for escaping
+      ``stuck'' configurations where every action briefly increases
+      cost.
+\item \textbf{Numbers.} Compare two trajectories of two steps each:
+      trajectory A has per-step costs $(1,1)$; trajectory B has
+      $(0,2)$---identical totals. With $R=0$: tie.
+      With $R=1$: A scores $2(e^{1}-1)=3.44$, B scores
+      $(e^{0}-1)+(e^{2}-1)=6.39$---the risk-averse planner strongly
+      prefers the \emph{consistent} trajectory A.
+      With $R=-1$: A scores $2(1-e^{-1})=1.26$, B scores
+      $(1-e^{0})+(1-e^{-2})=0.86$---the risk-seeking planner prefers
+      B's gamble of one perfect step.
+      In stochastic settings this generalises: minimising the
+      expectation of \eqref{eq:risk} is equivalent to minimising
+      $\mathbb{E}[l]+\tfrac{R}{2}\mathrm{Var}[l]+\cdots$, i.e.\ $R$
+      directly prices the \emph{variance} of the outcome.
+\end{itemize}
+For contact-rich tasks, mild risk aversion ($R>0$) is a common and
+cheap robustness knob: contact uncertainty creates heavy-tailed cost
+distributions, and penalising the tail keeps the planner away from
+plans that are great on average but occasionally drop the object.
+
+%-------------------------------------------------------------
+\section{Why Sensor Derivatives Are ``Free''}
+\label{sec:free-sensors}
+
+\begin{insightbox}[The key efficiency trick in MuJoCo]
+MuJoCo computes dynamics derivatives via \emph{finite differences} (FD).
+For a system with state dimension $n$ and control dimension $m$,
+the FD computation of $\partial\x_{t+1}/\partial\x_{t}$ and
+$\partial\x_{t+1}/\partial\uu_{t}$ requires $n+m$ perturbed evaluations
+of the step function.
+
+Crucially, MuJoCo's step function simultaneously computes
+the next state $\bm{y}$ \emph{and} all sensor values $\rr$:
+\begin{equation}
+(\bm{y},\rr)=\f(\x,\uu).
+\end{equation}
+The FD Jacobians
+\begin{equation}
+\frac{\partial\bm{y}}{\partial\x},\quad
+\frac{\partial\bm{y}}{\partial\uu},\quad
+\frac{\partial\rr}{\partial\x},\quad
+\frac{\partial\rr}{\partial\uu}
+\end{equation}
+are all computed from the \emph{same} $n+m$ perturbed evaluations.
+The cost of FD scales with the \emph{input} dimension ($n+m$),
+not the output dimension.  Therefore, \textbf{adding more sensor
+residuals $\rr$ does not increase the cost of derivative computation.}
+\end{insightbox}
+
+This means task designers can freely add rich sensor-based cost terms
+(proximity sensors for obstacle avoidance, force sensors for contact
+tasks, etc.) without any computational penalty in the derivative-based
+planners.
+
+The cost gradients are then computed via the chain rule:
+\begin{equation}
+\frac{\partial c}{\partial\x}=e^{Rl}\sum_{i}w_{i}\frac{\partial\mathsf{n}_{i}}{\partial\rr}\frac{\partial\rr_{i}}{\partial\x},\qquad
+\frac{\partial c}{\partial\uu}=e^{Rl}\sum_{i}w_{i}\frac{\partial\mathsf{n}_{i}}{\partial\rr}\frac{\partial\rr_{i}}{\partial\uu},
+\end{equation}
+where the norm derivatives $\partial\mathsf{n}/\partial\rr$ are computed
+analytically, and the sensor Jacobians $\partial\rr/\partial\x$,
+$\partial\rr/\partial\uu$ come ``for free'' from the FD computation.
+
+%-------------------------------------------------------------
+\section{Gradient Descent Planner}
+
+For the gradient descent planner, the control is parameterised by
+spline knots $\bm{\theta}$.  The total cost gradient is:
+\begin{equation}
+\frac{\partial J}{\partial\bm{\theta}}
+=\frac{\partial J}{\partial\Pi}\,\frac{\partial\Pi}{\partial\bm{\theta}},
+\end{equation}
+where $\Pi=\uu_{0:T}$ is the control sequence, and
+$\partial J/\partial\Pi$ is computed via the Pontryagin Maximum Principle
+(co-state / adjoint method):
+\begin{align}
+\bm{\lambda}_{t}&=\frac{\partial c}{\partial\x_{t}}+\left(\frac{\partial\f}{\partial\x_{t}}\right)^{\!\top}\bm{\lambda}_{t+1},\\
+\frac{\partial J}{\partial\uu_{t}}&=\frac{\partial c}{\partial\uu_{t}}+\left(\frac{\partial\f}{\partial\uu_{t}}\right)^{\!\top}\bm{\lambda}_{t+1}.
+\end{align}
+The spline Jacobian $\partial\Pi/\partial\bm{\theta}$ has a simple
+analytic formula (see the MJPC paper appendix).
+A parallel line search over step sizes $\alpha$ completes the update.
+
+
+%=============================================================================
+% PART III: CONTACT DYNAMICS
+%=============================================================================
+\part{Contact Dynamics for Robotics}
+
+\chapter{The Physics of Contact}
+\label{ch:contact-physics}
+
+Contact interactions are what make robotic manipulation and locomotion
+possible.  They are also what make trajectory optimisation so difficult.
+This chapter develops the physical principles from first principles,
+building from 1D examples to the full 3D frictional contact problem.
+
+%-------------------------------------------------------------
+\section{Why Contact Is Hard}
+
+\begin{warningbox}[The fundamental difficulty]
+Contact dynamics are \emph{non-smooth}: the equations of motion change
+discontinuously when contact is made or broken.  The contact force
+is not a smooth function of penetration; it is better described by a
+\emph{complementarity condition}: either there is a gap (no force)
+or there is force (no gap), but not both simultaneously.
+This non-smoothness means:
+\begin{itemize}
+\item Gradients are undefined at contact transitions.
+\item The contact problem is naturally a Non-linear Complementarity Problem (NCP), which is non-convex.
+\item Different simulators make different approximations to recover tractability, with different physical consequences.
+\end{itemize}
+\end{warningbox}
+
+%-------------------------------------------------------------
+\section{Rigid Body Dynamics (Free Motion)}
+
+The equations of motion for an articulated rigid-body system
+in generalised coordinates $\q\in\R^{n_{q}}$ with velocity
+$\bm{v}\in\R^{n_{v}}$:
+\begin{equation}\label{eq:eom-free}
+\M(\q)\dot{\bm{v}}+\bm{b}(\q,\bm{v})=\bm{\tau},
+\end{equation}
+where $\M$ is the joint-space inertia matrix, $\bm{b}$ accounts for
+Coriolis, centrifugal, and gravitational effects, and $\bm{\tau}$
+are the generalised forces (joint torques plus external forces).
+
+Discretising with a semi-implicit Euler scheme at step $\Delta t$:
+\begin{equation}\label{eq:eom-discrete}
+\M\bm{v}^{t+1}=\M\bm{v}^{t}+(\bm{\tau}-\bm{b})\Delta t
+\;\equiv\;\M\bm{v}^{f},
+\end{equation}
+where $\bm{v}^{f}$ is the \emph{free velocity} (velocity in the absence of contacts).
+
+%-------------------------------------------------------------
+\section{The Signorini Condition (Non-Penetration)}
+\label{sec:signorini}
+
+\begin{definitionbox}[Signorini condition]
+For a contact point with signed distance (gap) $\phi$ and normal
+contact impulse $\lambda_{N}$:
+\begin{equation}\label{eq:signorini}
+\boxed{
+0\le\lambda_{N}\perp c_{N}-c_{N}^{*}\ge 0.
+}
+\end{equation}
+Here $c_{N}$ is the normal component of the contact-point velocity.
+In words: \emph{the gap is non-negative, the normal force is non-negative,
+and they cannot both be positive simultaneously.}
+\end{definitionbox}
+
+\begin{examplebox}[1D: Block on a floor]
+Consider a block at height $\phi$ above a floor.
+If $\phi>0$ (not touching), then $\lambda_{N}=0$ (no contact force).
+If $\phi=0$ (touching), then $\lambda_{N}\ge 0$ (floor pushes up).
+The floor cannot pull ($\lambda_{N}\ge 0$) and the block cannot penetrate ($\phi\ge 0$).
+
+This is exactly an LCP in 1D:
+$0\le\lambda_{N}\perp\phi\ge 0$.
+
+Note that this does \emph{not} define $\lambda_{N}$ as a function of $\phi$---it is a \emph{set-valued} mapping (the graph is infinitely steep at $\phi=0$).
+This is the fundamental source of non-smoothness.
+\end{examplebox}
+
+Substituting the constrained equations of motion
+$\M\bm{v}^{t+1}=\M\bm{v}^{f}+\J^{\!\top}\bm{\lambda}$
+(where $\J$ is the contact Jacobian mapping contact forces to
+generalised forces) into the velocity-level Signorini condition yields
+a \emph{Linear Complementarity Problem}:
+\begin{equation}\label{eq:lcp-contact}
+0\le\lambda_{N}\perp(\bm{G}\bm{\lambda}+\bm{g})_{N}-c_{N}^{*}\ge 0,
+\end{equation}
+where $\bm{G}=\J\M^{-1}\J^{\!\top}$ is the \emph{Delassus matrix}
+and $\bm{g}=\J\bm{v}^{f}$ is the free contact-point velocity.
+
+\paragraph{Why $\J^{\!\top}$: the duality of velocities and forces.}
+The contact Jacobian is defined kinematically: it maps generalised
+velocities to contact-point velocities, $\bm{c}=\J\bm{v}$.
+Why, then, does its \emph{transpose} map contact forces to generalised
+forces? Because power must be frame-independent. The power delivered by
+contact forces, computed at the contact, is
+$\bm{\lambda}^{\!\top}\bm{c}=\bm{\lambda}^{\!\top}\J\bm{v}$;
+computed in joint space with generalised force $\bm{\tau}_{c}$, it is
+$\bm{\tau}_{c}^{\!\top}\bm{v}$. Equating for all $\bm{v}$ gives
+$\bm{\tau}_{c}=\J^{\!\top}\bm{\lambda}$. This \emph{virtual work}
+argument is worth internalising---it is the same reason the grasp map
+and its transpose appear in Chapter~\ref{ch:grasping}, and the same
+primal/dual pairing that runs through Section~\ref{sec:duality}.
+
+\begin{stepbox}[Deriving the Delassus matrix, step by step]
+The Delassus matrix answers one question: \emph{if I apply a unit
+impulse at one contact, how much does the velocity change at every
+contact?} It converts the coupled rigid-body problem into a compact
+problem living purely in contact coordinates.
+
+\textbf{Step 1.} Start from the impulse-momentum equation over one step,
+including contact impulses:
+$\M\bm{v}^{+}=\M\bm{v}^{f}+\J^{\!\top}\bm{\lambda}$.
+
+\textbf{Step 2.} Solve for the post-impact generalised velocity:
+$\bm{v}^{+}=\bm{v}^{f}+\M^{-1}\J^{\!\top}\bm{\lambda}$.
+
+\textbf{Step 3.} Map to contact coordinates by applying $\J$:
+\begin{equation*}
+\bm{c}^{+}=\J\bm{v}^{+}
+=\underbrace{\J\bm{v}^{f}}_{\bm{g}}
++\underbrace{\J\M^{-1}\J^{\!\top}}_{\bm{G}}\bm{\lambda}.
+\end{equation*}
+The contact-space dynamics are \emph{affine}:
+$\bm{c}^{+}=\bm{G}\bm{\lambda}+\bm{g}$. All the articulated-body
+complexity has been compressed into one matrix.
+
+\textbf{Step 4.} Read off the physics in $\bm{G}$.
+Entry-wise, $G_{ij}$ is the velocity change at contact $i$ per unit
+impulse at contact $j$:
+\begin{itemize}
+\item Diagonal entries $G_{ii}>0$ are \emph{inverse effective masses}:
+      a light fingertip link has a large $G_{ii}$ (one Newton-second
+      moves it a lot); a heavy torso has a small one.
+\item Off-diagonals encode \emph{mechanical coupling}: pressing at one
+      fingertip changes velocities at the others through the shared
+      kinematic chain. For two contacts on bodies with no joint path
+      between them, $G_{ij}=0$.
+\item $\bm{G}\succeq 0$ always (it is a Gram-like matrix in the
+      $\M^{-1}$ metric), but it is \emph{singular} whenever contact
+      constraints outnumber effective DOFs (hyperstatic grasps, flat
+      box on a plane with 4 contact points)---the conditioning villain
+      of Section~\ref{sec:quadratic-forms}, and the reason solvers add
+      compliance or proximal regularisation.
+\end{itemize}
+For a single point mass $m$ with one normal contact, $\J=1$ and
+$\bm{G}=1/m$: the ball-on-floor LCP of Worked Example 1.4 is the
+$1\times 1$ Delassus problem.
+\end{stepbox}
+
+%-------------------------------------------------------------
+\section{Coulomb's Law of Friction}
+\label{sec:coulomb}
+
+\begin{definitionbox}[Coulomb friction cone]
+The contact force $\bm{\lambda}^{(i)}=(\lambda_{N}^{(i)},\bm{\lambda}_{T}^{(i)})$
+at contact $i$ must lie inside the friction cone:
+\begin{equation}\label{eq:friction-cone}
+\bm{\lambda}^{(i)}\in\Kc_{\mu^{(i)}}
+=\bigl\{\bm{\lambda}\;\big|\;\lambda_{N}\ge 0,\;
+\|\bm{\lambda}_{T}\|_{2}\le\mu^{(i)}\lambda_{N}\bigr\},
+\end{equation}
+where $\mu^{(i)}$ is the coefficient of friction.
+This is a second-order cone (Section~\ref{sec:cones}).
+\end{definitionbox}
+
+\begin{definitionbox}[Maximum Dissipation Principle (Moreau)]
+When sliding occurs, friction forces must maximise the dissipated power:
+\begin{equation}\label{eq:mdp}
+\bm{\lambda}_{T}^{(i)}=\argmin_{\|\bm{\gamma}_{T}\|\le\mu^{(i)}\lambda_{N}^{(i)}}
+\bm{\gamma}_{T}^{\!\top}\bm{c}_{T}^{(i)}.
+\end{equation}
+For sliding ($\|\bm{c}_{T}\|>0$), this gives:
+$\bm{\lambda}_{T}^{(i)}=-\mu^{(i)}\lambda_{N}^{(i)}\frac{\bm{c}_{T}^{(i)}}{\|\bm{c}_{T}^{(i)}\|}.$
+\end{definitionbox}
+
+%-------------------------------------------------------------
+\section{The Full Contact Problem: NCP}
+\label{sec:ncp}
+
+Combining Signorini + Coulomb + MDP via the de~Saxc\'e bipotential:
+\begin{equation}\label{eq:ncp}
+\boxed{
+\forall\,i:\quad
+\Kc_{\mu^{(i)}}\ni\bm{\lambda}^{(i)}
+\perp
+\bm{c}^{(i)}+\Gamma(\bm{c}^{(i)},\mu^{(i)})
+\in\Kc_{\mu^{(i)}}^{*},
+}
+\end{equation}
+where $\Gamma(\bm{c},\mu)=[0,0,\mu\|\bm{c}_{T}\|_{2}]^{\!\top}$
+is the de~Saxc\'e correction.
+
+This is the \emph{Non-linear Complementarity Problem (NCP)}.
+It is \textbf{non-convex} and \textbf{non-smooth}, making it
+the hardest class of contact problem.
+
+
+%=============================================================================
+\chapter{Contact Solvers: Relaxations and Algorithms}
+\label{ch:contact}
+
+No simulator solves the full NCP \eqref{eq:ncp} exactly.
+Every simulator makes approximations.  Understanding \emph{which}
+approximations each simulator makes, and their consequences,
+is essential for anyone doing contact-rich trajectory optimisation.
+
+%-------------------------------------------------------------
+\section{Summary of Contact Models}
+
+\begin{center}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Model} & \textbf{Signorini} & \textbf{Coulomb} & \textbf{MDP} & \textbf{Iterative solve?}\\
+\midrule
+LCP (pyramidal) & \checkmark & (linearised) & (linearised) & Yes\\
+CCP (MuJoCo/Drake) & (relaxed) & \checkmark & \checkmark & Yes\\
+RaiSim & \checkmark & \checkmark & (violated) & Yes\\
+NCP (full) & \checkmark & \checkmark & \checkmark & Yes\\
+ComFree (Jin) & (relaxed$^{*}$) & \checkmark & \checkmark & \textbf{No (closed-form)}\\
+\bottomrule
+\end{tabular}
+\end{center}
+{\footnotesize $^{*}$ComFree relaxes the dual-cone constraints (not directly Signorini), which has the side-effect of \emph{mitigating} the CCP's Signorini relaxation artifacts.}
+
+%-------------------------------------------------------------
+\section{LCP: Linearising the Friction Cone}
+\label{sec:lcp-solver}
+
+The simplest approach: approximate the circular Coulomb cone
+$\Kc_{\mu}$ with a \emph{pyramid} (typically 4 facets):
+\begin{equation}
+\tilde\Kc_{\mu}=\bigl\{\bm{\lambda}\;\big|\;\lambda_{N}\ge 0,\;
+\|\bm{\lambda}_{T}\|_{\infty}\le\mu\lambda_{N}\bigr\}.
+\end{equation}
+
+This reduces the NCP to an LCP, which is a well-studied problem.
+Solvers include Lemke's algorithm (ODE) and Dantzig's algorithm (Bullet).
+
+\begin{warningbox}[LCP artifacts]
+Linearising the cone \textbf{breaks friction isotropy}.
+Due to the MDP, friction forces are biased toward the pyramid
+corners.  A cube sliding on a flat surface will curve instead of
+travelling straight---a physically incorrect result.
+Increasing the number of facets reduces but does not eliminate this bias.
+\end{warningbox}
+
+\paragraph{Projected Gauss--Seidel (PGS).}
+The most common iterative solver for LCPs, used by Bullet, PhysX, ODE,
+and DART.  PGS loops over contact points, updating each contact force
+independently.  It is fast per iteration but converges slowly and can
+produce ``internal forces'' that stretch or compress objects in
+underdetermined (hyperstatic) scenarios.
+
+Mechanically, PGS is coordinate descent plus projection: for contact
+$i$, freeze all other forces, solve the \emph{scalar} (or per-contact
+block) problem
+\begin{equation}
+\lambda_{i}\leftarrow
+\proj_{\ge 0}\Bigl(\lambda_{i}
+-\frac{1}{G_{ii}}\bigl(\bm{G}\bm{\lambda}+\bm{g}\bigr)_{i}\Bigr),
+\end{equation}
+and sweep over $i$ repeatedly. Each update is the exact solution of
+contact $i$'s own 1D complementarity problem given everyone else's
+current forces---so PGS can be read as contacts \emph{negotiating}, one
+at a time, until consensus. The convergence rate degrades with coupling
+(large off-diagonal $G_{ij}$) and with contact count: long kinematic
+chains and grasps with many contacts need many sweeps, and PGS's
+sequential structure resists GPU parallelisation
+(Jacobi-style variants parallelise but converge even more slowly).
+This per-contact locality is also the source of the internal-force
+artifact: nothing in the sweep coordinates the global force
+distribution when the solution is non-unique.
+
+%-------------------------------------------------------------
+\section{CCP: Relaxing the Signorini Condition}
+\label{sec:ccp}
+
+The \emph{Cone Complementarity Problem} drops the de~Saxc\'e correction:
+\begin{equation}\label{eq:ccp}
+\Kc_{\mu}\ni\bm{\lambda}\perp\bm{c}\in\Kc_{\mu}^{*}.
+\end{equation}
+
+This preserves the full circular friction cone and the MDP, but
+\textbf{relaxes the Signorini condition}.  Rewriting the complementarity:
+\begin{equation}
+\lambda_{N}^{(i)}\perp\bigl(c_{N}^{(i)}-\mu\|\bm{c}_{T}^{(i)}\|\bigr),
+\end{equation}
+which allows simultaneous normal force and normal velocity when sliding.
+Objects can ``interact at a distance'' with an artifact proportional to
+$\Delta t\cdot\mu\cdot\|\bm{c}_{T}\|$.
+
+The CCP is equivalent to a convex QCQP:
+\begin{equation}\label{eq:ccp-qp}
+\min_{\bm{\lambda}\in\Kc_{\mu}}\;\tfrac12\bm{\lambda}^{\!\top}\bm{G}\bm{\lambda}
++\bm{g}^{\!\top}\bm{\lambda}.
+\end{equation}
+This is what makes the CCP tractable---standard convex optimisation
+machinery applies.
+
+\begin{insightbox}[Two faces of the same problem: primal vs.\ dual CCP]
+The CCP can be attacked from either end of the duality of
+Section~\ref{sec:duality}, and the two ends correspond to the two
+families of solvers in this chapter:
+\begin{itemize}
+\item \textbf{Primal (velocities).} Minimise over post-contact
+      velocities:
+      $\min_{\bm{v}}\tfrac12\|\bm{v}-\bm{v}^{f}\|_{\M}^{2}$
+      subject to the contact-velocity cone constraints. The objective
+      is the kinetic energy of the velocity \emph{change}---this is
+      Moreau's least-action principle: \emph{contact alters the motion
+      as little as the constraints allow}, measured in the inertia
+      metric. MuJoCo and Drake live here.
+\item \textbf{Dual (forces).} Form the Lagrangian of the primal,
+      minimise the velocities out analytically (they enter
+      quadratically, so this is a Schur-complement step,
+      Section~\ref{sec:schur}), and maximise what remains over the
+      multipliers $\bm{\lambda}\in\Kc_{\mu}$. What remains is exactly
+      \eqref{eq:ccp-qp} (up to sign), with the Delassus matrix
+      appearing automatically as
+      $\bm{G}=\J\M^{-1}\J^{\!\top}$.
+      The decision variables are now the \emph{contact forces}
+      themselves, constrained to a cone with a cheap projection
+      \eqref{eq:soc-projection}. ADMM and the complementarity-free
+      model live here---when Section~\ref{sec:comfree-derivation}
+      opens with ``recall the CCP dual,'' it means this object.
+\end{itemize}
+Strong duality holds (the problem is convex), so both routes find the
+same physics; the choice is computational. Primal dimension $=n_{v}$
+(DOFs); dual dimension $=3n_{c}$ (contacts). Few contacts on a big
+robot $\Rightarrow$ dual is smaller; dense contact on a small object
+$\Rightarrow$ primal is smaller.
+\end{insightbox}
+
+\subsection{MuJoCo's Approach}
+\label{sec:mujoco-contact}
+
+MuJoCo works on the \emph{primal} (velocity) formulation of the CCP:
+\begin{equation}\label{eq:mujoco-primal}
+\min_{\bm{v},\bm{y}}\;\tfrac12\|\bm{v}-\bm{v}^{f}\|_{\M}^{2}
++\tfrac12\|\bm{y}-\bm{c}^{*}\|_{\bm{R}^{-1}}^{2}
+\quad\text{s.t.}\quad\J\bm{v}-\bm{y}\in\Kc_{\mu}^{*},
+\end{equation}
+where $\bm{R}$ is a \emph{compliance} matrix.  This can be reformulated
+as the unconstrained problem:
+\begin{equation}\label{eq:mujoco-unconst}
+\min_{\bm{v}}\;\tfrac12\|\bm{v}-\bm{v}^{f}\|_{\M}^{2}
++\tfrac12\|\proj_{\Kc_{\mu}}^{\bm{R}}(\bm{y}(\J\bm{v}))\|_{\bm{R}}^{2},
+\end{equation}
+solved via Newton's method.
+
+\begin{warningbox}[MuJoCo's compliance has no physical basis]
+The compliance $\bm{R}$ is needed to make the problem strictly convex
+(ensuring a unique solution even in hyperstatic cases).
+MuJoCo sets $\bm{R}=\alpha\cdot\diag(\bm{G})$ where $\alpha\in[0,1]$.
+This has \textbf{no physical justification}---it is a numerical
+regularisation that shifts the solution.
+It affects both normal \emph{and} tangential components, relaxing
+both Signorini and Coulomb.
+The net effect is to convert the hard-contact complementarity into
+a regularised soft-contact model.
+\end{warningbox}
+
+\subsection{Deep Dive: Connecting \texttt{solref} and \texttt{solimp} to the CCP Math}
+\label{sec:solref-solimp}
+
+The user-facing MuJoCo parameters \texttt{solref} and \texttt{solimp} control
+two distinct quantities in the CCP formulation~\eqref{eq:mujoco-primal}:
+the \emph{reference velocity} $c^{*}$ and the \emph{compliance} $\bm{R}$.
+Understanding this mapping is essential for tuning contact behaviour.
+
+\subsubsection{Reference velocity: \texttt{solref} $=[d,\;b]$}
+
+The reference velocity $c^{*}_{N}$ for the normal component at each contact
+is computed as a spring-damper response to penetration:
+\begin{equation}\label{eq:solref-math}
+c^{*}_{N}=-\frac{1}{\Delta t}\Bigl(
+\underbrace{k_{\text{ref}}\,\Delta t\;\phi(\q)}_{\text{spring (restoring)}}
++\underbrace{b_{\text{ref}}\;\dot\phi}_{\text{damper}}
+\Bigr),
+\end{equation}
+where $\phi<0$ is the penetration depth (negative when penetrating),
+and $\dot\phi$ is its rate of change.
+
+The stiffness $k_{\text{ref}}$ is derived from the time constant $d_{\text{ref}}$:
+\begin{equation}
+k_{\text{ref}}=\frac{2}{d_{\text{ref}}^{2}\,(1+b_{\text{ref}})}.
+\end{equation}
+
+\textbf{Interpretation of default values} $[d_{\text{ref}},\;b_{\text{ref}}]=[0.02,\;1.0]$:
+\begin{itemize}
+\item $d_{\text{ref}}=0.02$\,s is the time constant of the virtual spring.
+      This corresponds to stiffness $k=2/(0.02^{2}\cdot 2)=2500$\,N/m per unit mass.
+      Smaller $d_{\text{ref}}$ $\Rightarrow$ stiffer spring $\Rightarrow$ less penetration,
+      but harder numerics (stiffer ODE).
+\item $b_{\text{ref}}=1.0$ is the damping ratio.
+      $b=1$ is critical damping: the contact settles without bouncing.
+      $b<1$ allows elastic bouncing (under-damped).
+      $b>1$ over-damps (slower settling).
+\end{itemize}
+
+\begin{examplebox}[Worked Example: Effect of \texttt{solref} on a dropped ball]
+A ball dropped from $1$\,m onto a flat plane. Time step $\Delta t=0.002$\,s.
+
+\textbf{Case 1:} \texttt{solref}$\;=[0.02, 1.0]$ (default, stiff, critically damped).
+Ball penetrates ${\sim}0.1$\,mm. Settles in one bounce. Looks ``hard.''
+
+\textbf{Case 2:} \texttt{solref}$\;=[0.1, 1.0]$ (soft, critically damped).
+$k=2/(0.1^{2}\cdot 2)=100$\,N/m.
+Ball penetrates ${\sim}5$\,mm. Settles slowly. Looks ``squishy.''
+
+\textbf{Case 3:} \texttt{solref}$\;=[0.02, 0.3]$ (stiff, under-damped).
+Ball bounces several times before settling (like a rubber ball).
+\end{examplebox}
+
+\subsubsection{Impedance: \texttt{solimp} $=[d_{\min},\;d_{\max},\;w,\;\ldots]$}
+
+The impedance (inverse compliance, $R^{-1}$) controls how the contact
+stiffness varies with penetration depth:
+\begin{equation}\label{eq:solimp-math}
+R_{N}^{-1}(\phi)=d_{\min}+(d_{\max}-d_{\min})\cdot\sigma\!\left(\frac{\phi}{w}\right),
+\end{equation}
+where $\sigma(\cdot)$ is a smooth sigmoid (step) function and $w$ controls the
+transition width.
+
+\begin{itemize}
+\item At zero penetration ($\phi\approx 0$): impedance $\approx(d_{\min}+d_{\max})/2$.
+\item Deep penetration ($\phi\gg w$): $R_{N}^{-1}\to d_{\max}$ (high stiffness, hard wall).
+\item No penetration ($\phi\ll 0$, separating): $R_{N}^{-1}\to d_{\min}$ (low stiffness, easy release).
+\end{itemize}
+
+Default values: $[d_{\min},d_{\max},w]=[0.9,\;0.95,\;0.001]$.
+These are close to 1.0, meaning the impedance is nearly constant and close to unity.
+
+\begin{center}
+\begin{tikzpicture}
+\begin{axis}[
+  width=10cm, height=5.5cm,
+  xlabel={Penetration depth $\phi$ (m)}, ylabel={Impedance $R_{N}^{-1}$},
+  grid=major, grid style={gray!30},
+  domain=-0.01:0.01, samples=100,
+  title={Impedance profile from \texttt{solimp}},
+  ymin=0.85, ymax=1.0,
+  legend pos=south east
+]
+\addplot[blue, very thick]{0.9 + 0.05/(1+exp(-x/0.001))};
+\addlegendentry{$d_{\min}=0.9$, $d_{\max}=0.95$, $w=0.001$}
+\addplot[red, thick, dashed]{0.5 + 0.45/(1+exp(-x/0.003))};
+\addlegendentry{$d_{\min}=0.5$, $d_{\max}=0.95$, $w=0.003$}
+\draw[dashed, gray, thin] (axis cs:-0.01,0.9) -- (axis cs:0.01,0.9);
+\draw[dashed, gray, thin] (axis cs:-0.01,0.95) -- (axis cs:0.01,0.95);
+\end{axis}
+\end{tikzpicture}
+\end{center}
+
+\subsubsection{How compliance enters the CCP}
+
+For each contact point $i$, the compliance matrix is:
+\begin{equation}
+\bm{R}^{(i)}=\diag\bigl(R_{N}^{(i)},\;R_{T_{x}}^{(i)},\;R_{T_{y}}^{(i)}\bigr),
+\end{equation}
+where $R_{N}$ is determined by \texttt{solimp} and $R_{T}$ is also set to a non-zero value by MuJoCo.
+
+This enters the Delassus matrix via:
+\begin{equation}
+\tilde{\bm{G}}=\bm{G}+\bm{R}=\J\M^{-1}\J^{\!\top}+\bm{R}.
+\end{equation}
+Adding $\bm{R}$ ensures $\tilde{\bm{G}}$ is positive definite even when $\bm{G}$
+is singular (hyperstatic contacts), guaranteeing a unique solution.
+
+\begin{warningbox}[The tangential compliance controversy]
+MuJoCo also sets $R_{T}\ne 0$, which \textbf{relaxes Coulomb's law}.
+With tangential compliance, friction becomes \emph{viscous} (proportional to
+sliding velocity) rather than \emph{dry} (set-valued).
+Consequences:
+\begin{itemize}
+\item Objects on slopes may slowly \emph{creep} instead of remaining stationary.
+\item Friction forces become velocity-dependent, deviating from the maximum dissipation principle.
+\item The sliding-cube diagnostic test (Le~Lidec et al.) shows measurably different energy dissipation.
+\end{itemize}
+
+\textbf{Le~Lidec et al.'s position:} ``The compliance added in MuJoCo has no physical purpose and should be considered a numerical trick designed to circumvent issues due to hyper-staticity or ill-conditioning, at the cost of impairing the simulation.''
+
+\textbf{MuJoCo's counter-argument:} The compliance makes the problem well-conditioned, enables Newton's method to converge reliably, and the artifacts are small relative to other sources of modelling error for typical robotics time steps ($\Delta t\lesssim 5$\,ms).
+
+\textbf{Our assessment:} Both positions have merit.  For \emph{trajectory optimisation}, MuJoCo's compliance provides the smooth gradients that iLQR/DDP requires, at a known and controllable cost in physical accuracy.  For \emph{high-fidelity contact analysis}, ADMM on the true CCP (or NCP) is preferable.  For \emph{contact-rich MPC}, sampling-based methods sidestep the issue entirely by not requiring gradients.
+\end{warningbox}
+
+\subsubsection{Comparison: MuJoCo vs.\ Drake vs.\ hard-contact ADMM}
+
+\begin{center}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Property} & \textbf{MuJoCo} & \textbf{Drake} & \textbf{ADMM (hard)}\\
+\midrule
+Compliance $\bm{R}$ & $\alpha\diag(\bm{G})$ (numerical) & material stiffness & $\bm{R}=\0$ (proximal $\rho$)\\
+Signorini & Relaxed (spring) & Relaxed (hydroelastic) & Exact\\
+Coulomb & Relaxed (viscous $R_{T}$) & Relaxed (less so) & Exact\\
+Hyperstatic & Always unique & Always unique & Unique via $\rho$\\
+Gradients available & Yes (smooth) & Yes (smooth) & No (discontinuous)\\
+Hard contacts & No & No & Yes\\
+Internal forces & No & No & No\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Drake's Approach}
+\label{sec:drake-contact}
+
+Drake (Castro, Permenter, Han, 2022) also solves the primal CCP
+formulation but provides a more principled way of setting $\bm{R}$.
+Drake's \emph{hydroelastic contact} model computes contact patches
+(not point contacts) between geometries, and derives compliance from
+material properties.
+
+The key differences from MuJoCo:
+\begin{enumerate}
+\item Compliance $\bm{R}$ is set based on \emph{material stiffness}, not
+      as a numerical hack based on $\diag(\bm{G})$.
+\item Uses a Newton solver with an advanced line search.
+\item The hydroelastic model computes a pressure field over the
+      contact surface, giving physically meaningful ``force at a distance''
+      for nearly-touching objects.
+\end{enumerate}
+
+\subsection{ADMM for the CCP}
+
+An alternative to Newton's method is the Alternating Direction Method
+of Multipliers (ADMM), which solves the \emph{dual} CCP \eqref{eq:ccp-qp}:
+
+\begin{algorithm}[H]
+\caption{ADMM for CCP}\label{alg:admm}
+$\tilde{\bm{G}}^{-1}\leftarrow(\bm{G}+\rho\I)^{-1}$\;
+\For{$k=1,\ldots,n_{\text{iter}}$}{
+  $\bm{\lambda}\leftarrow-\tilde{\bm{G}}^{-1}(\bm{g}-\rho\bm{z}+\bm{\gamma})$\;
+  $\bm{z}\leftarrow\proj_{\Kc_{\mu}}(\bm{\lambda}+\bm{\gamma}/\rho)$\;
+  $\bm{\gamma}\leftarrow\bm{\gamma}+\rho(\bm{\lambda}-\bm{z})$\;
+}
+\end{algorithm}
+
+ADMM has several advantages:
+\begin{itemize}
+\item Handles hard contacts ($\bm{R}=\0$) naturally via the proximal
+      regularisation $\rho$.
+\item Produces no internal forces in underdetermined problems.
+\item Robust to ill-conditioned Delassus matrices.
+\item Benefits from efficient Cholesky factorisation of $\bm{G}+\rho\I$.
+\end{itemize}
+
+\paragraph{Reading the three steps with Chapter 1 eyes.}
+ADMM splits the variable into two copies---$\bm{\lambda}$
+(unconstrained, handles the quadratic) and $\bm{z}$ (constrained,
+handles the cone)---tied together by the consensus constraint
+$\bm{\lambda}=\bm{z}$, and runs an augmented-Lagrangian
+(Section~\ref{sec:solving-constrained}) loop on the split problem:
+\begin{enumerate}
+\item The $\bm{\lambda}$-step minimises the augmented Lagrangian over
+      the unconstrained copy: a \emph{linear solve} with the fixed
+      matrix $\bm{G}+\rho\I$---factor once with Cholesky
+      (Section~\ref{ch:linalg}), back-substitute every iteration.
+      Note $\rho\I$ is the identity-shift regulariser yet again:
+      even a singular $\bm{G}$ (hyperstatic contact) yields a
+      well-posed step, which is precisely why ADMM produces no
+      internal forces where PGS does.
+\item The $\bm{z}$-step minimises over the constrained copy: by
+      construction this is a pure \emph{projection} onto the friction
+      cone, evaluated per-contact by the closed-form
+      \eqref{eq:soc-projection}.
+\item The $\bm{\gamma}$-step is the multiplier update of the method of
+      multipliers: the running disagreement
+      $\bm{\lambda}-\bm{z}$ is absorbed into the dual variable, tilting
+      the next subproblems toward consensus.
+\end{enumerate}
+Nothing in the loop is new---it is the augmented Lagrangian plus the
+cone projection, alternated. This compositional view is also the
+practical debugging view: slow convergence almost always traces to the
+penalty parameter $\rho$ (too small: the projection dominates and
+consensus crawls; too large: the linear solve dominates and the cone is
+ignored for many iterations), and adaptive-$\rho$ schemes monitor the
+primal residual $\|\bm{\lambda}-\bm{z}\|$ against the dual residual
+$\rho\|\bm{z}^{k+1}-\bm{z}^{k}\|$ to rebalance.
+
+%-------------------------------------------------------------
+\section{Solving the Full NCP}
+
+\paragraph{PGS for NCP.}
+Adapts the LCP PGS by changing the projection step to use the
+de~Saxc\'e correction.  No convergence guarantees.
+
+\paragraph{Staggered projections.}
+Rewrites the NCP as two interleaved convex problems (one for normal
+forces, one for tangential) solved in alternation.  Typically converges
+in ${\sim}5$ iterations.  Used in the differentiable simulator of
+Le~Lidec et al.
+
+%-------------------------------------------------------------
+\section{Complementarity-Free Contact Modelling}
+\label{sec:comfree}
+
+All methods above---LCP, CCP, NCP---share a common structure: they formulate
+contact as a \emph{complementarity problem} that must be solved (iteratively) at every
+simulation time step. Jin~(2025) proposed a fundamentally different approach:
+\emph{dispense with complementarity entirely} by deriving a closed-form contact
+force that automatically satisfies Coulomb's friction law.
+
+\subsection{Motivation: Why Bypass Complementarity?}
+
+Complementarity-based solvers create three difficulties for trajectory optimisation:
+\begin{enumerate}
+\item \textbf{Non-smoothness.} The mapping from state to contact force is
+      set-valued (or at best piecewise-smooth), breaking gradient-based planners.
+\item \textbf{Combinatorial complexity.} With $n_{c}$ contacts, there are $3^{n_{c}}$
+      possible contact modes (stick/slide/separate per contact).  Complementarity
+      solvers must implicitly or explicitly enumerate these modes.
+\item \textbf{Computational cost.} Iterative solves (PGS, ADMM, Newton) scale
+      super-linearly with the number of contacts.
+\end{enumerate}
+
+The complementarity-free model addresses all three: it provides a
+\emph{closed-form, differentiable, Coulomb-consistent} contact force computation
+whose cost scales \emph{linearly} with the number of contacts.
+
+\subsection{From the CCP Dual to Closed-Form Forces}
+\label{sec:comfree-derivation}
+
+Recall the CCP dual problem~\eqref{eq:ccp-qp}:
+\begin{equation}\label{eq:ccp-dual-recap}
+\max_{\bm{\beta}\ge\0}\;-\tfrac{1}{2h^{2}}\bm{\beta}^{\!\top}
+\bigl(\tilde{\J}\bm{Q}^{-1}\tilde{\J}^{\!\top}+\bm{R}\bigr)\bm{\beta}
+-\tfrac{1}{h}\bigl(\tilde{\J}\bm{Q}^{-1}\bm{b}+\tilde{\bm{\phi}}\bigr)^{\!\top}\bm{\beta}
++\text{const},
+\end{equation}
+where $\bm{Q}$ encodes the system inertia, $\bm{b}$ the non-contact forces,
+$\tilde{\J}$ stacks the linearised dual-cone Jacobians (normal minus $\mu$ times
+tangential for each polyhedral facet), $\tilde{\bm{\phi}}$ stacks the gap distances,
+and $\bm{\beta}\ge\0$ are the dual variables (contact impulses in the polyhedral
+dual-cone parameterisation).
+
+The KKT optimality condition for \eqref{eq:ccp-dual-recap} is a
+\emph{complementarity condition} in the dual:
+\begin{equation}\label{eq:dual-comp}
+0\le\bm{\beta}\perp
+\frac{1}{h}\bigl(\tilde{\J}\bm{Q}^{-1}\tilde{\J}^{\!\top}+\bm{R}\bigr)\bm{\beta}
++\bigl(\tilde{\J}\bm{Q}^{-1}\bm{b}+\tilde{\bm{\phi}}\bigr)\ge\0.
+\end{equation}
+
+\begin{stepbox}[Key step: Replacing the coupled matrix with a diagonal]
+The matrix $(\tilde{\J}\bm{Q}^{-1}\tilde{\J}^{\!\top}+\bm{R})^{-1}$
+couples all contacts.  Jin replaces it with a positive-definite
+\emph{diagonal} matrix $\bm{K}(\q)$:
+\begin{equation}\label{eq:K-replacement}
+\bm{K}(\q)\approx\bigl(\tilde{\J}\bm{Q}^{-1}\tilde{\J}^{\!\top}+\bm{R}\bigr)^{-1}.
+\end{equation}
+With this diagonal approximation, the complementarity~\eqref{eq:dual-comp}
+\emph{decouples across contacts} and admits a closed-form solution
+using the identity $0\le x\perp(x+\lambda)\ge 0\;\Leftrightarrow\;x=\max(-\lambda,0)$:
+\begin{equation}\label{eq:beta-closed}
+\boxed{
+\bm{\beta}^{+}=\max\!\Bigl(-h\,\bm{K}(\q)\bigl(\tilde{\J}\bm{Q}^{-1}\bm{b}+\tilde{\bm{\phi}}\bigr),\;\0\Bigr).
+}
+\end{equation}
+\end{stepbox}
+
+The resulting post-contact velocity is:
+\begin{equation}\label{eq:comfree-velocity}
+\bm{v}^{+}=\frac{1}{h}\bm{Q}^{-1}\bm{b}
++\frac{1}{h}\bm{Q}^{-1}\tilde{\J}^{\!\top}
+\max\!\Bigl(-\bm{K}(\q)\bigl(\tilde{\J}\bm{Q}^{-1}\bm{b}+\tilde{\bm{\phi}}\bigr),\;\0\Bigr).
+\end{equation}
+
+\subsection{Physical Interpretation: A Spring in the Dual Cone}
+\label{sec:comfree-spring}
+
+Equation~\eqref{eq:comfree-velocity} has a beautiful physical interpretation.
+Rewriting with explicit labels:
+\begin{equation}\label{eq:comfree-spring}
+h\bm{v}^{+}=\bm{Q}^{-1}\!\Bigl(
+\underbrace{\bm{b}}_{\substack{\text{non-contact}\\\text{forces}}}
++\;\tilde{\J}^{\!\top}\underbrace{\max\!\bigl(-\bm{K}\cdot
+\overbrace{\min(\tilde{\J}\bm{Q}^{-1}\bm{b}+\tilde{\bm{\phi}},\;\0)}^{
+\text{penetration into dual cone}},\;\0\bigr)}_{\bm{\lambda}_{\text{contact}}\;\text{(spring force in dual cone)}}
+\Bigr).
+\end{equation}
+
+\begin{insightbox}[The dual-cone spring analogy]
+\begin{enumerate}
+\item First, compute the displacement $\bm{Q}^{-1}\bm{b}$ that would occur
+      under non-contact forces alone (gravity, actuation).
+\item Check whether this displacement \emph{violates} the dual-cone constraints
+      $\tilde{\J}\bm{v}\,h+\tilde{\bm{\phi}}\ge\0$.
+      The ``penetration depth'' into the dual cone is
+      $\min(\tilde{\J}\bm{Q}^{-1}\bm{b}+\tilde{\bm{\phi}},\;\0)\le\0$.
+\item Apply a \emph{spring-like restoring force} proportional to this penetration,
+      with stiffness $\bm{K}(\q)$.  This force lives in the dual cone and is
+      mapped to generalised coordinates via $\tilde{\J}^{\!\top}$.
+\end{enumerate}
+The $\max(\cdot,\0)$ ensures that contact forces are only generated when
+the dual cone is actually violated---otherwise (separation), no force is applied.
+This is illustrated in Figure~\ref{fig:comfree-spring}.
+\end{insightbox}
+
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[scale=0.85]
+% Panel (a): dual cone
+\begin{scope}
+\fill[red!10] (0,0) -- (-1.2,2.5) -- (1.2,2.5) -- cycle;
+\draw[red, thick] (0,0) -- (-1.2,2.5);
+\draw[red, thick] (0,0) -- (1.2,2.5);
+\node[red, above] at (0,2.6) {\footnotesize dual cone};
+% Predicted motion
+\draw[-{Stealth}, green!50!black, very thick] (0,1.5) -- (0.8,0.3);
+\node[green!50!black, right] at (0.8,0.3) {\footnotesize $\bm{Q}^{-1}\bm{b}$};
+\node[below] at (0,-0.3) {\footnotesize (a) Prediction};
+\end{scope}
+% Panel (b): penetration
+\begin{scope}[xshift=5cm]
+\fill[red!10] (0,0) -- (-1.2,2.5) -- (1.2,2.5) -- cycle;
+\draw[red, thick] (0,0) -- (-1.2,2.5);
+\draw[red, thick] (0,0) -- (1.2,2.5);
+\draw[-{Stealth}, green!50!black, very thick] (0,1.5) -- (0.8,0.3);
+% Penetration arrow
+\draw[{Stealth}-, thick, black] (0.55,1.07) -- (0.8,0.3);
+\node[black, right] at (0.9,0.7) {\footnotesize penetration};
+\node[below] at (0,-0.3) {\footnotesize (b) Violation};
+\end{scope}
+% Panel (c): spring correction
+\begin{scope}[xshift=10cm]
+\fill[red!10] (0,0) -- (-1.2,2.5) -- (1.2,2.5) -- cycle;
+\draw[red, thick] (0,0) -- (-1.2,2.5);
+\draw[red, thick] (0,0) -- (1.2,2.5);
+\draw[-{Stealth}, green!50!black, very thick] (0,1.5) -- (0.8,0.3);
+% Spring force
+\draw[-{Stealth}, blue, very thick] (0.8,0.3) -- (0.3,1.3);
+\node[blue, left] at (0.2,1.0) {\footnotesize $\bm{K}\cdot$pen};
+% Corrected
+\draw[-{Stealth}, violet, very thick, dashed] (0,1.5) -- (0.3,1.3);
+\node[violet, above left] at (0.2,1.4) {\footnotesize $\bm{v}^{+}$};
+\node[below] at (0,-0.3) {\footnotesize (c) Correction};
+\end{scope}
+\end{tikzpicture}
+\caption{Physical interpretation of complementarity-free contact.
+(a)~The dual cone (red) and the predicted motion under non-contact forces (green).
+(b)~The predicted motion violates the dual cone; the violation depth is computed.
+(c)~A spring force (blue) proportional to the violation pushes the motion back,
+yielding the corrected velocity $\bm{v}^{+}$ (violet).}
+\label{fig:comfree-spring}
+\end{figure}
+
+\subsection{Automatic Coulomb Satisfaction}
+
+A key property: the contact force $\bm{\lambda}_{\text{contact}}$ in~\eqref{eq:comfree-spring}
+automatically satisfies Coulomb's friction law.  This follows because
+$\bm{\beta}^{+}\ge\0$ by construction (it is the output of $\max(\cdot,0)$),
+and the mapping from $\bm{\beta}$ back to normal and tangential forces
+via the polyhedral parameterisation guarantees
+$\mu_{i}\|\bm{\lambda}_{T}^{(i)}\|\le\|\bm{\lambda}_{N}^{(i)}\|$
+by the triangle inequality. No separate friction projection is needed.
+
+\begin{examplebox}[Worked Example: ComFree on a 1D block on a floor]
+Consider a unit-mass block at height $\phi$ above a floor with no tangential
+motion (frictionless, 1D normal contact only).
+
+The dual-cone constraint reduces to $v_{N}^{+}+\phi/h\ge 0$ (non-penetration
+at velocity level).  With $\bm{Q}=m/h^{2}=1/h^{2}$, $\bm{b}=mv/h+\tau$
+(where $\tau=-mg$), and $\tilde{J}=1$ (normal Jacobian):
+
+$\tilde{J}Q^{-1}b+\tilde{\phi}=h^{2}(v/h-g)+\phi=hv-h^{2}g+\phi.$
+
+For a block at rest ($v=0$) sitting on the floor ($\phi=0$) with $g=10$, $h=0.01$:
+
+$\tilde{J}Q^{-1}b+\phi=0-0.001+0=-0.001<0.$
+
+The dual cone is violated (gravity would push the block into the floor).
+The spring force:
+$\beta^{+}=\max(-K\cdot(-0.001),0)=0.001K.$
+
+With $K\approx (JQ^{-1}J^{\!\top})^{-1}=Q=1/h^{2}=10{,}000$:
+$\beta^{+}=10$, which gives a contact force $\lambda_{N}=\beta/h=1000$\,N$\cdot$s$^{-1}$...
+but wait, we need to be careful with units.
+In the impulse formulation: $\lambda_{N}\,h=\beta^{+}=10$, so $\lambda_{N}=10/0.01=1000$.
+This is exactly $mg=1\times 10/0.01$ in the impulse-per-step units---the floor
+supports the block against gravity.  \checkmark
+
+If instead $\phi=0.01$ (block is $1$\,cm \emph{above} the floor):
+$\tilde{J}Q^{-1}b+\phi=-0.001+0.01=0.009>0$.
+No violation, so $\beta^{+}=\max(-K\cdot 0.009,0)=0$.  No contact force.  \checkmark
+\end{examplebox}
+
+\subsection{Extension: Adding Damping for Dynamic Stability}
+
+In dynamic settings (as opposed to quasi-static manipulation), the spring-only
+model~\eqref{eq:comfree-velocity} can exhibit oscillations at contact.
+Jin adds a velocity-dependent \emph{damping} term:
+\begin{equation}\label{eq:comfree-damped}
+\bm{\lambda}_{\text{contact}}^{\text{ext}}=\max\!\Bigl(
+-\bm{K}(\q)\bigl(\tilde{\J}\bm{Q}^{-1}\bm{b}+\tilde{\bm{\phi}}\bigr)
+-\bm{D}(\q)\tilde{\J}\cdot\tfrac{1}{h}\bm{Q}^{-1}\bm{b},\;\0\Bigr),
+\end{equation}
+where $\bm{D}(\q)$ is a diagonal damping matrix.  The term
+$\tilde{\J}\cdot\frac{1}{h}\bm{Q}^{-1}\bm{b}$ is the contact-frame velocity
+caused by non-contact forces.
+
+This gives a classical \emph{spring-damper} model in the dual cone, directly
+analogous to MuJoCo's \texttt{solref} spring-damper in the primal Signorini space.
+
+\subsection{ComFree-Sim: GPU Parallelisation}
+
+Because the closed-form update~\eqref{eq:beta-closed} \emph{decouples across contacts}
+(each $\beta_{i}^{+}$ depends only on local quantities), the computation maps
+naturally to GPU kernels:
+\begin{enumerate}
+\item \textbf{Kernel I:} Compute smooth predicted velocity $\bm{v}_{\text{smooth}}^{+}=\bm{v}+\M^{-1}(\bm{\tau}-\bm{c})\,h$.
+\item \textbf{Kernel II:} Per-contact, per-cone-facet: compute dual-cone impulse via~\eqref{eq:beta-closed}.
+\item \textbf{Kernel III:} Accumulate generalised impulses $\bm{p}=\sum\tilde{\J}^{\!\top}\bm{\lambda}$.
+\item \textbf{Kernel IV:} Apply velocity correction $\bm{v}^{+}=\bm{v}_{\text{smooth}}^{+}+\M^{-1}\bm{p}\,h$.
+\end{enumerate}
+
+This yields \emph{near-linear} runtime scaling with contact count, compared to
+the super-linear scaling of iterative solvers.  Benchmarks show ComFree-Sim
+achieves $2$--$3\times$ higher throughput than MuJoCo Warp in dense-contact scenes.
+
+\subsection{The Dual-Cone Impedance: Connecting to MuJoCo and Drake}
+\label{sec:impedance-comparison}
+
+The complementarity-free model has two tunable parameter matrices: the stiffness
+$\bm{K}(\q)$ and damping $\bm{D}(\q)$.  Understanding how these relate to
+MuJoCo's \texttt{solref}/\texttt{solimp} and Drake's hydroelastic compliance
+is essential for building intuition across simulators.
+
+\begin{definitionbox}[Three impedance-based contact models compared]
+All three approaches convert the hard complementarity into a soft
+impedance model.  They differ in \emph{where} the impedance acts and
+\emph{how} it is parameterised:
+
+\renewcommand{\arraystretch}{1.3}
+\begin{center}
+\begin{tabular}{p{2.5cm}p{3.5cm}p{3.5cm}p{3.5cm}}
+\toprule
+& \textbf{MuJoCo} & \textbf{Drake} & \textbf{ComFree}\\
+\midrule
+\textbf{Where impedance acts}
+& Primal space (Signorini: gap $\phi$ vs.\ force $\lambda_{N}$)
+& Primal space (hydroelastic pressure field)
+& \textbf{Dual-cone space} (dual-cone violation vs.\ $\bm{\beta}$)\\
+\textbf{Parameters}
+& \texttt{solref}$=[d,b]$, \texttt{solimp}$=[d_{\min},d_{\max},w]$
+& Material stiffness, dissipation, hunt-crossley params
+& $\bm{K}(\q)$ (stiffness), $\bm{D}(\q)$ (damping)\\
+\textbf{Physical basis}
+& Numerical (no material basis for $\bm{R}=\alpha\diag(\bm{G})$)
+& Material properties (Young's modulus, Poisson ratio)
+& Approximation of $({\tilde\J}\bm{Q}^{-1}{\tilde\J}^{\!\top}+\bm{R})^{-1}$\\
+\textbf{Tangential compliance}
+& Yes (relaxes Coulomb)
+& Yes (less so)
+& No (Coulomb satisfied by construction)\\
+\textbf{Solver}
+& Newton (iterative)
+& Newton (iterative)
+& \textbf{Closed-form (no iteration)}\\
+\textbf{Signorini}
+& Relaxed (allows penetration)
+& Relaxed (pressure field)
+& Dual-cone relaxed (mitigates CCP artifacts)\\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{definitionbox}
+
+\begin{insightbox}[Why ``impedance in the dual cone'' is different from ``impedance on the gap'']
+MuJoCo's \texttt{solref} defines a spring-damper relating the \emph{gap} $\phi$
+to the \emph{normal force} $\lambda_{N}$: deeper penetration $\Rightarrow$ larger force.
+This operates in the \emph{primal} (physical) space.
+
+ComFree's $\bm{K}$ defines a spring relating the \emph{dual-cone violation}
+(a combined normal-and-tangential quantity) to the \emph{dual impulse} $\bm{\beta}$.
+This operates in the \emph{dual} space of the optimisation problem.
+
+The crucial consequence: ComFree's spring automatically respects the
+Coulomb friction cone by construction (because $\bm{\beta}$ parameterises
+forces inside the polyhedral cone), whereas MuJoCo must add separate
+tangential compliance that \emph{relaxes} Coulomb.
+
+Drake's hydroelastic model is also primal-space but is more principled
+than MuJoCo: it derives compliance from material properties rather than
+from the Delassus matrix, and computes pressure over an entire contact patch
+rather than at a single point.
+\end{insightbox}
+
+\paragraph{Practical heuristic for $\bm{K}$ in ComFree-Sim.}
+ComFree-Sim (Borse, Xie, Huang, Jin 2026) provides a practical parameterisation:
+\begin{equation}
+\bm{K}(\q)=k_{\text{user}}\cdot\bm{M}_{\phi}/h,\qquad
+\bm{D}(\q)=d_{\text{user}}\cdot\bm{M}_{\phi}/h,
+\end{equation}
+where $k_{\text{user}},d_{\text{user}}$ are global scalar parameters
+and $\bm{M}_{\phi}$ is a gap-dependent constraint-space inertia
+using the same sigmoid profile as MuJoCo's \texttt{solimp}
+(parameters $[r_{\min},r_{\max},w,m,p]$).
+This ensures a MuJoCo-compatible interface while preserving the
+analytical closed-form structure.
+
+\begin{examplebox}[Worked Example: Sliding cube --- ComFree vs.\ CCP vs.\ NCP]
+A $0.01$\,kg cube slides on a frictional plane ($\mu=0.5$) with initial
+horizontal velocity $2.0$\,m/s, $\Delta t=2$\,ms.
+
+\textbf{NCP (ground truth):} Cube decelerates at $a=-\mu g=-4.9$\,m/s$^{2}$,
+stops after $t\approx 0.41$\,s.  Travels in a straight line.  No vertical motion.
+
+\textbf{CCP (QP-based):} Dual-cone constraints force artificial vertical motion
+(``boundary layer'' artifact). The cube bounces vertically while sliding.
+
+\textbf{ComFree ($\bm{K}=\bm{I}$, $\bm{D}=0.3\bm{I}$):}
+Because ComFree \emph{relaxes} the dual-cone constraints (allowing small violations),
+the boundary-layer artifact is \textbf{mitigated}---the cube shows significantly
+less vertical bouncing than CCP.  The horizontal velocity profile is smoother
+than both CCP and MuJoCo.
+
+This is a key advantage: by operating in the dual cone with a soft spring
+rather than a hard constraint, ComFree trades strict dual-cone feasibility
+for physically more realistic behaviour in the primal (position) space.
+\end{examplebox}
+
+\begin{examplebox}[Worked Example: Sphere between two planes (``sheath effect'')]
+A sphere between two parallel planes is accelerated horizontally by
+a $1$\,N force.  Friction coefficient $\mu=0.3$.
+
+\textbf{CCP/Convex models:} The dual-cone constraints create vertical motion,
+causing the sphere to contact the \emph{upper} plane.  This generates
+opposing friction forces from both planes, producing a \emph{velocity plateau}
+(``sheath effect'') where the sphere cannot accelerate past a limiting speed.
+
+\textbf{NCP:} Correctly shows only lower-plane contact; sphere accelerates
+continuously.
+
+\textbf{ComFree:} Because dual-cone constraints are relaxed, the upper-plane
+artifact is mitigated.  The plateau velocity is significantly higher than
+CCP/Convex, approaching the NCP solution.
+This demonstrates that relaxing dual-cone constraints can be
+\emph{more physically accurate} than enforcing them.
+\end{examplebox}
+
+\subsection{Differentiability via SoftPlus}
+
+The $\max(\cdot,0)$ in~\eqref{eq:beta-closed} is non-differentiable at zero.
+For gradient-based trajectory optimisation, it is replaced with a smooth approximation:
+\begin{equation}
+\text{SoftPlus}(x)=\frac{\ln(1+e^{\gamma x})}{\gamma},\qquad\gamma>0,
+\end{equation}
+where $\gamma$ controls accuracy ($\gamma\to\infty$ recovers $\max(x,0)$).
+Typical setting: $\gamma=100$.
+
+With this substitution, the entire contact model becomes a smooth, differentiable
+function $\bm{v}^{+}=\bm{f}(\q,\bm{v},\uu)$, directly usable in gradient-based MPC.
+This is fundamentally different from MuJoCo's approach (which achieves differentiability
+via compliance regularisation of an iterative solver) and from Drake's approach
+(Newton solver with smooth compliance).
+
+\subsection{Performance: Contact-Implicit MPC at 50--100 Hz}
+
+Jin demonstrates that the complementarity-free model, integrated into
+CasADi/IPOPT-based MPC, achieves:
+\begin{itemize}
+\item \textbf{96.5\% average success rate} across fingertip in-air manipulation,
+      TriFinger in-hand manipulation, and Allegro hand on-palm reorientation
+      with 17 diverse objects.
+\item \textbf{MPC solving at 50--100\,Hz} for all tasks, compared to
+      ${\sim}20$\,Hz for complementarity-based (``Implicit'') MPC.
+\item \textbf{Average position error 7.8\,mm}, orientation error $11^{\circ}$.
+\end{itemize}
+
+ComFree-Sim (the GPU engine) further enables MPPI-based sampling MPC
+on hardware, achieving $35$--$72$\,Hz closed-loop control on a LEAP Hand with
+$2$--$3\times$ lower latency than MuJoCo Warp.
+
+%-------------------------------------------------------------
+\section{Comparison and Practical Implications}
+\label{sec:contact-comparison}
+
+\begin{center}
+\begin{tabular}{lccccc}
+\toprule
+& \textbf{Hard contacts} & \textbf{No int.\ forces} & \textbf{Robust} & \textbf{Convergence} & \textbf{Closed-form}\\
+\midrule
+LCP/PGS & \checkmark & & & &\\
+CCP/PGS & \checkmark & & & \checkmark &\\
+CCP/MuJoCo & & \checkmark & \checkmark & \checkmark &\\
+CCP/ADMM & \checkmark & \checkmark & \checkmark & \checkmark &\\
+CCP/Drake & & \checkmark & \checkmark & \checkmark &\\
+RaiSim & \checkmark & & & &\\
+NCP/PGS & \checkmark & & & &\\
+NCP/StagProj & \checkmark & \checkmark & \checkmark & &\\
+\textbf{ComFree} & & \checkmark & \checkmark & \checkmark & \checkmark\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{insightbox}[Impact on trajectory optimisation]
+The choice of contact model directly impacts MPC and trajectory
+optimisation:
+\begin{enumerate}
+\item On flat, non-slippery terrain, most solvers give similar results.
+\item On bumpy, slippery terrain, the differences become pronounced:
+      CCP models deviate from NCP, and PGS-based solvers fail to converge.
+\item For differentiable simulation (needed for gradient-based trajopt
+      through contact), the artificial compliance in MuJoCo produces
+      gradients that differ from the ``true'' contact physics.
+\item Complementarity-free models (Section~\ref{sec:comfree}) offer a
+      compelling alternative: closed-form, differentiable, Coulomb-consistent
+      contact with linear scaling---enabling real-time contact-implicit MPC
+      at 50--100\,Hz for dexterous manipulation.
+\item For problems where no differentiable contact model suffices,
+      \emph{sampling-based} planners (Chapter~\ref{ch:sampling}) remain
+      the most robust option: they require only forward simulation and
+      are agnostic to the contact solver's internals.
+\end{enumerate}
+\end{insightbox}
+
+
+%=============================================================================
+%=============================================================================
+\chapter{Grasping and Manipulation: Force Closure and Contact Wrenches}
+\label{ch:grasping}
+
+%-------------------------------------------------------------
+\section{Motivation: The Physics of Grasping}
+
+Up to this point, we have developed a unified view of contact as a set of forces constrained by friction cones, complementarity, and rigid-body dynamics. In manipulation, these same primitives appear again as the fundamental building blocks of \emph{grasping}. A grasp is simply a structured collection of contacts whose forces combine to produce object-level effects.
+
+The central question of grasping is: \emph{What net forces and torques (wrenches) can a set of contacts generate on an object?}
+
+%-------------------------------------------------------------
+\section{From Contact Forces to Wrenches}
+
+A single frictional contact point can exert a wrench (force + torque) on a grasped object. Consider a rigid body with a contact at point $\bm{p}_{i}$. A contact force $\bm{f}_{i} \in \R^{3}$ applied at that point produces both a linear force and a torque about the object's origin.
+
+We define the contact wrench $\bm{w}_{i} \in \R^{6}$:
+\begin{equation}
+\bm{w}_{i} =
+\begin{bmatrix}
+\bm{f}_{i} \\
+(\bm{p}_{i} - \bm{p}_{o}) \times \bm{f}_{i}
+\end{bmatrix}
+\end{equation}
+
+This relationship is a linear map from force to wrench:
+\begin{equation}
+\bm{w}_{i} = \bm{G}_{i} \bm{f}_{i}
+\end{equation}
+where $\bm{G}_{i}$ is the grasp map for contact $i$:
+\begin{equation}
+\bm{G}_{i} =
+\begin{bmatrix}
+\I \\
+[\bm{p}_{i} - \bm{p}_{o}]_{\times}
+\end{bmatrix}
+\end{equation}
+
+Stacking all contacts together, the total wrench on the object is the sum of the individual wrenches:
+\begin{equation}
+\bm{w} = \sum_{i} \bm{w}_{i} = \sum_{i} \bm{G}_{i} \bm{f}_{i} = \bm{G} \bm{f}
+\end{equation}
+This is structurally identical to the force aggregation used in contact dynamics, with the addition of explicitly tracked torques.
+
+%-------------------------------------------------------------
+\section{Friction Cones and the Grasp Wrench Space (GWS)}
+
+Each contact force is not arbitrary; it must lie within its respective friction cone: $\bm{f}_{i} \in \Kc_{\mu^{(i)}}$.
+
+In the object frame, the set of wrenches achievable by contact $i$ is:
+\begin{equation}
+\mathcal{W}_{i}=\bigl\{[\bm{f}^{\!\top},\;\bm{\tau}^{\!\top}]^{\!\top}
+\;\big|\;\bm{f}\in\Kc_{\mu^{(i)}},\;
+\bm{\tau}=\bm{p}^{(i)}\times\bm{f}\bigr\},
+\end{equation}
+where $\bm{p}^{(i)}$ is the contact location relative to the object's centre of mass.
+
+The \emph{grasp wrench space} (GWS) is the Minkowski sum of all contact wrench sets:
+\begin{equation}
+\text{GWS}=\mathcal{W}_{1}\oplus\mathcal{W}_{2}\oplus\cdots\oplus\mathcal{W}_{n_{c}}.
+\end{equation}
+
+\begin{insightbox}[Geometric Interpretation]
+Because the GWS is the image of a product of cones under a linear map, it is itself a \emph{convex cone}. All results follow directly from the same friction and contact models used in dynamics.
+\end{insightbox}
+
+\begin{center}
+\begin{tikzpicture}
+  % Axes
+  \draw[-{Stealth}, gray, thick] (-3.5,0) -- (3.5,0) node[right] {\footnotesize $w_x$};
+  \draw[-{Stealth}, gray, thick] (0,-3) -- (0,3) node[above] {\footnotesize $w_y$};
+
+  % GWS Polytope (Convex Hull)
+  \coordinate (A) at (2.5, 1.5);
+  \coordinate (B) at (1.0, 2.5);
+  \coordinate (C) at (-2.0, 1.8);
+  \coordinate (D) at (-2.5, -0.5);
+  \coordinate (E) at (-1.0, -2.2);
+  \coordinate (F) at (2.0, -1.8);
+
+  \fill[orange, opacity=0.15] (A) -- (B) -- (C) -- (D) -- (E) -- (F) -- cycle;
+  \draw[orange, very thick] (A) -- (B) -- (C) -- (D) -- (E) -- (F) -- cycle;
+  
+  \node[orange!80!black, above right] at (C) {\footnotesize $\text{GWS}$};
+
+  % Origin
+  \fill[black] (0,0) circle (2pt) node[below right] {\footnotesize $\0$};
+
+  % Ferrari-Canny Metric Ball (Maximal inscribed circle)
+  % Radius is the shortest distance from origin to the closest edge (approx 1.2 here)
+  \draw[blue, very thick, dashed] (0,0) circle (1.2);
+  \fill[blue, opacity=0.05] (0,0) circle (1.2);
+  
+  % Radius arrow for Q_FC
+  \draw[-{Stealth}, blue, thick] (0,0) -- (-0.85, 0.85) node[midway, below left, inner sep=1pt] {\footnotesize $Q_{\text{FC}}$};
+
+  % Note indicating force closure
+  \node[black, right] at (1.5, 2.8) {\footnotesize $\0 \in \text{int}(\text{GWS}) \implies$ Force Closure};
+\end{tikzpicture}
+\end{center}
+
+%-------------------------------------------------------------
+\section{Force Closure vs.\ Form Closure}
+
+\begin{definitionbox}[Force closure]
+A grasp is in \emph{force closure} if the GWS contains the origin in its interior: $\0\in\text{int}(\text{GWS})$.
+Equivalently, the grasp can resist any external wrench (up to some magnitude) through appropriate choice of contact forces within the friction cones.
+\end{definitionbox}
+
+\begin{itemize}
+    \item \textbf{Force Closure:} Relies on friction to expand the achievable wrench space. It is the most common paradigm in practical robotic manipulation.
+    \item \textbf{Form Closure:} A purely geometric condition where no motion is possible even with zero friction. Form closure strictly implies force closure, but not vice versa.
+\end{itemize}
+
+\paragraph{Positive span: the linear algebra of closure.}
+Force closure is, at bottom, a statement about \emph{positive} linear
+combinations. A set of vectors $\{\bm{w}_{1},\ldots,\bm{w}_{k}\}$
+\emph{positively spans} $\R^{d}$ if every vector in $\R^{d}$ can be
+written as $\sum_{j}\alpha_{j}\bm{w}_{j}$ with all $\alpha_{j}\ge 0$.
+The sign restriction is the whole story: contacts can only \emph{push}
+($\alpha_{j}\ge 0$ are forces along admissible directions), never pull,
+so ordinary span is not enough. Two standard facts give quick sanity
+checks:
+\begin{itemize}
+\item Positively spanning $\R^{d}$ requires at least $d+1$ vectors
+      (with only $d$, their positive combinations fill at most a
+      half-space---there is always an ``escape direction'' with negative
+      inner product against all of them). Hence in the plane
+      ($d=3$ wrench dimensions: $w_{x},w_{y},\tau$) at least 4 extreme
+      wrench directions are needed, which two frictional contacts
+      supply (2 cone edges each); in 3D ($d=6$) at least 7, which is
+      why frictionless form closure needs 7 contacts but three
+      frictional contacts (3--4 cone generators each) can suffice.
+\item A test: $\{\bm{w}_{j}\}$ positively spans $\R^{d}$ iff the origin
+      is in the \emph{interior} of their convex hull of directions---%
+      which is exactly the $\0\in\text{int}(\text{GWS})$ condition.
+      Equivalently, there is no separating hyperplane: no wrench
+      direction $\bm{d}$ with $\bm{d}^{\!\top}\bm{w}_{j}\le 0$ for all
+      $j$. A separating direction, if it exists, is precisely a
+      disturbance the grasp cannot resist---the certificate of failure
+      is itself physically meaningful.
+\end{itemize}
+
+\begin{definitionbox}[Nguyen's condition for planar antipodal grasps]
+For two contacts in the plane, force closure holds iff the line segment
+connecting the contact points lies \emph{strictly inside both friction
+cones}. Each cone has half-angle $\arctan\mu$ about its inward normal,
+so the condition is a simple angle check: the connecting line must make
+an angle less than $\arctan\mu$ with each contact normal.
+\end{definitionbox}
+
+\begin{examplebox}[Worked Example: Nguyen's condition, numerically]
+Grasp a disk of radius $r=4$\,cm with two fingers, with $\mu=0.4$, so
+the friction half-angle is $\arctan 0.4\approx 21.8^{\circ}$.
+
+\textbf{Case 1: perfectly antipodal contacts.} The connecting segment is
+a diameter, aligned with both inward normals: angle $0^{\circ}<21.8^{\circ}$
+at both contacts. Force closure. \checkmark
+
+\textbf{Case 2: misplaced finger.} Slide one contact along the rim by
+$30^{\circ}$ of arc. For a disk, the inward normal at each contact still
+points at the centre, and a chord subtending a central angle of
+$180^{\circ}-30^{\circ}=150^{\circ}$ makes an angle of
+$(180^{\circ}-150^{\circ})/2=15^{\circ}$ with each radius.
+Since $15^{\circ}<21.8^{\circ}$: still force closure---friction buys
+substantial placement tolerance. \checkmark
+
+\textbf{Case 3: how much misplacement is too much?} The chord angle
+equals the half-cone angle when the arc offset reaches
+$2\times 21.8^{\circ}=43.6^{\circ}$. Beyond that, the connecting line
+exits one cone: squeezing harder no longer helps---the squeeze itself
+generates a net tangential component that the other contact cannot
+cancel, and the disk squirts out (every novice chopstick user has run
+this experiment). With $\mu=0.1$ ($\arctan\mu\approx 5.7^{\circ}$) the
+tolerance shrinks to ${\sim}11^{\circ}$ of arc: low-friction objects
+demand precise antipodal placement.
+\end{examplebox}
+
+%-------------------------------------------------------------
+\section{Quality Metrics and Computation}
+
+The quality of a force-closure grasp can be quantified by the \emph{Ferrari--Canny metric}: the radius of the largest ball centred at the origin that fits inside the GWS.
+\begin{equation}
+Q_{\text{FC}}=\min_{\|\bm{w}\|=1}\max_{\bm{f}\in\prod\Kc_{\mu^{(i)}}}\bm{w}^{\!\top}\bm{G}_{\text{grasp}}\bm{f},
+\end{equation}
+where $\bm{G}_{\text{grasp}}$ is the grasp map relating contact forces to object wrenches. A larger $Q_{\text{FC}}$ means a more robust grasp.
+
+For discrete (pyramidal) friction approximations, the GWS becomes a \emph{polytope} that can be computed via convex hull algorithms. This connects directly to the LCP linearisation (Section~\ref{sec:lcp-solver}): the pyramid friction model produces a polyhedral GWS, while the true Coulomb model produces a curved boundary.
+
+%-------------------------------------------------------------
+\section{Worked Examples}
+
+\begin{examplebox}[Worked Example 1: Planar Pinch Grasp]
+Consider a 2D object grasped by two opposing contacts. Each contact provides a friction cone (a wedge in 2D).
+\begin{itemize}
+    \item Without friction ($\mu = 0$), there is no force closure.
+    \item With sufficient friction, the tangential forces allow the contact cones to expand the wrench space until it spans the full $\R^{3}$ planar wrench space.
+\end{itemize}
+\textbf{Insight:} Friction expands each contact cone, which expands the wrench space until it spans the full space.
+\end{examplebox}
+
+\begin{center}
+\begin{tikzpicture}
+  % Object
+  \draw[fill=gray!20, thick, rounded corners=3mm] (-2,-1.2) rectangle (2,1.2);
+  \fill[black] (0,0) circle (2pt) node[below right] {\footnotesize CoM ($\bm{p}_o$)};
+
+  % Left contact (p1)
+  \coordinate (P1) at (-2,0);
+  % Friction cone 1
+  \fill[blue, opacity=0.15] (P1) -- (-0.5, 1) -- (-0.5, -1) -- cycle;
+  \draw[blue, thick] (P1) -- (-0.5, 1) node[above] {\footnotesize $\Kc_{\mu^{(1)}}$};
+  \draw[blue, thick] (P1) -- (-0.5, -1);
+  % Force vector 1
+  \draw[-{Stealth}, very thick, red] (P1) -- (-0.8, 0.5) node[left] {$\bm{f}_1$};
+  \fill[black] (P1) circle (2pt) node[left] {\footnotesize $\bm{p}_1$};
+
+  % Right contact (p2)
+  \coordinate (P2) at (2,0);
+  % Friction cone 2
+  \fill[blue, opacity=0.15] (P2) -- (0.5, 1) -- (0.5, -1) -- cycle;
+  \draw[blue, thick] (P2) -- (0.5, 1) node[above] {\footnotesize $\Kc_{\mu^{(2)}}$};
+  \draw[blue, thick] (P2) -- (0.5, -1);
+  % Force vector 2
+  \draw[-{Stealth}, very thick, red] (P2) -- (1.1, -0.4) node[right] {$\bm{f}_2$};
+  \fill[black] (P2) circle (2pt) node[right] {\footnotesize $\bm{p}_2$};
+
+  % Moment arms (dashed)
+  \draw[dashed, gray!80, thick] (0,0) -- (P1);
+  \draw[dashed, gray!80, thick] (0,0) -- (P2);
+\end{tikzpicture}
+\end{center}
+
+\begin{examplebox}[Worked Example 2: Three-Point 3D Grasp]
+Three contacts provide three friction cones in $\R^{3}$.
+A common failure mode occurs if the contacts lie on a single line or plane, causing the torque directions to become linearly dependent. To achieve force closure, the set of mapped contact forces must positively span $\R^{6}$.
+\end{examplebox}
+
+%=============================================================================
+% PART IV: PUTTING IT ALL TOGETHER
+%=============================================================================
+\part{Synthesis}
+
+\chapter{Trajectory Optimisation Through Contact}
+\label{ch:trajopt-contact}
+
+%-------------------------------------------------------------
+\section{The Challenge}
+
+Contact-rich trajectory optimisation must simultaneously:
+\begin{enumerate}
+\item Plan motions that exploit contact (pushing, pivoting, grasping).
+\item Handle non-smooth dynamics (making/breaking contact).
+\item Solve for contact forces that are physically consistent.
+\end{enumerate}
+
+Derivative-based methods (iLQR/DDP) struggle because:
+\begin{itemize}
+\item Contact transitions create discontinuities in the dynamics Jacobian.
+\item The contact solver's output (forces) is not a smooth function of the state, especially with hard contacts.
+\item MuJoCo's compliance regularisation produces gradients, but they may not reflect the true physics.
+\end{itemize}
+
+Sampling-based methods are more robust because they only need
+\emph{forward simulations}, not derivatives.  This is a major reason
+MuJoCo MPC includes Predictive Sampling alongside iLQG.
+
+%-------------------------------------------------------------
+\section{Strategies for Contact-Rich Trajectory Optimisation}
+
+\paragraph{1. Sampling-based MPC.}
+Use MPPI, CEM, or annealed sampling (DIAL-MPC) with a physics
+simulator in the loop.  No derivatives needed.
+Works well for tasks where the contact sequence is not known a priori.
+
+\paragraph{2. Smoothed contact models.}
+Use compliant contact (as in MuJoCo) to smooth the dynamics, then
+apply derivative-based methods.  The compliance acts as a regulariser
+that removes the non-smoothness, at the cost of physical accuracy.
+
+\paragraph{3. Through-contact trajectory optimisation.}
+Treat contact forces as decision variables with complementarity
+constraints.  This is a mathematical programming approach
+(see Posa, Tedrake, etc.) that can find optimal contact sequences
+but requires solving difficult complementarity-constrained programs.
+
+\paragraph{4. Complementarity-free contact-implicit MPC.}
+Use a closed-form contact model (Section~\ref{sec:comfree}) that bypasses
+complementarity entirely.  The resulting MPC problem is a standard NLP
+(no nested complementarity), solvable by off-the-shelf tools (CasADi/IPOPT)
+at 50--100\,Hz.  Coulomb friction is satisfied by construction.
+This approach achieves state-of-the-art results in dexterous manipulation
+with diverse objects (Jin, 2025; Borse et al., 2026).
+
+\paragraph{5. Hybrid approaches.}
+Use a high-level planner (possibly RL-based) to determine contact
+sequences, and a low-level MPC (MuJoCo MPC) to execute each phase.
+This is the ``high-level agent'' concept from the MJPC discussion.
+
+%-------------------------------------------------------------
+\section{The MuJoCo MPC Approach in Practice}
+
+For contact-rich tasks, MuJoCo MPC typically uses:
+\begin{itemize}
+\item Predictive Sampling (or iLQG with compliant contacts).
+\item Spline-parameterised controls to reduce the search space.
+\item Rich sensor-based cost functions with proximity/contact sensors.
+\item Risk-sensitive costs to handle uncertainty from contact.
+\item Simulation slow-down to give the planner more ``thinking time.''
+\end{itemize}
+
+The ``lean task'' (bracing against a table to reach a distant object)
+and ``avoid task'' (collision avoidance using capacitive skin sensors)
+from the MJPC extensions demonstrate how sensor-based costs,
+computed ``for free'' (Section~\ref{sec:free-sensors}), enable
+complex contact-aware behaviours.
+
+
+%=============================================================================
+\appendix
+\chapter{Notation Reference}
+
+\begin{longtable}{ll}
+\toprule
+\textbf{Symbol} & \textbf{Meaning}\\
+\midrule
+$\x\in\R^{n}$ & State vector\\
+$\uu\in\R^{m}$ & Control vector\\
+$\f(\x,\uu)$ & Discrete dynamics\\
+$c(\x,\uu)$ & Running cost\\
+$c_{T}(\x)$ & Terminal cost\\
+$J$ & Total cost / objective\\
+$V_{t}(\x)$ & Value function (cost-to-go)\\
+$Q_{t}(\x,\uu)$ & State-action value function\\
+$T$ & Horizon length\\
+$\Delta t$, $h$ & Time step\\
+$\q$ & Generalised coordinates\\
+$\bm{v}$ & Generalised velocity\\
+$\M$ & Joint-space inertia matrix\\
+$\J$ & Contact Jacobian\\
+$\bm{G}=\J\M^{-1}\J^{\!\top}$ & Delassus matrix\\
+$\bm{\lambda}$ & Contact impulse / force\\
+$\lambda_{N}$ & Normal component\\
+$\bm{\lambda}_{T}$ & Tangential component\\
+$\bm{c}$ & Contact point velocity\\
+$\mu$ & Friction coefficient\\
+$\Kc_{\mu}$ & Coulomb friction cone\\
+$\bm{R}$ & Compliance matrix\\
+$\rr$ & Residual (sensor) vector\\
+$\rho(\cdot;R)$ & Risk-sensitive transformation\\
+$\bm{\theta}$ & Spline parameters\\
+$N$ & Number of rollouts / samples\\
+$\sigma$ & Noise standard deviation\\
+\bottomrule
+\end{longtable}
+
+
+\chapter{Further Reading}
+
+\begin{enumerate}
+\item Howell et al., ``Predictive Sampling: Real-time Behaviour Synthesis with MuJoCo,'' DeepMind, 2022.
+\item Le~Lidec et al., ``Contact Models in Robotics: a Comparative Analysis,'' Inria, 2024.
+\item Kelly, ``An Introduction to Trajectory Optimization,'' SIAM Review, 2017.
+\item Tassa et al., ``Synthesis and stabilization of complex behaviors through online trajectory optimization,'' IROS, 2012.
+\item Tassa et al., ``Control-limited differential dynamic programming,'' ICRA, 2014.
+\item Williams et al., ``Model predictive path integral control,'' JGCD, 2017.
+\item Castro, Permenter, Han, ``An unconstrained convex formulation of compliant contact,'' IEEE T-RO, 2022.
+\item Todorov, Erez, Tassa, ``MuJoCo: A physics engine for model-based control,'' IROS, 2012.
+\item Jin, ``Complementarity-Free Multi-Contact Modeling and Optimization for Dexterous Manipulation,'' RSS, 2025.
+\item Borse, Xie, Huang, Jin, ``ComFree-Sim: A GPU-Parallelized Analytical Contact Physics Engine,'' arXiv:2603.12185, 2026.
+\item Anitescu, ``Optimization-based simulation of nonsmooth rigid multibody dynamics,'' Math.\ Prog., 2006.
+\end{enumerate}
+
+\end{document}
