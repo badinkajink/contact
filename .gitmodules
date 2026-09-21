@@ -1,0 +1,3 @@
+[submodule "linear_algebra/VMLS-Companions"]
+	path = linear_algebra/VMLS-Companions
+	url = https://github.com/vbartle/VMLS-Companions
