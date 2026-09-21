@@ -148,7 +148,18 @@ def register(path: Path, temporary: bool = False) -> dict:
 def default_out_dir(path: Path, temporary: bool) -> str:
     if not temporary and os.access(path.parent, os.W_OK):
         return str(path.parent)
-    for candidate in (Path.home() / "Downloads", Path.home() / "Desktop", Path.home()):
+    candidates = []
+    if shutil.which("xdg-user-dir"):      # honours localised folder names on Linux
+        for name in ("DOWNLOAD", "VIDEOS", "DESKTOP"):
+            try:
+                found = subprocess.run(["xdg-user-dir", name], capture_output=True,
+                                       text=True, timeout=5).stdout.strip()
+            except (OSError, subprocess.SubprocessError):
+                continue
+            if found:
+                candidates.append(Path(found))
+    candidates += [Path.home() / "Downloads", Path.home() / "Desktop", Path.home()]
+    for candidate in candidates:
         if candidate.is_dir() and os.access(candidate, os.W_OK):
             return str(candidate)
     return str(Path.cwd())
@@ -171,9 +182,11 @@ def thumb_strip(token: str, count: int = 48) -> bytes:
     cmd = [
         FFMPEG, "-hide_banner", "-nostdin", "-v", "error", "-y",
         "-i", str(path),
-        "-vf", (f"fps={rate:.6f},scale=-1:{tile_h}:flags=fast_bilinear,"
-                f"tile={count}x1:padding=0:color=black"),
-        "-frames:v", "1", "-q:v", "6", str(out),
+        # -2 keeps the tile width even (older mjpeg builds refuse odd widths) and
+        # -update says "one image, not a sequence"
+        "-vf", (f"fps={rate:.6f},scale=-2:{tile_h}:flags=fast_bilinear,"
+                f"tile={count}x1:padding=0"),
+        "-frames:v", "1", "-update", "1", "-q:v", "6", str(out),
     ]
     subprocess.run(cmd, capture_output=True, check=True, timeout=180)
     data = out.read_bytes()
@@ -487,30 +500,70 @@ def job_view(job: dict) -> dict:
 
 # ------------------------------------------------------- native file dialog --
 
-def native_pick(kind: str = "file") -> str | None:
-    if sys.platform == "darwin":
-        prompt = "Choose a video" if kind == "file" else "Choose an output folder"
-        verb = "choose file" if kind == "file" else "choose folder"
-        script = f'POSIX path of ({verb} with prompt "{prompt}")'
-        res = subprocess.run(["osascript", "-e", script], capture_output=True, text=True)
-        return res.stdout.strip() or None
-    zenity = shutil.which("zenity")
-    if zenity:
-        cmd = [zenity, "--file-selection"]
-        if kind != "file":
+def dialog_cmd(kind: str = "file", platform: str | None = None) -> list[str] | None:
+    """The command that asks the desktop for a path, or None if there isn't one.
+
+    macOS has osascript; Linux desktops have zenity (Ubuntu ships it) or
+    kdialog. Without either, the UI falls back to its own file browser.
+    """
+    platform = platform or sys.platform
+    wants_dir = kind != "file"
+    if platform == "darwin":
+        prompt = "Choose an output folder" if wants_dir else "Choose a video"
+        verb = "choose folder" if wants_dir else "choose file"
+        return ["osascript", "-e", f'POSIX path of ({verb} with prompt "{prompt}")']
+    if shutil.which("zenity"):
+        cmd = ["zenity", "--file-selection",
+               "--title=" + ("Choose an output folder" if wants_dir else "Choose a video")]
+        if wants_dir:
             cmd.append("--directory")
-        res = subprocess.run(cmd, capture_output=True, text=True)
-        return res.stdout.strip() or None
+        else:
+            globs = " ".join(f"*{ext}" for ext in sorted(VIDEO_EXTS))
+            cmd += [f"--file-filter=Video | {globs} {globs.upper()}", "--file-filter=All files | *"]
+        return cmd
+    if shutil.which("kdialog"):
+        return (["kdialog", "--getexistingdirectory", "."] if wants_dir
+                else ["kdialog", "--getopenfilename", ".", "video/*"])
     return None
 
 
-def reveal(path: Path) -> None:
-    if sys.platform == "darwin":
-        subprocess.run(["open", "-R", str(path)], check=False)
-    elif sys.platform.startswith("linux") and shutil.which("xdg-open"):
-        subprocess.run(["xdg-open", str(path.parent)], check=False)
-    elif os.name == "nt":
-        subprocess.run(["explorer", f"/select,{path}"], check=False)
+def native_pick(kind: str = "file") -> str | None:
+    cmd = dialog_cmd(kind)
+    if not cmd:
+        return None
+    res = subprocess.run(cmd, capture_output=True, text=True)
+    return res.stdout.strip() or None
+
+
+def reveal_cmds(path: Path, platform: str | None = None) -> list[list[str]]:
+    """Candidate 'show me this file' commands, best first."""
+    platform = platform or sys.platform
+    if platform == "darwin":
+        return [["open", "-R", str(path)]]
+    if platform.startswith("linux"):
+        cmds = []
+        if shutil.which("dbus-send"):     # selects the file in most file managers
+            cmds.append(["dbus-send", "--session", "--print-reply",
+                         "--dest=org.freedesktop.FileManager1",
+                         "--type=method_call", "/org/freedesktop/FileManager1",
+                         "org.freedesktop.FileManager1.ShowItems",
+                         f"array:string:{path.as_uri()}", "string:"])
+        if shutil.which("xdg-open"):      # at least open the folder
+            cmds.append(["xdg-open", str(path.parent)])
+        return cmds
+    if os.name == "nt":
+        return [["explorer", f"/select,{path}"]]
+    return []
+
+
+def reveal(path: Path) -> bool:
+    for cmd in reveal_cmds(path):
+        try:
+            if subprocess.run(cmd, capture_output=True, timeout=10).returncode == 0:
+                return True
+        except (OSError, subprocess.SubprocessError):
+            continue
+    return False
 
 
 # ------------------------------------------------------------------ server ---
@@ -619,6 +672,9 @@ class Handler(BaseHTTPRequestHandler):
                 })
             if route == "/api/pick":
                 kind = (query.get("kind") or ["file"])[0]
+                if not dialog_cmd(kind):
+                    # no zenity/kdialog: the page falls back to its own browser
+                    return self._json({"unavailable": True})
                 picked = native_pick(kind)
                 if not picked:
                     return self._json({"cancelled": True})
@@ -721,8 +777,9 @@ class Handler(BaseHTTPRequestHandler):
                 body = self._read_json()
                 target = Path(str(body.get("path", ""))).expanduser()
                 if target.exists():
-                    reveal(target)
-                    return self._json({"ok": True})
+                    if reveal(target):
+                        return self._json({"ok": True})
+                    return self._fail("no file manager answered; open the folder yourself")
                 return self._fail("no such path", 404)
             return self._fail("not found", 404)
         except (ValueError, FileNotFoundError, IsADirectoryError, PermissionError) as exc:
@@ -770,6 +827,31 @@ def guess_mime(path: Path) -> str:
     }.get(path.suffix.lower(), "application/octet-stream")
 
 
+def install_hint() -> str:
+    if sys.platform == "darwin":
+        return "brew install ffmpeg"
+    if sys.platform.startswith("linux"):
+        if shutil.which("apt"):
+            return "sudo apt install ffmpeg"
+        if shutil.which("dnf"):
+            return "sudo dnf install ffmpeg"
+        if shutil.which("pacman"):
+            return "sudo pacman -S ffmpeg"
+    return "see https://ffmpeg.org/download.html"
+
+
+def warn_if_ffmpeg_is_ancient() -> None:
+    """Everything here works on ffmpeg 4.3+ (Ubuntu 22.04 ships 4.4)."""
+    try:
+        out = subprocess.run([FFMPEG, "-version"], capture_output=True, text=True, timeout=10)
+        match = re.search(r"ffmpeg version n?(\d+)\.(\d+)", out.stdout)
+        if match and (int(match.group(1)), int(match.group(2))) < (4, 3):
+            print(f"  note: ffmpeg {match.group(1)}.{match.group(2)} is older than 4.3 -- "
+                  "palette and overlay options may not all exist")
+    except (OSError, subprocess.SubprocessError):
+        pass
+
+
 def serve(host: str, port: int, open_browser: bool) -> None:
     last_error = None
     for candidate in range(port, port + 25):
@@ -787,7 +869,12 @@ def serve(host: str, port: int, open_browser: bool) -> None:
     print(f"  ffmpeg: {FFMPEG}")
     print("  local only; nothing is uploaded. ctrl-c to stop.\n", flush=True)
     if open_browser:
-        threading.Timer(0.4, lambda: webbrowser.open(url)).start()
+        def launch():
+            try:
+                webbrowser.open(url)
+            except Exception:                                     # noqa: BLE001
+                pass                       # headless box: the printed url is enough
+        threading.Timer(0.4, launch).start()
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
@@ -806,7 +893,8 @@ def main(argv=None) -> None:
 
     missing = [name for name, binary in (("ffmpeg", FFMPEG), ("ffprobe", FFPROBE)) if not binary]
     if missing:
-        raise SystemExit(f"missing {' and '.join(missing)} on PATH -- try: brew install ffmpeg")
+        raise SystemExit(f"missing {' and '.join(missing)} on PATH -- try: {install_hint()}")
+    warn_if_ffmpeg_is_ancient()
 
     global PRELOAD
     if args.video:

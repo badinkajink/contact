@@ -4,14 +4,48 @@ A local video → GIF studio. Crop in space, trim in time, downsample resolution
 fps, hit render. No upload, no queue, no 50 MB ceiling — the page talks to a Python
 server on loopback that shells out to `ffmpeg` and reads your files where they sit.
 
+Runs on macOS and Linux. Python 3.8+ and ffmpeg 4.3+, no pip packages at all.
+
+## Install
+
+**macOS** — needs [Homebrew](https://brew.sh):
+
 ```bash
-python video_to_gif/video_to_gif.py            # opens http://127.0.0.1:7842
-python video_to_gif/video_to_gif.py clip.mov   # ...with a file already loaded
-python video_to_gif/video_to_gif.py --port 9000 --no-browser
+brew install ffmpeg && curl -L https://github.com/badinkajink/contact/archive/refs/heads/main.tar.gz | tar xz --strip-components=1 contact-main/video_to_gif && python3 video_to_gif/video_to_gif.py
 ```
 
-Needs `ffmpeg` and `ffprobe` on PATH (`brew install ffmpeg`). Nothing else — no pip
-install, stdlib only.
+**Ubuntu 22.04** (and other Debian-based distros):
+
+```bash
+sudo apt update && sudo apt install -y ffmpeg python3 curl zenity fonts-liberation && curl -L https://github.com/badinkajink/contact/archive/refs/heads/main.tar.gz | tar xz --strip-components=1 contact-main/video_to_gif && python3 video_to_gif/video_to_gif.py
+```
+
+Either line downloads just this folder into the current directory and opens the tool at
+<http://127.0.0.1:7842>. To start it again later:
+
+```bash
+python3 video_to_gif/video_to_gif.py            # opens the browser for you
+python3 video_to_gif/video_to_gif.py clip.mov   # ...with a file already loaded
+python3 video_to_gif/video_to_gif.py --port 9000 --no-browser
+```
+
+If you'd rather have the whole repo and `git pull` for updates:
+
+```bash
+git clone https://github.com/badinkajink/contact.git && python3 contact/video_to_gif/video_to_gif.py
+```
+
+### What those packages are for
+
+| Package | Why |
+| --- | --- |
+| `ffmpeg` | every decode and encode; also provides `ffprobe`. Ubuntu 22.04 ships 4.4, which is plenty |
+| `python3` | runs the server — standard library only, nothing to `pip install` |
+| `zenity` | the native "choose a video" dialog on Linux. Skip it and the built-in file browser takes over |
+| `fonts-liberation` | Arial/Times lookalikes, so text overlays land close to what macOS renders. Optional |
+
+On macOS `python3` comes with the Xcode command line tools — run `xcode-select --install`
+if the shell says it can't find it.
 
 ## Getting a video in
 
@@ -62,6 +96,9 @@ whole clip. It applies to every text at once; render twice if you need separate 
 Text scales with whatever output size you pick, because the size is a fraction of the
 frame rather than a pixel count, and it's drawn *after* the downscale so it stays crisp.
 
+The **poster** font is Impact on macOS and Ubuntu Condensed on Ubuntu; the panel prints
+which font it actually resolved to, so you're never guessing.
+
 The text is rendered in the browser on a canvas at exactly the output resolution and
 handed to ffmpeg as a PNG for the `overlay` filter — so the preview is literally the
 render, and any font on your Mac is available. (ffmpeg's own `drawtext` would need a
@@ -93,3 +130,8 @@ the frame, so the crop box is in the same coordinate space ffmpeg will crop in.
   decode that codec (common for h265/mkv). Cropping numerically and rendering still work.
 - Output lands next to the source by default; change the folder and name under **Save to**.
 - Cancelling a render kills ffmpeg and deletes the half-written file.
+- On Linux, **Show in file manager** asks the desktop over D-Bus to select the file and
+  falls back to opening the folder with `xdg-open`.
+- Over SSH or on WSL no browser opens; the URL is printed instead, so open it yourself
+  (`--host 0.0.0.0` if the browser is on another machine — it's an open door on that
+  network, so only do it on one you trust).

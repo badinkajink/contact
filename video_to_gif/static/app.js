@@ -24,7 +24,7 @@ for (const id of [
   'keepAudio', 'boomerang', 'reverse', 'loopForever', 'outDir', 'btnOutDir', 'outName', 'outExt',
   'textLayer', 'textSel', 'btnAddText', 'btnSpeedBadge', 'txList', 'txEdit', 'txText',
   'txFont', 'txSize', 'txColor', 'txOutlineColor', 'txOutline', 'txAlign', 'txBold',
-  'txBackdrop', 'txAnchors', 'btnDelText', 'txFrom', 'txTo',
+  'txBackdrop', 'txAnchors', 'btnDelText', 'txFrom', 'txTo', 'txFontUsed',
   'estimate', 'btnRender', 'btnCmd', 'cmdBox', 'resultCard', 'resultMedia', 'resultMeta',
   'btnReveal', 'btnDownload', 'btnCloseResult', 'progress', 'progStage', 'progFill', 'progPct',
   'btnCancel', 'browser', 'bwPath', 'bwList', 'bwClose', 'toast',
@@ -102,6 +102,10 @@ function loadMedia(data) {
 async function pick() {
   try {
     const res = await api('/api/pick');
+    if (res.unavailable) {            // no zenity/kdialog on this desktop
+      browseTo(S.meta?.dir || el.outDir.value || '');
+      return;
+    }
     if (!res.cancelled) loadMedia(res);
   } catch (e) { toast(`could not open: ${e.message}`); }
 }
@@ -253,12 +257,28 @@ el.btnCropReset.addEventListener('click', () => {
    has, so the text is drawn here on a canvas at output resolution and handed to
    ffmpeg as a PNG for `overlay`. Upshot: the preview *is* the render, and any
    font on the machine (emoji included) just works. */
+// macOS names first, then the Liberation/DejaVu/Ubuntu equivalents that Linux has
 const FONT_STACKS = {
-  sans: '"Helvetica Neue", Helvetica, Arial, sans-serif',
-  serif: '"Times New Roman", Georgia, serif',
-  mono: 'Menlo, "SF Mono", ui-monospace, monospace',
-  impact: 'Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif',
+  sans: '"Helvetica Neue", Helvetica, Arial, "Liberation Sans", "DejaVu Sans", sans-serif',
+  serif: '"Times New Roman", "Liberation Serif", Georgia, "DejaVu Serif", serif',
+  mono: 'Menlo, "SF Mono", "DejaVu Sans Mono", "Liberation Mono", ui-monospace, monospace',
+  poster: 'Impact, Haettenschweiler, "Arial Narrow Bold", "Ubuntu Condensed", '
+    + '"Liberation Sans Narrow", "DejaVu Sans Condensed", sans-serif',
 };
+
+/** First family in a stack the browser actually has, so the panel can say which. */
+function resolvedFont(stack) {
+  if (!document.fonts || !document.fonts.check) return '';
+  const generic = /^(sans-serif|serif|monospace|ui-monospace|cursive|fantasy)$/;
+  for (const raw of stack.split(',')) {
+    const name = raw.trim().replace(/^["']|["']$/g, '');
+    if (generic.test(name)) return name;
+    try {
+      if (document.fonts.check(`700 32px "${name}"`)) return name;
+    } catch { return ''; }
+  }
+  return '';
+}
 
 const speedLabel = () => `${String(Math.round((Number(el.speed.value) || 1) * 100) / 100)}×`;
 const activeText = () => (S.activeText === null ? null : S.texts[S.activeText]);
@@ -400,6 +420,8 @@ function syncTextPanel() {
   el.txAlign.value = t.align;
   el.txBold.checked = t.bold;
   el.txBackdrop.checked = t.backdrop;
+  const used = resolvedFont(FONT_STACKS[t.font] || FONT_STACKS.sans);
+  el.txFontUsed.textContent = used ? `font in use: ${used}` : '';
 }
 
 function refreshAutoBadges() {
@@ -423,6 +445,10 @@ function refreshAutoBadges() {
   if (!t) return;
   t[key] = read(input);
   if (key === 'text') { t.auto = false; syncTextList(); }
+  if (key === 'font') {
+    const used = resolvedFont(FONT_STACKS[t.font] || FONT_STACKS.sans);
+    el.txFontUsed.textContent = used ? `font in use: ${used}` : '';
+  }
   drawTextLayer();
 }));
 
@@ -825,6 +851,11 @@ el.pathInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') el.btnP
 el.btnOutDir.addEventListener('click', async () => {
   try {
     const res = await api('/api/pick?kind=dir');
+    if (res.unavailable) {
+      toast('no system folder dialog here (try: sudo apt install zenity) — '
+        + 'you can type the path into the field instead');
+      return;
+    }
     if (res.path) el.outDir.value = res.path;
   } catch (e) { toast(e.message); }
 });
@@ -916,7 +947,13 @@ new ResizeObserver(() => { if (S.meta) { fitFrame(); drawCrop(); } }).observe(el
   try {
     const state = await api('/api/state');
     syncTextPanel();
+    el.btnReveal.textContent = state.platform === 'darwin' ? 'Reveal in Finder'
+      : String(state.platform).startsWith('linux') ? 'Show in file manager'
+      : 'Show in folder';
     if (state.preload) loadMedia(state.preload);
-    else el.pathInput.placeholder = `${state.home}/Movies/clip.mov`;
+    else {
+      el.pathInput.placeholder = state.platform === 'darwin'
+        ? `${state.home}/Movies/clip.mov` : `${state.home}/Videos/clip.mp4`;
+    }
   } catch (e) { toast(`server not reachable: ${e.message}`); }
 })();
