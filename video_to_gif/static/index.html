@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>video_to_gif</title>
+<link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+
+<header class="bar">
+  <div class="brand">video<span>_to_</span>gif</div>
+  <div class="src" id="srcInfo">no video loaded</div>
+  <div class="bar-actions">
+    <button class="btn" id="btnPick">Open video…</button>
+    <button class="btn ghost" id="btnBrowse" title="Built-in file browser">Browse</button>
+  </div>
+</header>
+
+<main>
+  <!-- ------------------------------------------------------------ stage --->
+  <section class="stage">
+    <div class="drop" id="drop">
+      <div class="drop-inner">
+        <div class="drop-title">Drop a video here</div>
+        <p>or <button class="link" id="btnPick2">pick one from disk</button> — files opened from
+           disk are read in place, never copied.</p>
+        <div class="paste">
+          <input id="pathInput" placeholder="/path/to/video.mp4" spellcheck="false">
+          <button class="btn" id="btnPath">Open</button>
+        </div>
+        <div class="upbar" id="upbar" hidden><div class="upbar-fill" id="upbarFill"></div></div>
+      </div>
+    </div>
+
+    <div class="viewport" id="viewport" hidden>
+      <div class="frame" id="frame">
+        <video id="video" playsinline muted></video>
+        <div class="crop" id="cropBox">
+          <div class="thirds"></div>
+          <canvas id="textLayer"></canvas>
+          <div class="txsel" id="textSel" hidden></div>
+          <div class="dim" id="cropDim"></div>
+          <i class="h nw" data-dir="nw"></i><i class="h n" data-dir="n"></i><i class="h ne" data-dir="ne"></i>
+          <i class="h w"  data-dir="w"></i><i class="h e" data-dir="e"></i>
+          <i class="h sw" data-dir="sw"></i><i class="h s" data-dir="s"></i><i class="h se" data-dir="se"></i>
+        </div>
+      </div>
+    </div>
+
+    <div class="transport" id="transport" hidden>
+      <button class="btn icon" id="btnPlay" title="Play / pause (space)">▶</button>
+      <button class="btn icon" id="btnPrevF" title="Previous frame (←)">◀|</button>
+      <button class="btn icon" id="btnNextF" title="Next frame (→)">|▶</button>
+      <div class="tc"><span id="tcNow">0:00.00</span><span class="sep">/</span><span id="tcDur">0:00.00</span>
+        <span class="frameno" id="tcFrame"></span></div>
+      <div class="spacer"></div>
+      <label class="chk"><input type="checkbox" id="loopSel" checked> loop selection</label>
+      <button class="btn ghost icon" id="btnMute" title="Mute">🔇</button>
+    </div>
+
+    <div class="timeline-wrap" id="timelineWrap" hidden>
+      <div class="timeline" id="timeline">
+        <img class="thumbs" id="thumbs" alt="">
+        <div class="tl-dim before" id="tlBefore"></div>
+        <div class="tl-dim after" id="tlAfter"></div>
+        <div class="tl-sel" id="tlSel"><span class="tl-badge" id="tlBadge"></span></div>
+        <div class="tl-handle in" id="tlIn"></div>
+        <div class="tl-handle out" id="tlOut"></div>
+        <div class="playhead" id="playhead"></div>
+      </div>
+      <div class="tl-legend">
+        <button class="link" id="btnSetIn" title="i">[ set in</button>
+        <span id="tlLabels"></span>
+        <button class="link" id="btnSetOut" title="o">set out ]</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ------------------------------------------------------------ panel --->
+  <aside class="panel">
+    <div class="group">
+      <div class="group-head">Presets</div>
+      <div class="chips">
+        <button class="chip" data-preset="tiny">tiny</button>
+        <button class="chip" data-preset="balanced">balanced</button>
+        <button class="chip" data-preset="crisp">crisp</button>
+        <button class="chip" data-preset="source">source</button>
+      </div>
+    </div>
+
+    <div class="group">
+      <div class="group-head">Crop <button class="link right" id="btnCropReset">reset</button></div>
+      <div class="chips">
+        <button class="chip asp on" data-aspect="free">free</button>
+        <button class="chip asp" data-aspect="source">source</button>
+        <button class="chip asp" data-aspect="1:1">1:1</button>
+        <button class="chip asp" data-aspect="4:3">4:3</button>
+        <button class="chip asp" data-aspect="16:9">16:9</button>
+        <button class="chip asp" data-aspect="9:16">9:16</button>
+        <button class="chip asp" data-aspect="4:5">4:5</button>
+      </div>
+      <div class="grid4">
+        <label>x<input type="number" id="cx" step="1" min="0"></label>
+        <label>y<input type="number" id="cy" step="1" min="0"></label>
+        <label>w<input type="number" id="cw" step="1" min="2"></label>
+        <label>h<input type="number" id="ch" step="1" min="2"></label>
+      </div>
+    </div>
+
+    <div class="group">
+      <div class="group-head">Trim <button class="link right" id="btnTrimAll">whole clip</button></div>
+      <div class="grid3">
+        <label>in<input type="number" id="tIn" step="0.01" min="0"></label>
+        <label>out<input type="number" id="tOut" step="0.01" min="0"></label>
+        <label>length<input type="number" id="tLen" step="0.01" min="0.02"></label>
+      </div>
+    </div>
+
+    <div class="group">
+      <div class="group-head">Text
+        <button class="link right" id="btnAddText">+ text</button>
+      </div>
+      <button class="btn ghost small wide" id="btnSpeedBadge">+ speed badge</button>
+      <div class="txlist" id="txList"></div>
+
+      <div id="txEdit" hidden>
+        <textarea id="txText" rows="2" placeholder="2×" spellcheck="false"></textarea>
+        <div class="row2">
+          <label>font<select id="txFont">
+            <option value="sans">sans</option>
+            <option value="serif">serif</option>
+            <option value="mono">mono</option>
+            <option value="impact">impact</option>
+          </select></label>
+          <label>size %<input type="number" id="txSize" min="1" max="60" step="0.5"></label>
+        </div>
+        <div class="row2">
+          <label>fill<input type="color" id="txColor" value="#ffffff"></label>
+          <label>outline<input type="color" id="txOutlineColor" value="#000000"></label>
+        </div>
+        <div class="row2">
+          <label>outline %<input type="number" id="txOutline" min="0" max="40" step="1"></label>
+          <label>align<select id="txAlign">
+            <option value="center">center</option>
+            <option value="left">left</option>
+            <option value="right">right</option>
+          </select></label>
+        </div>
+        <label class="chk"><input type="checkbox" id="txBold" checked> bold</label>
+        <label class="chk"><input type="checkbox" id="txBackdrop"> backdrop box</label>
+        <div class="anchors" id="txAnchors">
+          <button data-col="0" data-row="0" title="top left">↖</button>
+          <button data-col="1" data-row="0" title="top">↑</button>
+          <button data-col="2" data-row="0" title="top right">↗</button>
+          <button data-col="0" data-row="1" title="left">←</button>
+          <button data-col="1" data-row="1" title="centre">•</button>
+          <button data-col="2" data-row="1" title="right">→</button>
+          <button data-col="0" data-row="2" title="bottom left">↙</button>
+          <button data-col="1" data-row="2" title="bottom">↓</button>
+          <button data-col="2" data-row="2" title="bottom right">↘</button>
+        </div>
+        <button class="btn ghost small wide" id="btnDelText">delete this text</button>
+      </div>
+
+      <div class="row2 txwindow">
+        <label>show from<input type="number" id="txFrom" step="0.1" min="0" placeholder="0"></label>
+        <label>to<input type="number" id="txTo" step="0.1" min="0" placeholder="end"></label>
+      </div>
+      <div class="note">drag text on the frame to place it · blank times = whole clip · applies to every text</div>
+    </div>
+
+    <div class="group">
+      <div class="group-head">Output</div>
+      <label class="row">format
+        <select id="fmt">
+          <option value="gif">GIF</option>
+          <option value="mp4">MP4 (h264)</option>
+          <option value="webm">WebM (vp9)</option>
+          <option value="apng">APNG</option>
+        </select>
+      </label>
+      <label class="row">width <span class="hint" id="outDims"></span>
+        <input type="number" id="outW" step="2" min="8">
+      </label>
+      <div class="chips tight" id="scaleChips">
+        <button class="chip" data-scale="1">100%</button>
+        <button class="chip" data-scale="0.75">75%</button>
+        <button class="chip" data-scale="0.5">50%</button>
+        <button class="chip" data-scale="0.33">33%</button>
+        <button class="chip" data-scale="0.25">25%</button>
+      </div>
+      <label class="row">fps
+        <input type="number" id="fps" step="0.5" min="0.5" max="120">
+      </label>
+      <div class="chips tight" id="fpsChips">
+        <button class="chip" data-fps="30">30</button>
+        <button class="chip" data-fps="24">24</button>
+        <button class="chip" data-fps="20">20</button>
+        <button class="chip" data-fps="15">15</button>
+        <button class="chip" data-fps="12">12</button>
+        <button class="chip" data-fps="10">10</button>
+        <button class="chip" data-fps="8">8</button>
+      </div>
+      <label class="row">speed
+        <input type="number" id="speed" step="0.05" min="0.05" max="20" value="1">
+      </label>
+
+      <div class="gifonly">
+        <label class="row">colours
+          <input type="number" id="colors" step="1" min="2" max="256" value="128">
+        </label>
+        <label class="row">dither
+          <select id="dither">
+            <option value="sierra2_4a">sierra2_4a (default)</option>
+            <option value="floyd_steinberg">floyd_steinberg</option>
+            <option value="sierra2">sierra2</option>
+            <option value="bayer">bayer (smaller)</option>
+            <option value="none">none (flat/sharp)</option>
+          </select>
+        </label>
+        <label class="row bayeronly" hidden>bayer scale
+          <input type="number" id="bayerScale" step="1" min="0" max="5" value="3">
+        </label>
+        <label class="row">palette
+          <select id="statsMode">
+            <option value="diff">diff (moving subject)</option>
+            <option value="full">full (whole clip)</option>
+            <option value="single">single (per frame)</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="videoonly" hidden>
+        <label class="row">quality (crf) <span class="hint">lower = bigger</span>
+          <input type="number" id="crf" step="1" min="0" max="63" value="23">
+        </label>
+        <label class="chk" id="audioRow"><input type="checkbox" id="keepAudio"> keep audio</label>
+      </div>
+
+      <label class="chk"><input type="checkbox" id="boomerang"> ping-pong (play, then reverse)</label>
+      <label class="chk"><input type="checkbox" id="reverse"> reverse</label>
+      <label class="chk loopRow"><input type="checkbox" id="loopForever" checked> loop forever</label>
+    </div>
+
+    <div class="group">
+      <div class="group-head">Save to</div>
+      <div class="pathrow">
+        <input id="outDir" spellcheck="false">
+        <button class="btn ghost" id="btnOutDir" title="Choose folder">…</button>
+      </div>
+      <div class="pathrow">
+        <input id="outName" spellcheck="false">
+        <span class="ext" id="outExt">.gif</span>
+      </div>
+    </div>
+
+    <div class="group sticky">
+      <div class="estimate" id="estimate"></div>
+      <button class="btn primary big" id="btnRender">Render</button>
+      <button class="btn ghost small" id="btnCmd">show ffmpeg command</button>
+      <pre class="cmd" id="cmdBox" hidden></pre>
+    </div>
+
+    <div class="group result" id="resultCard" hidden>
+      <div class="group-head">Result <button class="link right" id="btnCloseResult">×</button></div>
+      <div class="result-media" id="resultMedia"></div>
+      <div class="result-meta" id="resultMeta"></div>
+      <div class="result-actions">
+        <button class="btn" id="btnReveal">Reveal in Finder</button>
+        <a class="btn ghost" id="btnDownload" download>Save a copy…</a>
+      </div>
+    </div>
+  </aside>
+</main>
+
+<div class="progress" id="progress" hidden>
+  <div class="progress-inner">
+    <div class="progress-stage" id="progStage">rendering…</div>
+    <div class="progress-track"><div class="progress-fill" id="progFill"></div></div>
+    <div class="progress-row"><span id="progPct">0%</span>
+      <button class="btn ghost small" id="btnCancel">cancel</button></div>
+  </div>
+</div>
+
+<div class="modal" id="browser" hidden>
+  <div class="modal-card">
+    <div class="modal-head"><span id="bwPath"></span><button class="link" id="bwClose">×</button></div>
+    <div class="modal-body" id="bwList"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast" hidden></div>
+
+<footer class="keys">
+  <span><kbd>space</kbd> play</span><span><kbd>←</kbd><kbd>→</kbd> frame</span>
+  <span><kbd>shift</kbd>+ 10 frames</span><span><kbd>i</kbd>/<kbd>o</kbd> in/out</span>
+  <span><kbd>l</kbd> loop</span><span><kbd>⏎</kbd> render</span>
+  <span><kbd>t</kbd> add text</span><span><kbd>shift</kbd>-drag corner = keep aspect</span>
+</footer>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
