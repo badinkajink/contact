@@ -364,7 +364,7 @@ the tex needs `algorithm2e.sty`.
 
 Not started, in order: decks 01-10 and 17-22, the lab, and the integration of decks 11-16 (scope
 of each in [`tutorial/PLAN.md`](tutorial/PLAN.md), which also holds the concept-ownership table
-and the assignment of MuJoCo demos to decks); corrections to the rest of the tex and cross-references from it to the decks. (`slides/README.md` and `slides/index.html` already lists the 22-deck series, links the six
+and the assignment of MuJoCo demos to decks); corrections to the rest of the tex and cross-references from it to the decks. (`slides/README.md` and `slides/index.html` already list the 22-deck series and link the six
 existing decks, and index.html carries the Hou & Mason reading path; link each new deck in both as it lands.)
 
 Update this section and the status columns above whenever a piece lands.
