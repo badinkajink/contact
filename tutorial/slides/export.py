@@ -38,7 +38,10 @@ def launch(p):
 def open_deck(browser, deck: Path, scale: int):
     page = browser.new_page(viewport={"width": W, "height": H}, device_scale_factor=scale)
     page.goto(deck.as_uri() + "?mode=print")
-    page.wait_for_function("document.documentElement.dataset.ready === '1'", timeout=30_000)
+    # Fonts ready, and every promise registered with Deck.pending settled (MuJoCo figures).
+    page.wait_for_function(
+        "document.documentElement.dataset.ready === '1' && (!(window.Deck && Deck.pending)"
+        " || document.documentElement.dataset.settled === '1')", timeout=30_000)
     return page
 
 

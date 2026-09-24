@@ -16,17 +16,27 @@
   HOW TO START A NEW DECK
   1. Copy this file next to it (same folder, so lib/ resolves).
   2. Set <title>, and on <body>: data-short (footer name), data-index,
-     and optionally data-prev / data-next (the neighbouring decks).
-  3. One <section class="slide"> per slide. Delete the demo slides.
+     and optionally data-prev / data-next (the neighbouring decks). A deck listed
+     in lib/series.js gets its footer name and neighbours from there when these
+     are left out; set its status there from "planned" to "exists".
+  3. One <section class="slide" id="kebab-case-id"> per slide. Delete the demo
+     slides. Cross-links use deck.html#id; numeric #12 still works but drifts.
   4. Figures: an empty <svg> with an id, drawn by a script at the bottom
      using Fig (lib/fig.js). Math: $inline$ and $$display$$ (KaTeX).
+  5. Code: data-code="NOTEBOOK.py:function" on a <section> or an inline element
+     links the notebook function that computes the slide's numbers. Run
+     `uv run tools/sync.py` after editing a notebook so lib/codemap.js has it.
+  6. Async work (a MuJoCo model compiling, a long solve) is registered with
+     (window.DECK_PENDING = window.DECK_PENDING || []).push(promise)
+     so the test tools wait for it; after deck.js has run, Deck.pending(promise).
+  deck.js loads lib/series.js, lib/codemap.js and lib/code.js by itself.
   Open the file in any browser. Press ? for keys, R for the reading view.
 -->
 <body data-short="Template" data-index="index.html">
 <main class="deck">
 
 <!-- ============================================================ title -->
-<section class="slide title">
+<section class="slide title" id="title">
   <h1>Title of the Talk Goes Here:<br>A Subtitle in the Same Font</h1>
   <p class="authors">Your Name<sup>1</sup>, A. Collaborator<sup>1,2</sup><br>
     <small><sup>1</sup>Some University &nbsp; <sup>2</sup>Another Place</small></p>
@@ -40,14 +50,14 @@
 </section>
 
 <!-- ============================================================ usage -->
-<section class="slide">
+<section class="slide" id="usage">
   <h2>How to use this template</h2>
   <ul>
-    <li>Each slide is a <code>&lt;section class="slide"&gt;</code> on a 1280&times;720 canvas.
-      The engine scales it to fit the window.</li>
+    <li>Each slide is a <code>&lt;section class="slide" id="usage"&gt;</code> on a
+      1280&times;720 canvas. The engine scales it to fit the window.</li>
     <li>Keys: <kbd>&rarr;</kbd> / <kbd>space</kbd> next, <kbd>&larr;</kbd> back,
-      <kbd>R</kbd> reading view, <kbd>F</kbd> fullscreen, <kbd>?</kbd> help.</li>
-    <li>Links: <code>deck.html#7</code> opens slide 7.
+      <kbd>R</kbd> reading view, <kbd>C</kbd> code, <kbd>M</kbd> all decks, <kbd>?</kbd> help.</li>
+    <li>Links: <code>deck.html#usage</code> opens this slide, <code>deck.html#7</code> slide 7.
       <code>?mode=read</code> gives the scrolling web-page view.</li>
     <li>PDF: <code>uv run export.py template.html</code>, or print from Chrome
       (the page size is already 1280&times;720).</li>
@@ -58,7 +68,7 @@
 </section>
 
 <!-- ============================================================ section -->
-<section class="slide section">
+<section class="slide section" id="part-1">
   <p class="kicker">Part 1</p>
   <h1>A Section Divider</h1>
   <hr>
@@ -66,7 +76,7 @@
 </section>
 
 <!-- ============================================================ bullets -->
-<section class="slide">
+<section class="slide" id="build-steps">
   <h2>Bullets that build one step at a time</h2>
   <ul>
     <li>The first point is always visible.</li>
@@ -76,10 +86,11 @@
   <div class="box step"><b>Key idea.</b> A yellow box holds the one sentence the audience should
     remember from the slide.</div>
   <div class="warn step"><b>Watch out:</b> a dashed red box flags a common mistake.</div>
+  <aside class="notes">An element with <code>class="step"</code> stays hidden until its key press; <code>data-step="n"</code> puts several elements in the same step or reorders them. Hidden steps keep their space, so the layout does not move. The reading view and the PDF show every step.</aside>
 </section>
 
 <!-- ============================================================ two columns -->
-<section class="slide">
+<section class="slide" id="two-columns">
   <h2>Figure on the left, words on the right</h2>
   <div class="cols mid">
     <figure>
@@ -97,21 +108,24 @@
       </ul>
     </div>
   </div>
+  <aside class="notes"><code>.cols</code> splits the slide into halves, <code>.cols l2</code> and <code>r2</code> into 3:2, and <code>.cols three</code> into thirds; <code>.cols mid</code> centres the columns vertically. A figure inside a column scales to the column width.</aside>
 </section>
 
 <!-- ============================================================ math -->
-<section class="slide">
+<section class="slide" id="math">
   <h2>Math</h2>
   <p>Inline math such as $\abs{f_t} \le \mu f_n$ is set with KaTeX. Display math:</p>
   $$\K_\mu = \{\, \vf = (f_n, \vf_t) \;:\; f_n \ge 0,\ \norm{\vf_t} \le \mu f_n \,\}$$
-  <p>Shared macros: <code>\vf \vw \vp \nhat \that \K \norm{} \abs{} \R</code>. Add your own with
+  <p>Shared macros: <code>\vf \vw \vp \nhat \that \K \norm{} \abs{} \R</code> and operators
+    such as $A^\T$, $\rank A$, $\Null A$, $\cond A$. Add your own with
     <code>window.DECK_MACROS</code> before <code>deck.js</code> runs.</p>
   <div class="example"><b>Worked example.</b> With $\mu = 0.5$, the cone's half-angle is
     $\alpha = \arctan 0.5 \approx 26.6^\circ$.</div>
+  <aside class="notes">KaTeX renders inline and display math when the deck loads, including math in these notes. The shared macros live in <code>lib/deck.js</code>: bold vectors such as <code>\vx</code>, and operators such as <code>\T</code>, <code>\rank</code>, <code>\Null</code>, <code>\Row</code>, <code>\Col</code>, <code>\cond</code>, <code>\diag</code>, <code>\tr</code>, <code>\sign</code> and <code>\proj</code>. <code>\argmin</code> and <code>\argmax</code> are KaTeX built-ins.</aside>
 </section>
 
 <!-- ============================================================ table -->
-<section class="slide">
+<section class="slide" id="tables">
   <h2>Tables look like <code>&lt;table border=1&gt;</code></h2>
   <table>
     <tr><th>$\mu$</th><th class="num">$\alpha = \arctan\mu$</th><th>feels like</th></tr>
@@ -120,10 +134,11 @@
     <tr><td>1.0</td><td class="num">45.0&deg;</td><td>rubber on concrete</td></tr>
   </table>
   <p class="small">Use <code>class="num"</code> for right-aligned numbers and <code>table.small</code> for dense tables.</p>
+  <aside class="notes">Tables have 1px black borders and a gray header row. Right-align numbers with <code>class="num"</code>; <code>table.small</code> sets 21 px text for dense tables.</aside>
 </section>
 
 <!-- ============================================================ live figure -->
-<section class="slide">
+<section class="slide" id="live-figure">
   <h2>A live figure</h2>
   <div class="cols l2 mid">
     <figure><svg id="t-live"></svg></figure>
@@ -137,10 +152,11 @@
         it has focus; click the slide background to get slide navigation back.</p>
     </div>
   </div>
+  <aside class="notes">The script at the bottom of the file reads the slider, clears the figure and draws it again on every input event; the readout prints the numbers the figure shows. Exercise every live control with <code>tools/shoot.py --eval "set('#t-mu', 1.2)"</code> before calling a deck done.</aside>
 </section>
 
 <!-- ============================================================ check yourself -->
-<section class="slide">
+<section class="slide" id="check-yourself">
   <h2>Check yourself</h2>
   <ol>
     <li>What is the cone's half-angle when $\mu = 1$?
@@ -149,24 +165,81 @@
       <details><summary>answer</summary><div>It collapses to a single ray along the normal.</div></details></li>
   </ol>
   <p class="small">Answers are native <code>&lt;details&gt;</code> elements. They are open in the PDF.</p>
+  <aside class="notes">Answers are native <code>&lt;details&gt;</code> elements: closed while presenting, open in the PDF. A section gets two to five questions whose answers a reader can check against the slides.</aside>
 </section>
 
 <!-- ============================================================ code -->
-<section class="slide">
+<section class="slide" id="code">
   <h2>Code</h2>
 <pre>def in_cone(f_n, f_t, mu):
     """Coulomb: the floor can push, never pull, and drag at most mu times as hard."""
     return f_n >= 0 and abs(f_t) <= mu * f_n</pre>
   <p>Companion code lives in the marimo notebooks next to this folder.</p>
+  <aside class="notes">A <code>&lt;pre&gt;</code> block shows short code on the slide itself. For the function that computes a slide's numbers, use <code>data-code</code> (next slide): the panel then shows the notebook's current source.</aside>
 </section>
 
+<!-- ============================================================ code links -->
+<section class="slide" id="code-links" data-code="04_friction_cones.py:push_box">
+  <h2>Links from a slide to notebook code</h2>
+  <ul>
+    <li><code>data-code="04_friction_cones.py:push_box"</code> on the <code>&lt;section&gt;</code>
+      puts a [code] link in the footer. <kbd>C</kbd> opens the same panel.</li>
+    <li>On an inline element it makes a link:
+      <code data-code="01_optimization_fundamentals.py:run_newton">run_newton</code>
+      computes the Newton iterates.</li>
+    <li>The panel shows the function's source, a GitHub link to its lines, and the
+      command that opens the notebook. The reading view shows it under the notes.</li>
+    <li>Slide links use ids: <a href="#math">the math slide</a>,
+      <a href="11_coulomb_friction.html#3">deck 11, slide 3</a>.</li>
+  </ul>
+  <aside class="notes">The source comes from lib/codemap.js, which tools/sync.py extracts from the
+    notebooks: every function and class at top level or one level inside an @app.cell. After
+    editing a notebook, run <code>uv run tools/sync.py</code>; <code>tools/check.py</code> reports
+    a data-code reference that the codemap does not contain.</aside>
+</section>
+
+<!-- ============================================================ MuJoCo figure (placeholder)
+  A slide that runs the real engine. lib/mj.js wraps the vendored MuJoCo 3.14.0 WebAssembly
+  build; see lib/mj.js for the final API. Uncomment, and add to <head>:
+    <script src="lib/mujoco/mujoco.js"></script>
+    <script src="lib/mujoco/mujoco.wasm.js"></script>
+    <script src="lib/mj.js"></script>
+    <script src="lib/models.js"></script>
+
+<section class="slide" id="mujoco-drop" data-code="NOTEBOOK.py:function_name">
+  <h2>A box dropped on a plane in MuJoCo</h2>
+  <div class="cols l2 mid">
+    <figure>
+      <svg id="t-mj"></svg>
+      <figcaption>MuJoCo 3.14.0 in the browser; the same model file as the notebook.</figcaption>
+    </figure>
+    <div>
+      <div class="readout" id="t-mj-read"></div>
+    </div>
+  </div>
+</section>
+
+  and in the script at the bottom:
+
+  const ready = (async () => {
+    const sim = await MJ.sim(MODELS.box_on_plane);       // tutorial/models/box_on_plane.xml
+    const F = Fig("#t-mj", { w: 560, h: 380, xlim: [-0.3, 0.3], ylim: [-0.05, 0.35] });
+    MJ.player(document.getElementById("mujoco-drop"), {   // runs only while the slide is shown
+      step: () => sim.step(5),
+      draw: () => MJ.draw2(F, sim, { plane: "xz", contacts: true }),
+    });
+  })();
+  (window.DECK_PENDING = window.DECK_PENDING || []).push(ready);
+-->
+
 <!-- ============================================================ references -->
-<section class="slide">
+<section class="slide" id="references">
   <h2>References</h2>
   <ol class="refs">
     <li>V.-D. Nguyen. Constructing force-closure grasps. <i>IJRR</i> 7(3), 1988.</li>
     <li>R. M. Murray, Z. Li, S. S. Sastry. <i>A Mathematical Introduction to Robotic Manipulation</i>. CRC Press, 1994.</li>
   </ol>
+  <aside class="notes">References use <code>ol.refs</code> at 19 px. Cite the paper, the book chapter or the tex lines a slide draws on.</aside>
 </section>
 
 </main>

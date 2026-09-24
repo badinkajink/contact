@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MuJoCo WebAssembly demonstrations for lib/mj.js</title>
+<link rel="stylesheet" href="../../lib/katex/katex.min.css">
+<link rel="stylesheet" href="../../lib/retro.css">
+<script defer src="../../lib/katex/katex.min.js"></script>
+<script defer src="../../lib/katex/contrib/auto-render.min.js"></script>
+<script src="../../lib/fig.js"></script>
+<script src="../../lib/plot.js"></script>
+<script src="../../lib/models.js"></script>
+<script src="../../lib/mj.js"></script>
+<script defer src="../../lib/deck.js"></script>
+<style>
+  .controls button { margin-right: 2px; }
+  .controls select { font: inherit; }
+  .readout.tall { min-height: 5.2em; }
+</style>
+</head>
+<!--
+  Demonstration deck for lib/mj.js: three live MuJoCo 3.14.0 simulations and the deck-script
+  pattern a deck writer copies. Not part of the curriculum; it lives in tools/demos/ and is
+  checked like a deck:
+    uv run tools/check.py tools/demos/mj_demo.html --shots DIR
+    uv run tools/shoot.py tools/demos/mj_demo.html box-drop --frames 4 --interval 500 -o DIR/drop.png
+-->
+<body data-short="lib/mj.js demonstrations" data-index="../../index.html" data-prev="" data-next="">
+<main class="deck">
+
+<!-- ============================================================ title -->
+<section class="slide title" id="title">
+  <h1>MuJoCo WebAssembly demonstrations for lib/mj.js</h1>
+  <p class="authors">Optimization, contact, and control tutorial &middot; developer page</p>
+  <p class="links">[<a href="../../index.html">index</a>] [<a href="../../lib/mj.js">lib/mj.js</a>]
+    [<a href="../../../models/two_finger_pinch.xml">model</a>] [<a href="#" data-action="print">pdf</a>]</p>
+  <hr>
+  <figure style="width:620px">
+    <svg id="hero"></svg>
+    <figcaption>two_finger_pinch.xml after 0.5 s with 5 N on each pad: the net pad forces on the
+      0.2 kg box, drawn by MJ.draw3 from the running engine.</figcaption>
+  </figure>
+  <p class="updated">Last updated September 2026.</p>
+</section>
+
+<!-- ============================================================ box drop -->
+<section class="slide" id="box-drop">
+  <h2>A 1 kg box dropped onto a plane</h2>
+  <div class="cols l2">
+    <figure>
+      <svg id="bd-fig"></svg>
+      <figcaption>box_on_plane.xml, side view (MJ.draw2). Red arrows: contact force on the box
+        at each contact point, 0.02 m per N.</figcaption>
+    </figure>
+    <div>
+      <div class="controls" id="bd-ctl"><br>
+        <label>speed <select id="bd-speed"><option value="1">1</option><option value="0.25" selected>0.25</option><option value="0.1">0.1</option></select></label>
+        <label>forces <select id="bd-forces"><option value="total">per contact</option><option value="split">normal + friction</option><option value="net">net</option></select></label>
+      </div>
+      <div class="readout tall" id="bd-read"></div>
+      <svg id="bd-strip"></svg>
+    </div>
+  </div>
+  <aside class="notes">The box starts with its centre at 0.30 m and its bottom face 0.25 m above the
+    plane. It lands at $t = 0.228$ s (free fall predicts 0.226 s; the engine's 2 ms Euler step
+    lands one step later) at about 2.2 m/s. MuJoCo's contact is soft: the constraint behaves like a
+    critically damped spring with time constant 0.02 s (the default <code>solref</code>), so the box
+    sinks 14.8 mm into the plane at impact and settles at 0.108 mm, where the spring force balances
+    the weight. At rest the four corner contacts each carry 2.4525 N, and their sum is
+    $mg = 9.81$ N. The strip chart samples the penetration after every engine step, which the
+    30 ms impact needs; a frame-rate sample would catch it at two or three points. The numbers come
+    from Python <code>mujoco==3.14.0</code> on the same XML; <code>tools/twins/mujoco.json</code>
+    checks that this page's engine produces them.</aside>
+</section>
+
+<!-- ============================================================ tilted block -->
+<section class="slide" id="tilted-block">
+  <h2>Block on a tilted plane: creep and slip</h2>
+  <div class="cols l2">
+    <figure>
+      <svg id="tb-fig"></svg>
+      <figcaption>tilted_plane.xml. Blue: normal force on the block; green: friction force;
+        yellow: friction wedges of half-angle $\arctan\mu$.</figcaption>
+    </figure>
+    <div>
+      <div class="controls" id="tb-ctl"><br>
+        <label>tilt $\theta$ <input type="range" id="tb-tilt" min="0" max="40" step="0.5" value="20"> <span id="tb-tilt-out"></span></label><br>
+        <label>$\mu$ <input type="range" id="tb-mu" min="0.1" max="1" step="0.01" value="0.5"> <span id="tb-mu-out"></span></label><br>
+        <label>cone <select id="tb-cone"><option value="pyramidal">pyramidal</option><option value="elliptic">elliptic</option></select></label>
+      </div>
+      <div class="readout tall" id="tb-read"></div>
+      <svg id="tb-strip"></svg>
+    </div>
+  </div>
+  <aside class="notes">Coulomb friction holds the block when $\tan\theta \le \mu$; with $\mu = 0.5$ the
+    friction angle is $\arctan 0.5 = 26.57^\circ$. MuJoCo's friction is a soft constraint, so a held
+    block still creeps. At $20^\circ$ the pyramidal cone creeps at 1.8 mm/s and the elliptic cone at
+    0.87 mm/s; <code>noslip_iterations = 10</code> stops the elliptic creep (0.0001 mm/s) and leaves
+    the pyramidal creep unchanged in 3.14.0. Above the friction angle the block slides with
+    acceleration $g(\sin\theta - \mu\cos\theta)$: at $30^\circ$ that is 0.657 m/s$^2$, which predicts
+    328.6 mm in the first second; the engine gives 329.3 mm. Moving the $\mu$ slider changes the
+    ramp's friction while the block moves, so lowering it past $\tan\theta$ starts the slide.
+    Moving the tilt resets the block onto the rotated ramp. The run restarts every 2 s.</aside>
+</section>
+
+<!-- ============================================================ tumbling box -->
+<section class="slide" id="tumbling-box">
+  <h2>Tumbling box in orthographic 3D</h2>
+  <div class="cols l2">
+    <figure>
+      <svg id="tt-fig"></svg>
+      <figcaption>box_on_plane.xml thrown at 0.4 m/s with a spin of 9 rad/s, drawn by MJ.draw3
+        with painter's ordering of the box faces.</figcaption>
+    </figure>
+    <div>
+      <div class="controls" id="tt-ctl"><br>
+        <label>azimuth <input type="range" id="tt-az" min="-180" max="180" step="1" value="-60"> <span id="tt-az-out"></span></label><br>
+        <label>elevation <input type="range" id="tt-el" min="0" max="85" step="1" value="25"> <span id="tt-el-out"></span></label><br>
+        <label><input type="checkbox" id="tt-cones" checked> friction cones</label>
+        <label><input type="checkbox" id="tt-forces" checked> forces</label>
+      </div>
+      <div class="readout tall" id="tt-read"></div>
+    </div>
+  </div>
+  <aside class="notes">The same model as the box drop, with a different initial state set in
+    <code>onReset</code>: the box starts 0.25 m up, rotated 35 degrees about the axis (1, 1, 0),
+    moving at 0.4 m/s along x and spinning at (6, -6, 2) rad/s. It lands on a corner, rocks through
+    edge contacts (one or two contact points) and settles on a face (four). MJ.draw3 culls the
+    three back faces of each box, shades the front faces by a fixed light and paints everything
+    back to front; the contact cones are MuJoCo's friction coefficient 1 (half-angle
+    $45^\circ$), drawn with <code>in3.cone</code> from lib/fig.js. The azimuth and elevation
+    sliders only change the view, so they can move while the simulation runs.</aside>
+</section>
+
+<!-- ============================================================ script pattern -->
+<section class="slide" id="deck-script">
+  <h2>Deck script for a live MuJoCo slide</h2>
+<pre>&lt;script src="lib/fig.js"&gt;&lt;/script&gt; &lt;script src="lib/models.js"&gt;&lt;/script&gt;
+&lt;script src="lib/mj.js"&gt;&lt;/script&gt;   &lt;!-- inserts lib/mujoco/*.js itself --&gt;
+
+const F = Fig("#drop", { w: 560, h: 420,
+                         xlim: [-0.25, 0.25], ylim: [-0.06, 0.34] });
+MJ.player(document.getElementById("box-drop"), {
+  sim: MJ.sim(MODELS.box_on_plane),     // Deck.pending waits for it
+  fig: F,                               // "loading" and errors go here
+  draw: (sim) =&gt; { F.clear(); MJ.draw2(F, sim, { contacts: true }); },
+  onReset: (sim) =&gt; { sim.qvel[0] = 0.3; },   // also runs on [reset]
+  controls: "#drop-ctl", speed: 0.25, loop: 1.2,
+});</pre>
+  <ul class="small">
+    <li>The player animates only while its slide is current (present mode) or on screen (read
+      mode), and draws one frame in print mode.</li>
+    <li><code>sim.contacts()</code> gives each contact's frame, distance and force; <code>fworld</code>
+      is the force of geom1 on geom2 in world coordinates.</li>
+  </ul>
+  <aside class="notes">This is the whole pattern the three demonstrations use. MJ.sim compiles the
+    MJCF text and returns a promise; MJ.player waits for it, calls onReset once, draws the first
+    frame, and starts when the slide is shown. The step function defaults to
+    <code>sim.advance(dt)</code>, which keeps simulation time in step with wall time multiplied by
+    <code>speed</code>. A custom <code>step(dt, sim)</code> can sample every engine step with
+    <code>sim.advance(dt, {each})</code>, as the box-drop strip chart does. Model edits
+    (<code>sim.setOpt</code>, <code>sim.geomParam</code>) take effect at the next step. The full API
+    is in the header of lib/mj.js.</aside>
+</section>
+
+<!-- ============================================================ timings -->
+<section class="slide" id="engine-timings">
+  <h2>Engine timings measured in this browser</h2>
+  <div class="readout" id="et-read" style="font-size:20px">waiting for the first player ...</div>
+  <p class="small">Times are milliseconds since the page started loading. Compute rate is engine
+    steps per second of time spent inside <code>mj_step</code>; real-time rate is steps per second
+    of wall time while the slide animated. Visit the demonstration slides first to fill the table.</p>
+  <aside class="notes">The table reads MJ.stats, which lib/mj.js fills as it loads and runs. Loading
+    has three parts: inserting the two lib/mujoco scripts (the 3.3 MB base64 wasm), decompressing
+    the wasm with DecompressionStream, and starting the module. Each player records when its
+    simulation became ready and when it drew its first frame. For small models the compute rate is
+    a few hundred thousand steps per second, so a slide can afford hundreds of rollouts per
+    second for sampling MPC; the real-time rate is the timestep's 500 steps per second multiplied
+    by the player's speed.</aside>
+</section>
+
+</main>
+<script>
+(function () {
+  const C = Fig.C, $ = (id) => document.getElementById(id);
+  const fmt = (v, d) => (v === null || v === undefined || !isFinite(v) ? "-" : v.toFixed(d));
+
+  // ------------------------------------------------------------ title: pinch, one static frame
+  const H = Fig("#hero", { w: 620, h: 230, xlim: [-0.13, 0.13], ylim: [-0.035, 0.085] });
+  MJ.message(H, "loading MuJoCo ...");
+  MJ.track(MJ.sim(MODELS.two_finger_pinch).then((s) => {
+    s.reset("hold");
+    s.step(250);
+    H.clear();
+    MJ.draw3(H, s, { az: -72, el: 18 }, { contacts: true, forceOn: "box", net: true, forceScale: 0.012, planeSize: 0.2 });
+  }).catch((e) => MJ.message(H, e.message, C.red)));
+
+  // ------------------------------------------------------------ box drop
+  const FD = Fig("#bd-fig", { w: 640, h: 440, xlim: [-0.25, 0.25], ylim: [-0.05, 0.33] });
+  const bdStrip = window.Plot ? Plot.strip("#bd-strip", { w: 430, h: 200, window: 1.2, ylabel: "mm",
+    xlabel: "time $t$ (s)", series: [{ name: "penetration", color: C.red }], margin: { l: 52, r: 12, t: 10, b: 44 } }) : null;
+  let peak = 0;
+  const penetration = (s) => s.contacts().reduce((p, c) => Math.max(p, -c.dist), 0);
+  const bdForces = $("bd-forces");
+  const bdStep = (dt, s) => s.advance(dt, { each: (s) => {
+    const p = penetration(s);
+    peak = Math.max(peak, p);
+    if (bdStrip) bdStrip.push(s.time, 1000 * p);
+  } });
+  const bd = MJ.player($("box-drop"), {
+    sim: MJ.sim(MODELS.box_on_plane),
+    fig: FD,
+    speed: 0.25,
+    loop: 1.2,
+    controls: "#bd-ctl",
+    printSteps: (s) => bdStep(0.6, s),
+    onReset: () => { peak = 0; if (bdStrip) bdStrip.clear(); },
+    step: bdStep,
+    draw: (s) => {
+      const mode = bdForces.value;
+      FD.clear();
+      const r = MJ.draw2(FD, s, { contacts: true, forceScale: 0.02, forces: mode === "split" ? "split" : true, net: mode === "net" });
+      const fz = r.contacts.reduce((a, c) => a + c.fworld[2], 0);
+      $("bd-read").textContent =
+        "centre z    = " + fmt(1000 * s.qpos[2], 1) + " mm\n" +
+        "contacts    = " + r.contacts.length + "\n" +
+        "sum F_z     = " + fmt(fz, 3) + " N\n" +
+        "penetration = " + fmt(1000 * penetration(s), 3) + " mm\n" +
+        "peak        = " + fmt(1000 * peak, 2) + " mm";
+      if (bdStrip && document.body.classList.contains("print")) bdStrip.draw();
+    },
+  });
+  $("bd-speed").addEventListener("change", (e) => { bd.speed = +e.target.value; });
+  bdForces.addEventListener("change", () => bd.draw());
+
+  // ------------------------------------------------------------ tilted block
+  const FT = Fig("#tb-fig", { w: 640, h: 440, xlim: [-0.2, 0.85], ylim: [-0.55, 0.2] });
+  const tilt = $("tb-tilt"), mu = $("tb-mu"), cone = $("tb-cone");
+  const tbStrip = window.Plot ? Plot.strip("#tb-strip", { w: 430, h: 200, window: 2, ylabel: "mm",
+    series: [{ name: "slip distance", color: C.green }], margin: { l: 62, r: 12, t: 10, b: 44 } }) : null;
+  const HALF = 0.025;       // block half-height, m (tilted_plane.xml)
+  let x0 = [0, 0, 0], down = [1, 0, 0];
+  function placeBlock(s) {
+    const th = MJ.deg(+tilt.value), q = MJ.quat([0, 1, 0], th);
+    s.geomParam("ramp", { quat: q, friction: +mu.value });
+    s.setOpt({ cone: cone.value });
+    s.qpos.set([HALF * Math.sin(th), 0, HALF * Math.cos(th), q[0], q[1], q[2], q[3]]);
+    s.qvel.fill(0);
+    s.forward();
+    x0 = Array.from(s.qpos.subarray(0, 3));
+    down = [Math.cos(th), 0, -Math.sin(th)];
+    if (tbStrip) tbStrip.clear();
+  }
+  const slip = (s) => (s.qpos[0] - x0[0]) * down[0] + (s.qpos[2] - x0[2]) * down[2];
+  const tb = MJ.player($("tilted-block"), {
+    sim: MJ.sim(MODELS.tilted_plane),
+    fig: FT,
+    loop: 2,
+    controls: "#tb-ctl",
+    printSteps: (s) => s.advance(0.5),
+    onReset: placeBlock,
+    step: (dt, s) => { s.advance(dt); if (tbStrip) tbStrip.push(s.time, 1000 * slip(s)); },
+    draw: (s) => {
+      FT.clear();
+      MJ.draw2(FT, s, { contacts: true, net: true, forces: "split", cones: true, coneLen: 0.12, forceScale: 0.012 });
+      const th = MJ.deg(+tilt.value), m = +mu.value, t = Math.tan(th);
+      const v = s.qvel[0] * down[0] + s.qvel[2] * down[2];
+      const a = 9.81 * (Math.sin(th) - m * Math.cos(th));
+      $("tb-read").textContent =
+        "tan \u03b8 = " + fmt(t, 3) + (t <= m ? " \u2264 \u03bc: held" : " > \u03bc: slides") + "\n" +
+        "slip    = " + fmt(1000 * slip(s), 3) + " mm\n" +
+        "speed   = " + fmt(1000 * v, 3) + " mm/s\n" +
+        "g(sin\u03b8 \u2212 \u03bc cos\u03b8) = " + (a > 0 ? fmt(a, 3) + " m/s\u00b2" : "< 0");
+      if (tbStrip && document.body.classList.contains("print")) tbStrip.draw();
+    },
+  });
+  const labels = () => {
+    $("tb-tilt-out").textContent = (+tilt.value).toFixed(1) + "°";
+    $("tb-mu-out").textContent = (+mu.value).toFixed(2);
+  };
+  labels();
+  tilt.addEventListener("input", () => { labels(); tb.reset(); });
+  mu.addEventListener("input", () => { labels(); if (tb.sim) { tb.sim.geomParam("ramp", { friction: +mu.value }); tb.draw(); } });
+  cone.addEventListener("change", () => { if (tb.sim) { tb.sim.setOpt({ cone: cone.value }); tb.reset(); } });
+
+  // ------------------------------------------------------------ tumbling box in 3D
+  const F3 = Fig("#tt-fig", { w: 640, h: 440, xlim: [-0.42, 0.42], ylim: [-0.3, 0.32] });
+  const az = $("tt-az"), el = $("tt-el"), cones = $("tt-cones"), forces = $("tt-forces");
+  const tt = MJ.player($("tumbling-box"), {
+    sim: MJ.sim(MODELS.box_on_plane),
+    fig: F3,
+    speed: 0.5,
+    loop: 2.5,
+    controls: "#tt-ctl",
+    printSteps: (s) => s.advance(0.45),
+    onReset: (s) => {
+      const q = MJ.quat([1, 1, 0], MJ.deg(35));
+      s.qpos.set([-0.15, 0, 0.25, q[0], q[1], q[2], q[3]]);
+      s.qvel.set([0.4, 0, 0, 6, -6, 2]);
+      s.forward();
+    },
+    draw: (s) => {
+      F3.clear();
+      const r = MJ.draw3(F3, s, { az: +az.value, el: +el.value },
+        { contacts: forces.checked, cones: cones.checked, coneLen: 0.07, forceScale: 0.01, planeSize: 0.4 });
+      const b = s.body("box");
+      $("tt-read").textContent =
+        "t        = " + fmt(s.time, 3) + " s\n" +
+        "centre z = " + fmt(1000 * b.xpos[2], 1) + " mm\n" +
+        "|omega|  = " + fmt(Math.hypot(s.qvel[3], s.qvel[4], s.qvel[5]), 2) + " rad/s\n" +
+        "contacts = " + r.contacts.length;
+      $("tt-az-out").textContent = az.value + "°";
+      $("tt-el-out").textContent = el.value + "°";
+    },
+  });
+  [az, el, cones, forces].forEach((x) => x.addEventListener("input", () => tt.draw()));
+  $("tt-az-out").textContent = az.value + "°";
+  $("tt-el-out").textContent = el.value + "°";
+
+  // ------------------------------------------------------------ timings table
+  const players = [["box-drop", bd], ["tilted-block", tb], ["tumbling-box", tt]];
+  function timings() {
+    const L = MJ.stats.load;
+    let s = "MuJoCo " + MJ.version + " WebAssembly\n";
+    s += L ? "load: scripts " + fmt(L.scripts, 0) + " ms, wasm decode " + fmt(L.decode, 0) + " ms, module start " +
+      fmt(L.init, 0) + " ms; ready at " + fmt(L.at, 0) + " ms\n\n" : "load: not yet\n\n";
+    s += "slide          ready  1st frame   frames    steps   compute steps/s   real-time steps/s\n";
+    players.forEach(([id, p]) => {
+      const st = p.stats;
+      const comp = st.mjStepMs > 0 ? st.steps / st.mjStepMs * 1000 : NaN;
+      const rt = st.runMs > 0 ? st.steps / st.runMs * 1000 : NaN;
+      s += id.padEnd(13) + fmt(st.ready, 0).padStart(7) + fmt(st.firstFrame, 0).padStart(11) + String(st.frames).padStart(9) +
+        String(st.steps).padStart(9) + fmt(comp, 0).padStart(18) + fmt(rt, 0).padStart(20) + "\n";
+    });
+    $("et-read").textContent = s;
+  }
+  MJ.player($("engine-timings"), { fps: 2, draw: timings, printSteps: 0 });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,39 @@
+<!--
+  tilted_plane.xml: a 1 kg block resting on a plane tilted by 20 degrees, friction mu = 0.5.
+
+  Units are SI (m, kg, s, N). The static friction angle is arctan(0.5) = 26.57 degrees, so at
+  20 degrees Coulomb friction holds the block and at 30 degrees it slides with acceleration
+  g (sin 30 - 0.5 cos 30) = 0.657 m/s^2. MuJoCo's soft contact lets the held block creep slowly
+  downhill; deck 19 measures that creep.
+
+  The ramp's priority="1" makes its friction the contact's friction, whatever the block's value
+  (MuJoCo otherwise takes the larger of the two geoms' coefficients). A slide or notebook changes
+  mu by writing geom_friction[ramp, 0].
+
+  Changing the tilt at run time. The ramp is the plane rotated by theta about +y, so its local
+  x axis points downhill along (cos theta, 0, -sin theta). To set a new tilt theta:
+    geom_quat[ramp]   = (cos(theta/2), 0, sin(theta/2), 0)
+    block qpos[0:3]   = (h sin theta, 0, h cos theta)          h = 0.025 m, the block's half-height
+    block qpos[3:7]   = (cos(theta/2), 0, sin(theta/2), 0)
+    qvel = 0, then mj_forward.
+  In lib/mj.js: sim.reset(); sim.geomParam("ramp", {quat}); write qpos; sim.forward().
+  The XML below is that state for theta = 20 degrees (h sin 20 = 0.0085505, h cos 20 = 0.0234923).
+  Keep the XML tilt nonzero: a geom whose pose equals its body's frame is compiled with
+  geom_sameframe = 1, and MuJoCo then ignores later writes to its geom_quat until
+  geom_sameframe is set to 0 (sim.geomParam does that).
+-->
+<mujoco model="tilted_plane">
+  <option timestep="0.002" gravity="0 0 -9.81"/>
+
+  <worldbody>
+    <!-- 2 m long (local x), 0.6 m wide; drawn with a 0.05 m grid. -->
+    <geom name="ramp" type="plane" size="1 0.3 0.05" euler="0 20 0" priority="1"
+          friction="0.5 0.005 0.0001" rgba="0.9 0.9 0.9 1"/>
+
+    <body name="block" pos="0.0085505 0 0.0234923" euler="0 20 0">
+      <freejoint name="block"/>
+      <!-- 0.1 m x 0.1 m footprint, 0.05 m tall, 1 kg. -->
+      <geom name="block" type="box" size="0.05 0.05 0.025" mass="1" rgba="0.8 0.8 0.8 1"/>
+    </body>
+  </worldbody>
+</mujoco>

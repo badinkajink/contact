@@ -1,0 +1,604 @@
+{
+ "notebook": "slides/tools/twins/num_ref.py",
+ "scripts": [
+  "tools/twins/num_data.js",
+  "lib/num.js"
+ ],
+ "js_setup": "const D = window.NUM_TWIN_DATA;\nconst T = Num.transpose, MM = Num.matmul;\nconst flat = (A) => [].concat(...A.map((r) => (Array.isArray(r) ? r : [r])));\nconst maxAbs = (A) => Math.max(0, ...flat(A).map(Math.abs));\nconst orthRows = (B) => (B.length ? maxAbs(Num.sub(MM(B, T(B)), Num.eye(B.length))) : 0);\nconst orthCols = (Q) => orthRows(T(Q));\nconst projRows = (B, n) => (B.length ? MM(T(B), B) : Num.zeros(n, n));\nconst projCols = (Q) => MM(Q, T(Q));\nconst recon = (A, s) => maxAbs(Num.sub(MM(s.U, Num.diag(s.S), T(s.V)), A));\nconst reconFull = (A, s) => {\n  const Sg = Num.zeros(A.length, A[0].length);\n  s.S.forEach((x, i) => (Sg[i][i] = x));\n  return maxAbs(Num.sub(MM(s.U, Sg, T(s.V)), A));\n};\nconst rrefView = (r) => ({\n  R: r.R, pivots: r.pivots,\n  ops: r.steps.map((s) => [s.op, s.i, s.op === \"scale\" ? -1 : s.j]),\n  k: r.steps.map((s) => (s.op === \"swap\" ? 0 : s.k)),\n  mats: r.steps.map((s) => s.matrix),\n});\nconst largestPositive = (vs) => vs.every((v) => {\n  let k = 0;\n  v.forEach((x, i) => { if (Math.abs(x) > Math.abs(v[k]) + 1e-12) k = i; });\n  return v[k] > 0;\n});\nconst sampleStats = (g, N) => {\n  const xs = Array.from({ length: N }, () => g.mvnormal(D.MEAN2, D.COV2));\n  const mean = Num.scale(xs.reduce((a, x) => Num.add(a, x), [0, 0]), 1 / N);\n  let C = Num.zeros(2, 2);\n  for (const x of xs) C = Num.add(C, Num.outer(Num.sub(x, mean), Num.sub(x, mean)));\n  return [mean, Num.scale(C, 1 / (N - 1))];\n};\nconst rosenJS = (x) => {\n  let s = 0;\n  for (let i = 0; i + 1 < x.length; i++) s += 100 * (x[i + 1] - x[i] * x[i]) ** 2 + (1 - x[i]) ** 2;\n  return s;\n};\nconst errorOf = (f) => { try { f(); return \"no error\"; } catch (e) { return e.message; } };",
+ "cases": [
+  {
+   "name": "matmul: 4x3 times 3x5",
+   "py": "M('A43') @ M('A35')",
+   "js": "Num.matmul(D.A43, D.A35)"
+  },
+  {
+   "name": "matmul: matrix @ vector, vector @ matrix, vector @ vector",
+   "py": "[M('A43') @ M('v3'), M('v4') @ M('A43'), M('v3') @ M('v3')]",
+   "js": "[Num.matmul(D.A43, D.v3), Num.matmul(D.v4, D.A43), Num.matmul(D.v3, D.v3)]"
+  },
+  {
+   "name": "matmul: three factors multiply left to right",
+   "py": "M('A35').T @ M('A43').T @ M('A43')",
+   "js": "Num.matmul(T(D.A35), T(D.A43), D.A43)"
+  },
+  {
+   "name": "matmul throws a named error on a shape mismatch",
+   "py": "'Num.matmul: shapes 1x2 and 1x2 do not match'",
+   "js": "errorOf(() => Num.matmul([[1, 2]], [[1, 2]]))"
+  },
+  {
+   "name": "hstack [A | b], vstack, diag both ways, trace, outer",
+   "py": "[np.hstack([M('A43'), M('b4')[:, None]]), np.vstack([M('A35'), M('v5')]), np.diag(M('v3')), np.diag(M('A43')), np.trace(M('A66')), np.outer(M('v3'), M('v4'))]",
+   "js": "[Num.hstack(D.A43, D.b4), Num.vstack(D.A35, D.v5), Num.diag(D.v3), Num.diag(D.A43), Num.trace(D.A66), Num.outer(D.v3, D.v4)]"
+  },
+  {
+   "name": "vector norms p = 1, 2, inf, 3",
+   "py": "[np.linalg.norm(M('v6'), p) for p in (1, 2, np.inf, 3)]",
+   "js": "[1, 2, Infinity, 3].map((p) => Num.norm(D.v6, p))"
+  },
+  {
+   "name": "matrix norms fro, 2, 1, inf",
+   "py": "[np.linalg.norm(M('A43'), p) for p in ('fro', 2, 1, np.inf)]",
+   "js": "['fro', 2, 1, Infinity].map((p) => Num.norm(D.A43, p))"
+  },
+  {
+   "name": "2-norm of [1e-200, 1e-200] and [1e200, 1e200] neither underflows nor overflows",
+   "py": "[math.sqrt(2), math.sqrt(2)]",
+   "js": "[Num.norm([1e-200, 1e-200]) / 1e-200, Num.norm([1e200, 1e200]) / 1e200]",
+   "tol": 1e-15
+  },
+  {
+   "name": "cross product in 3D and the 2D scalar cross",
+   "py": "[np.cross(M('v3'), M('v6')[:3]), 1 * 4 - 2 * 3]",
+   "js": "[Num.cross(D.v3, D.v6.slice(0, 3)), Num.cross([1, 2], [3, 4])]"
+  },
+  {
+   "name": "lu 6x6: L and U equal scipy.linalg.lu's",
+   "py": "sla.lu(M('A66'))[1:]",
+   "js": "((F) => [F.L, F.U])(Num.lu(D.A66))"
+  },
+  {
+   "name": "lu 6x6: P is scipy's P transposed, and P A = L U",
+   "py": "[sla.lu(M('A66'))[0].T, 0.0]",
+   "js": "((F) => [F.P, maxAbs(Num.sub(MM(F.P, D.A66), MM(F.L, F.U)))])(Num.lu(D.A66))",
+   "tol": 1e-12
+  },
+  {
+   "name": "det of a 6x6 and of a 1x1",
+   "py": "[np.linalg.det(M('A66')), -3.0]",
+   "js": "[Num.det(D.A66), Num.det([[-3]])]"
+  },
+  {
+   "name": "det of the singular [[1,2,3],[4,5,6],[7,8,9]] is zero to rounding",
+   "py": "0.0",
+   "js": "Num.det(D.SING3)",
+   "tol": 1e-12
+  },
+  {
+   "name": "solve 6x6",
+   "py": "np.linalg.solve(M('A66'), M('b6'))",
+   "js": "Num.solve(D.A66, D.b6)"
+  },
+  {
+   "name": "solve with a two-column right-hand side",
+   "py": "np.linalg.solve(M('A66'), np.column_stack([M('b6'), M('v6')]))",
+   "js": "Num.solve(D.A66, Num.hstack(D.b6, D.v6))"
+  },
+  {
+   "name": "solve and inv return null for a singular matrix",
+   "py": "[None, None]",
+   "js": "[Num.solve(D.SING3, [1, 2, 3]), Num.inv(D.SING3)]"
+  },
+  {
+   "name": "inv of a 5x5 SPD matrix",
+   "py": "np.linalg.inv(M('SPD5'))",
+   "js": "Num.inv(D.SPD5)"
+  },
+  {
+   "name": "chol of a 5x5 SPD matrix equals numpy.linalg.cholesky",
+   "py": "np.linalg.cholesky(M('SPD5'))",
+   "js": "Num.chol(D.SPD5)"
+  },
+  {
+   "name": "chol returns null for indefinite [[1,2],[2,1]] and for singular PSD [[1,1],[1,1]]",
+   "py": "[None, None]",
+   "js": "[Num.chol([[1, 2], [2, 1]]), Num.chol([[1, 1], [1, 1]])]"
+  },
+  {
+   "name": "cholSolve equals numpy.linalg.solve",
+   "py": "np.linalg.solve(M('SPD5'), M('v5'))",
+   "js": "Num.cholSolve(Num.chol(D.SPD5), D.v5)"
+  },
+  {
+   "name": "qr thin 4x3 equals numpy's reduced QR with diag(R) >= 0",
+   "py": "qr_pos(M('A43'))",
+   "js": "((q) => [q.Q, q.R])(Num.qr(D.A43))"
+  },
+  {
+   "name": "qr of a wide 3x5 equals numpy's QR with diag(R) >= 0",
+   "py": "qr_pos(M('A35'))",
+   "js": "((q) => [q.Q, q.R])(Num.qr(D.A35))"
+  },
+  {
+   "name": "qr full 4x3: Q orthogonal, Q R = A, complement projector equals numpy's",
+   "py": "[0.0, 0.0, proj_cols(np.linalg.qr(M('A43'), mode='complete')[0][:, 3:])]",
+   "js": "((q) => [orthCols(q.Q), maxAbs(Num.sub(MM(q.Q, q.R), D.A43)), projCols(q.Q.map((r) => r.slice(3)))])(Num.qr(D.A43, 'full'))",
+   "tol": 1e-12
+  },
+  {
+   "name": "gramSchmidt of the columns of A43 gives thin QR's Q (as rows) and R",
+   "py": "[qr_pos(M('A43'))[0].T, qr_pos(M('A43'))[1]]",
+   "js": "((g) => [g.Q, g.R])(Num.gramSchmidt(T(D.A43)))"
+  },
+  {
+   "name": "gramSchmidt step log: the coefficients for v3 are q_i . v3",
+   "py": "[float(qr_pos(M('A43'))[0][:, i] @ M('A43')[:, 2]) for i in range(2)]",
+   "js": "Num.gramSchmidt(T(D.A43)).steps[2].projections.map((p) => p.coef)"
+  },
+  {
+   "name": "gramSchmidt: a dependent vector adds no basis vector",
+   "py": "[2, [False, True, False], 0.0]",
+   "js": "((g) => [g.rank, g.steps.map((s) => s.dependent), orthRows(g.Q)])(Num.gramSchmidt([[1, 0, 1], [2, 0, 2], [0, 1, 0]]))",
+   "tol": 1e-12
+  },
+  {
+   "name": "eigSym 5x5: eigenvalues equal eigh's, descending",
+   "py": "np.linalg.eigh(M('S5'))[0][::-1]",
+   "js": "Num.eigSym(D.S5).values"
+  },
+  {
+   "name": "eigSym 5x5: A V = V diag(values) and V^T V = I",
+   "py": "[0.0, 0.0]",
+   "js": "((e) => [maxAbs(Num.sub(MM(D.S5, e.V), MM(e.V, Num.diag(e.values)))), orthCols(e.V)])(Num.eigSym(D.S5))",
+   "tol": 1e-12
+  },
+  {
+   "name": "eigSym 5x5: each eigenvector's projector v v^T equals eigh's",
+   "py": "[np.outer(v, v) for v in np.linalg.eigh(M('S5'))[1].T[::-1]]",
+   "js": "Num.eigSym(D.S5).vectors.map((v) => Num.outer(v, v))"
+  },
+  {
+   "name": "eigSym with a repeated eigenvalue: values 2, 2, 1 and the 2-D eigenspace projector",
+   "py": "[[2.0, 2.0, 1.0], proj_cols(M('QREP')[:, :2])]",
+   "js": "((e) => [e.values, projRows(e.vectors.slice(0, 2), 3)])(Num.eigSym(D.REP3))"
+  },
+  {
+   "name": "eigSym of a diagonal matrix (values and V), a 1x1, and the zero matrix",
+   "py": "[[3.0, 1.0, -2.0], [[0, 1, 0], [1, 0, 0], [0, 0, 1]], [5.0], [0.0, 0.0]]",
+   "js": "[Num.eigSym([[1, 0, 0], [0, 3, 0], [0, 0, -2]]).values, Num.eigSym([[1, 0, 0], [0, 3, 0], [0, 0, -2]]).V, Num.eigSym([[5]]).values, Num.eigSym([[0, 0], [0, 0]]).values]"
+  },
+  {
+   "name": "eigSym 30x30: eigenvalues equal eigh's",
+   "py": "np.linalg.eigh(M('A30') + M('A30').T)[0][::-1]",
+   "js": "Num.eigSym(Num.add(D.A30, T(D.A30))).values"
+  },
+  {
+   "name": "eigSym and svd sign convention: the largest entry of every vector is positive",
+   "py": "[True, True]",
+   "js": "[largestPositive(Num.eigSym(D.S5).vectors), largestPositive(T(Num.svd(D.A35, {full: true}).V))]"
+  },
+  {
+   "name": "svd singular values: tall 4x3, wide 3x5, square 6x6",
+   "py": "[sv(M('A43')), sv(M('A35')), sv(M('A66'))]",
+   "js": "[D.A43, D.A35, D.A66].map((A) => Num.svd(A).S)"
+  },
+  {
+   "name": "svd thin of a tall 4x3: U S V^T = A, U^T U = I, V^T V = I",
+   "py": "[0.0, 0.0, 0.0]",
+   "js": "((s) => [recon(D.A43, s), orthCols(s.U), orthCols(s.V)])(Num.svd(D.A43))",
+   "tol": 1e-12
+  },
+  {
+   "name": "svd full of a wide 3x5: U 3x3 and V 5x5 orthogonal, U Sigma V^T = A",
+   "py": "[[3, 3], [5, 5], 0.0, 0.0, 0.0]",
+   "js": "((s) => [Num.shape(s.U), Num.shape(s.V), orthCols(s.U), orthCols(s.V), reconFull(D.A35, s)])(Num.svd(D.A35, {full: true}))",
+   "tol": 1e-12
+  },
+  {
+   "name": "svd full of a tall 4x3: U 4x4 orthogonal, U Sigma V^T = A",
+   "py": "[[4, 4], 0.0, 0.0]",
+   "js": "((s) => [Num.shape(s.U), orthCols(s.U), reconFull(D.A43, s)])(Num.svd(D.A43, {full: true}))",
+   "tol": 1e-12
+  },
+  {
+   "name": "svd right singular vectors: projectors v v^T equal numpy's",
+   "py": "[np.outer(v, v) for v in np.linalg.svd(M('A43'))[2]]",
+   "js": "((s) => T(s.V).map((v) => Num.outer(v, v)))(Num.svd(D.A43))"
+  },
+  {
+   "name": "svd of an exactly rank-2 6x3 integer matrix: third singular value is 0",
+   "py": "sv(M('R63'))",
+   "js": "Num.svd(D.R63).S",
+   "tol": 1e-10
+  },
+  {
+   "name": "svd of the rank-2 6x3: U, V orthonormal and U S V^T = A",
+   "py": "[0.0, 0.0, 0.0]",
+   "js": "((s) => [recon(D.R63, s), orthCols(s.U), orthCols(s.V)])(Num.svd(D.R63))",
+   "tol": 1e-12
+  },
+  {
+   "name": "svd of the 2x3 zero matrix: S = 0, U and V orthonormal",
+   "py": "[[0.0, 0.0], 0.0, 0.0]",
+   "js": "((s) => [s.S, orthCols(s.U), orthCols(s.V)])(Num.svd(D.Z23))"
+  },
+  {
+   "name": "svd of a 1x4 row and a 4x1 column",
+   "py": "[sv([[1, 2, 2, 4]]), sv([[1], [2], [2], [4]])]",
+   "js": "[Num.svd([[1, 2, 2, 4]]).S, Num.svd([[1], [2], [2], [4]]).S]"
+  },
+  {
+   "name": "svd of a 40x25: singular values equal numpy's",
+   "py": "sv(M('A4025'))",
+   "js": "Num.svd(D.A4025).S"
+  },
+  {
+   "name": "svd of a (rounded) rotation matrix: singular values equal numpy's, all near 1",
+   "py": "sv(M('ROT3'))",
+   "js": "Num.svd(D.ROT3).S"
+  },
+  {
+   "name": "rank of full, tall, wide, rank-deficient, zero, and singular matrices",
+   "py": "[int(np.linalg.matrix_rank(M(k))) for k in ('A66', 'A43', 'A35', 'R63', 'R45', 'Z23', 'SING3')]",
+   "js": "['A66', 'A43', 'A35', 'R63', 'R45', 'Z23', 'SING3'].map((k) => Num.rank(D[k]))"
+  },
+  {
+   "name": "rank with an explicit tolerance: [[1, 1], [1, 1 + 1e-8]] has rank 2, and rank 1 at tol 1e-6",
+   "py": "[int(np.linalg.matrix_rank(M('NEAR2'))), int(np.linalg.matrix_rank(M('NEAR2'), tol=1e-6))]",
+   "js": "[Num.rank(D.NEAR2), Num.rank(D.NEAR2, 1e-6)]"
+  },
+  {
+   "name": "nullspace dimension equals scipy.linalg.null_space's",
+   "py": "[sla.null_space(M(k)).shape[1] for k in ('A66', 'A43', 'A35', 'R63', 'R45', 'Z23', 'SING3')]",
+   "js": "['A66', 'A43', 'A35', 'R63', 'R45', 'Z23', 'SING3'].map((k) => Num.nullspace(D[k]).length)"
+  },
+  {
+   "name": "nullspace of a rank-2 4x5: 3 orthonormal rows and A N^T = 0",
+   "py": "[3, 0.0, 0.0]",
+   "js": "((N) => [N.length, orthRows(N), maxAbs(MM(D.R45, T(N)))])(Num.nullspace(D.R45))",
+   "tol": 1e-12
+  },
+  {
+   "name": "nullspace projector N^T N equals scipy's (rank-2 4x5, wide 3x5, rank-2 6x3)",
+   "py": "[null_proj(M(k)) for k in ('R45', 'A35', 'R63')]",
+   "js": "['R45', 'A35', 'R63'].map((k) => projRows(Num.nullspace(D[k]), D[k][0].length))"
+  },
+  {
+   "name": "nullspace of a full-rank square matrix is empty; of the zero matrix it is all of R^3",
+   "py": "[[], np.eye(3)]",
+   "js": "[Num.nullspace(D.A66), projRows(Num.nullspace(D.Z23), 3)]"
+  },
+  {
+   "name": "rowspace projector equals pinv(A) A (rank-2 6x3)",
+   "py": "np.linalg.pinv(M('R63')) @ M('R63')",
+   "js": "projRows(Num.rowspace(D.R63), 3)"
+  },
+  {
+   "name": "rowspace and nullspace projectors add to the identity (rank-2 4x5)",
+   "py": "np.eye(5)",
+   "js": "Num.add(projRows(Num.rowspace(D.R45), 5), projRows(Num.nullspace(D.R45), 5))"
+  },
+  {
+   "name": "colspace projector and projector() equal A pinv(A) (rank-2 6x3)",
+   "py": "[M('R63') @ np.linalg.pinv(M('R63'))] * 2",
+   "js": "[projRows(Num.colspace(D.R63), 6), Num.projector(D.R63)]"
+  },
+  {
+   "name": "leftNullspace projector equals I - A pinv(A) (rank-2 6x3)",
+   "py": "np.eye(6) - M('R63') @ np.linalg.pinv(M('R63'))",
+   "js": "projRows(Num.leftNullspace(D.R63), 6)"
+  },
+  {
+   "name": "project(A, b) equals A lstsq(A, b)",
+   "py": "M('A43') @ np.linalg.lstsq(M('A43'), M('b4'), rcond=None)[0]",
+   "js": "Num.project(D.A43, D.b4)"
+  },
+  {
+   "name": "pinv of the rank-2 6x3 and of a wide 3x5 equals numpy.linalg.pinv",
+   "py": "[np.linalg.pinv(M('R63')), np.linalg.pinv(M('A35'))]",
+   "js": "[Num.pinv(D.R63), Num.pinv(D.A35)]"
+  },
+  {
+   "name": "lstsq of an overdetermined 4x3: x and residual norm equal numpy's",
+   "py": "(lambda r: [r[0], math.sqrt(r[1][0])])(np.linalg.lstsq(M('A43'), M('b4'), rcond=None))",
+   "js": "((r) => [r.x, r.residual])(Num.lstsq(D.A43, D.b4))"
+  },
+  {
+   "name": "lstsq of the rank-2 6x3: minimum-norm solution equals numpy's",
+   "py": "np.linalg.lstsq(M('R63'), M('b6'), rcond=None)[0]",
+   "js": "Num.lstsq(D.R63, D.b6).x"
+  },
+  {
+   "name": "lstsq of an underdetermined 3x5: minimum-norm solution and zero residual",
+   "py": "[np.linalg.lstsq(M('A35'), M('v3'), rcond=None)[0], 0.0]",
+   "js": "((r) => [r.x, r.residual])(Num.lstsq(D.A35, D.v3))",
+   "tol": 1e-12
+  },
+  {
+   "name": "cond of a 6x6, a tall 4x3, and a wide 3x5 equals numpy.linalg.cond",
+   "py": "[np.linalg.cond(M(k)) for k in ('A66', 'A43', 'A35')]",
+   "js": "['A66', 'A43', 'A35'].map((k) => Num.cond(D[k]))"
+  },
+  {
+   "name": "cond is Infinity for singular, rank-deficient, and zero matrices",
+   "py": "[math.inf] * 3",
+   "js": "[Num.cond(D.SING3), Num.cond(D.R63), Num.cond(D.Z23)]"
+  },
+  {
+   "name": "nearly parallel rows [[1, 1], [1, 1 + 1e-8]]: singular values and cond = 4e8",
+   "py": "[sv(M('NEAR2')), np.linalg.cond(M('NEAR2'))]",
+   "js": "[Num.svd(D.NEAR2).S, Num.cond(D.NEAR2)]",
+   "tol": 1e-07
+  },
+  {
+   "name": "nearly parallel rows: a 1e-8 change in b moves x from [2, 0] to about [1, 1]",
+   "py": "[np.linalg.solve(M('NEAR2'), [2, 2]), np.linalg.solve(M('NEAR2'), [2, 2 + 1e-8])]",
+   "js": "[Num.solve(D.NEAR2, [2, 2]), Num.solve(D.NEAR2, [2, 2 + 1e-8])]",
+   "tol": 1e-06
+  },
+  {
+   "name": "rref of a 3x4 integer system: R, pivots, every step and its matrix equal exact Fraction elimination",
+   "py": "rref_exact(D['RREF1'])",
+   "js": "rrefView(Num.rref(D.RREF1))"
+  },
+  {
+   "name": "rref of a matrix with a zero first pivot (row swap), rank 2: R, pivots, every step and its matrix equal exact Fraction elimination",
+   "py": "rref_exact(D['RREF2'])",
+   "js": "rrefView(Num.rref(D.RREF2))"
+  },
+  {
+   "name": "rref of a 4x4 system with fractional pivots: R, pivots, every step and its matrix equal exact Fraction elimination",
+   "py": "rref_exact(D['RREF3'])",
+   "js": "rrefView(Num.rref(D.RREF3))"
+  },
+  {
+   "name": "rref of a 3x5 matrix with free columns: R, pivots, every step and its matrix equal exact Fraction elimination",
+   "py": "rref_exact(D['RREF4'])",
+   "js": "rrefView(Num.rref(D.RREF4))"
+  },
+  {
+   "name": "rref with pivot 'max' reaches the same R and pivots",
+   "py": "(lambda r: [r['R'], r['pivots']])(rref_exact(D['RREF1']))",
+   "js": "((r) => [r.R, r.pivots])(Num.rref(D.RREF1, {pivot: 'max'}))"
+  },
+  {
+   "name": "rref step text: scale, add, swap, and a negative scale",
+   "py": "[['R1 ← (1/2) R1', 'R2 ← R2 − R1', 'R1 ← R1 − 2 R2'], ['R1 ↔ R2', 'R1 ← (1/3) R1', 'R1 ← R1 − R2'], ['R1 ← −(1/2) R1']]",
+   "js": "[[[2, 4], [1, 3]], [[0, 1], [3, 3]], [[-2, 1], [0, 0]]].map((A) => Num.rref(A).steps.map((s) => s.text))"
+  },
+  {
+   "name": "rref step tex for [[2, 4], [1, 3]]",
+   "py": "[r'R_{1} \\leftarrow \\tfrac{1}{2} R_{1}', r'R_{2} \\leftarrow R_{2} - R_{1}', r'R_{1} \\leftarrow R_{1} - 2 R_{2}']",
+   "js": "Num.rref([[2, 4], [1, 3]]).steps.map((s) => s.tex)"
+  },
+  {
+   "name": "rref rank equals rank() on the integer matrices",
+   "py": "[3, 2, 3, 2]",
+   "js": "['RREF1', 'RREF2', 'RREF3', 'RREF4'].map((k) => Num.rref(D[k]).rank)"
+  },
+  {
+   "name": "rng(42).uniform: first 8 draws equal the Python mulberry32 port bit for bit",
+   "py": "(lambda g: [g.uniform() for _ in range(8)])(Mulberry32(42))",
+   "js": "((g) => Array.from({length: 8}, () => g.uniform()))(Num.rng(42))",
+   "tol": 0
+  },
+  {
+   "name": "rng seeds 0, 1, 2^31 - 1, -5: the 1000th uniform draw equals the port's",
+   "py": "[(lambda g: [g.uniform() for _ in range(1000)][-1])(Mulberry32(s)) for s in (0, 1, 2**31 - 1, -5)]",
+   "js": "[0, 1, 2 ** 31 - 1, -5].map((s) => { const g = Num.rng(s); let u; for (let i = 0; i < 1000; i++) u = g.uniform(); return u; })",
+   "tol": 0
+  },
+  {
+   "name": "rng(7).normal: first 7 draws (Box-Muller pairs) equal the port's",
+   "py": "(lambda g: [g.normal() for _ in range(7)])(Mulberry32(7))",
+   "js": "((g) => Array.from({length: 7}, () => g.normal()))(Num.rng(7))",
+   "tol": 1e-14
+  },
+  {
+   "name": "rng int(10), uniform(-2, 3), and shuffle equal the port's",
+   "py": "(lambda g: [[g.int(10) for _ in range(5)], g.uniform(-2, 3), g.shuffle(list(range(8)))])(Mulberry32(3))",
+   "js": "((g) => [Array.from({length: 5}, () => g.int(10)), g.uniform(-2, 3), g.shuffle([0, 1, 2, 3, 4, 5, 6, 7])])(Num.rng(3))",
+   "tol": 0
+  },
+  {
+   "name": "rng mvnormal: mean + chol(cov) z equals the port's",
+   "py": "(lambda g: [g.mvnormal(D['MEAN2'], D['COV2']) for _ in range(3)])(Mulberry32(11))",
+   "js": "((g) => Array.from({length: 3}, () => g.mvnormal(D.MEAN2, D.COV2)))(Num.rng(11))",
+   "tol": 1e-13
+  },
+  {
+   "name": "rng mvnormal: mean and covariance of 20000 draws are within 0.03 of the true ones",
+   "py": "[D['MEAN2'], D['COV2']]",
+   "js": "sampleStats(Num.rng(5), 20000)",
+   "tol": 0.03
+  },
+  {
+   "name": "rng sphere: unit length, and the mean of 20000 draws in R^3 within 0.02 of 0",
+   "py": "[1.0, [0.0, 0.0, 0.0]]",
+   "js": "((g) => { const v = Array.from({length: 20000}, () => g.sphere(3)); return [Math.max(...v.map((x) => Num.norm(x))), Num.scale(v.reduce((a, x) => Num.add(a, x)), 1 / 20000)]; })(Num.rng(9))",
+   "tol": 0.02
+  },
+  {
+   "name": "lp 2-variable textbook LP: x and fun equal linprog's",
+   "py": "(lambda r: [r['x'], r['fun']])(linprog(D['LP1']))",
+   "js": "((r) => [r.x, r.fun])(Num.lp(D.LP1))"
+  },
+  {
+   "name": "lp duals of the textbook LP equal HiGHS marginals (ub, lower, upper)",
+   "py": "linprog(D['LP1'])['duals']",
+   "js": "Num.lp(D.LP1).duals"
+  },
+  {
+   "name": "lp with an equality row and mixed bounds: status, x, fun, and duals equal linprog's",
+   "py": "linprog(D['LP2'])",
+   "js": "Num.lp(D.LP2)"
+  },
+  {
+   "name": "lp with a >= row written as a negative <= row",
+   "py": "linprog(D['LP3'])",
+   "js": "Num.lp(D.LP3)"
+  },
+  {
+   "name": "lp infeasible: status 'infeasible', fun = Infinity, x = null",
+   "py": "[linprog(D['LP_INF'])['status'], math.inf, None]",
+   "js": "((r) => [r.status, r.fun, r.x])(Num.lp(D.LP_INF))"
+  },
+  {
+   "name": "lp unbounded: status 'unbounded', fun = -Infinity",
+   "py": "[linprog(D['LP_UNB'])['status'], -math.inf]",
+   "js": "((r) => [r.status, r.fun])(Num.lp(D.LP_UNB))"
+  },
+  {
+   "name": "lp Beale's cycling example: Bland's rule terminates at fun = -1.25",
+   "py": "(lambda r: [r['status'], r['fun']])(linprog(D['LP_BEALE']))",
+   "js": "((r) => [r.status, r.fun])(Num.lp(D.LP_BEALE))"
+  },
+  {
+   "name": "lp with a redundant equality row",
+   "py": "(lambda r: [r['status'], r['x'], r['fun']])(linprog(D['LP_RED']))",
+   "js": "((r) => [r.status, r.x, r.fun])(Num.lp(D.LP_RED))"
+  },
+  {
+   "name": "lp with free variables (bounds [null, null])",
+   "py": "(lambda r: [r['x'], r['fun']])(linprog(D['LP_FREE']))",
+   "js": "((r) => [r.x, r.fun])(Num.lp(D.LP_FREE))"
+  },
+  {
+   "name": "lp random 8x12: fun equals linprog's",
+   "py": "linprog(D['LP_RAND'])['fun']",
+   "js": "Num.lp(D.LP_RAND).fun"
+  },
+  {
+   "name": "lp with bounds [0, 1] on both variables and no rows",
+   "py": "[[1.0, 1.0], -2.0]",
+   "js": "((r) => [r.x, r.fun])(Num.lp({c: [-1, -1], bounds: [0, 1]}))"
+  },
+  {
+   "name": "lp with an empty bound interval (lo > hi) is infeasible",
+   "py": "'infeasible'",
+   "js": "Num.lp({c: [1], bounds: [[2, 1]]}).status"
+  },
+  {
+   "name": "feasible: a nonempty and an empty polygon with free variables",
+   "py": "[True, False]",
+   "js": "[Num.feasible({Aub: [[1, 0], [0, 1], [-1, -1]], bub: [1, 1, 0.5], bounds: [null, null]}).feasible, Num.feasible({Aub: [[1, 0], [-1, 0]], bub: [1, -2], bounds: [null, null]}).feasible]"
+  },
+  {
+   "name": "feasible: the returned point satisfies Aub x <= bub and Aeq x = beq",
+   "py": "[0.0, 0.0]",
+   "js": "((r) => [Math.max(0, ...Num.sub(Num.matvec(D.LP2.Aub, r.x), D.LP2.bub)), maxAbs(Num.sub(Num.matvec(D.LP2.Aeq, r.x), D.LP2.beq))])(Num.feasible({Aub: D.LP2.Aub, bub: D.LP2.bub, Aeq: D.LP2.Aeq, beq: D.LP2.beq, bounds: D.LP2.bounds}))",
+   "tol": 1e-09
+  },
+  {
+   "name": "qp without constraints equals solve(H, -g)",
+   "py": "np.linalg.solve(M('SPD5'), -M('v5'))",
+   "js": "Num.qp({H: D.SPD5, g: D.v5}).x"
+  },
+  {
+   "name": "qp with equality rows only: x, fun, lamEq equal the KKT solve",
+   "py": "qp_enum(D['QP_EQ'])",
+   "js": "Num.qp(D.QP_EQ)"
+  },
+  {
+   "name": "qp with inequality rows (Nocedal & Wright ex. 16.4): x = [1.4, 1.7], fun, lamUb",
+   "py": "qp_enum(D['QP1'])",
+   "js": "Num.qp(D.QP1)"
+  },
+  {
+   "name": "qp random (6 variables, 8 inequality rows, 2 equality rows) equals the active-set enumeration",
+   "py": "qp_enum(D['QP_RAND'])",
+   "js": "Num.qp(D.QP_RAND)"
+  },
+  {
+   "name": "qp random agrees with SLSQP at ftol 1e-15",
+   "py": "qp_slsqp(D['QP_RAND'])",
+   "js": "Num.qp(D.QP_RAND)",
+   "tol": 1e-06
+  },
+  {
+   "name": "qp random: multipliers satisfy H x + g + Aeq^T nu + Aub^T lam = 0",
+   "py": "0.0",
+   "js": "((r) => maxAbs(Num.add(Num.matvec(D.QP_RAND.H, r.x), D.QP_RAND.g, Num.matmul(r.lamEq, D.QP_RAND.Aeq), Num.matmul(r.lamUb, D.QP_RAND.Aub))))(Num.qp(D.QP_RAND))",
+   "tol": 1e-10
+  },
+  {
+   "name": "qp with a positive semidefinite H (two zero eigenvalues): x and fun equal the enumeration",
+   "py": "(lambda r: [r['x'], r['fun']])(qp_enum(D['QP_PSD']))",
+   "js": "((r) => [r.x, r.fun])(Num.qp(D.QP_PSD))"
+  },
+  {
+   "name": "qp status: infeasible, unbounded (zero-curvature ray), nonconvex",
+   "py": "['infeasible', 'unbounded', 'nonconvex']",
+   "js": "[D.QP_INF, D.QP_UNB, D.QP_NONCVX].map((p) => Num.qp(p).status)"
+  },
+  {
+   "name": "qp with a redundant equality row: x and fun",
+   "py": "(lambda r: [r['x'], r['fun']])(qp_enum(D['QP_RED']))",
+   "js": "((r) => [r.x, r.fun])(Num.qp(D.QP_RED))"
+  },
+  {
+   "name": "qp at a degenerate vertex (four active rows in 2-D): status, x, fun",
+   "py": "(lambda r: ['optimal', r['x'], r['fun']])(qp_enum(D['QP_DEG']))",
+   "js": "((r) => [r.status, r.x, r.fun])(Num.qp(D.QP_DEG))"
+  },
+  {
+   "name": "eqQP: Hou & Mason 2019 eq. 22, min f^T f s.t. M f = b, gives the minimum-norm pinv(M) b",
+   "py": "[np.linalg.pinv(M('HOU_M')) @ M('HOU_b'), False]",
+   "js": "((r) => [r.x, r.singular])(Num.eqQP(Num.scale(Num.eye(7), 2), null, D.HOU_M, D.HOU_b))"
+  },
+  {
+   "name": "eqQP: x and nu equal numpy's solve of the KKT system",
+   "py": "kkt_solve(D['QP_EQ'])",
+   "js": "Num.eqQP(D.QP_EQ.H, D.QP_EQ.g, D.QP_EQ.Aeq, D.QP_EQ.beq)"
+  },
+  {
+   "name": "eqQP flags a singular KKT matrix (dependent rows) and still returns x = [0.5, 0.5]",
+   "py": "[[0.5, 0.5], True]",
+   "js": "((r) => [r.x, r.singular])(Num.eqQP(Num.eye(2), [1, 1], [[1, 1], [2, 2]], [1, 2]))"
+  },
+  {
+   "name": "nnls 8x5: x and residual equal scipy.optimize.nnls",
+   "py": "list(so.nnls(M('NNLS_A'), M('NNLS_b')))",
+   "js": "((r) => [r.x, r.residual])(Num.nnls(D.NNLS_A, D.NNLS_b))"
+  },
+  {
+   "name": "nnls wide 3x5: residual equals scipy's",
+   "py": "so.nnls(M('NNLS_Aw'), np.array(D['NNLS_bw']))[1]",
+   "js": "Num.nnls(D.NNLS_Aw, D.NNLS_bw).residual"
+  },
+  {
+   "name": "gradFD of the Rosenbrock function equals the analytic gradient",
+   "py": "rosen_grad(D['x_rosen'])",
+   "js": "Num.gradFD(rosenJS, D.x_rosen)",
+   "tol": 1e-07
+  },
+  {
+   "name": "hessFD of the Rosenbrock function equals the analytic Hessian",
+   "py": "rosen_hess(D['x_rosen'])",
+   "js": "Num.hessFD(rosenJS, D.x_rosen)",
+   "tol": 1e-06
+  },
+  {
+   "name": "jacFD of F(r, t, s) = [r cos t, r sin t, r s^2] equals the analytic Jacobian",
+   "py": "polar_jac([1.5, 0.7, -0.4])",
+   "js": "Num.jacFD((x) => [x[0] * Math.cos(x[1]), x[0] * Math.sin(x[1]), x[0] * x[2] * x[2]], [1.5, 0.7, -0.4])",
+   "tol": 1e-08
+  },
+  {
+   "name": "derivFD of sin at 1 and of x^3 at 2",
+   "py": "[math.cos(1), 12.0]",
+   "js": "[Num.derivFD(Math.sin, 1), Num.derivFD((x) => x ** 3, 2)]",
+   "tol": 1e-09
+  },
+  {
+   "name": "frac and fmt strings",
+   "py": "['1/3', '-5/2', '3.142', '7', '0.000', '[1.500, -0.250]', '[  1.000  -2.500 ]\\n[  0.333   4.000 ]']",
+   "js": "[Num.frac(1 / 3), Num.frac(-2.5), Num.frac(Math.PI), Num.frac(7), Num.fmt(-0.0001), Num.fmt([1.5, -0.25]), Num.fmt([[1, -2.5], [1 / 3, 4]])]"
+  },
+  {
+   "name": "tex of a matrix with fractions and of a vector with fixed digits",
+   "py": "[r'\\begin{bmatrix} 1 & \\tfrac{1}{2} \\\\ -\\tfrac{2}{3} & 4 \\end{bmatrix}', r'\\begin{bmatrix} 0.50 \\\\ -1.00 \\end{bmatrix}']",
+   "js": "[Num.tex([[1, 0.5], [-2 / 3, 4]]), Num.tex([0.5, -1], {digits: 2})]"
+  }
+ ]
+}

@@ -13,6 +13,8 @@ reproduced and verified here: gradient descent vs. Newton on the
 quartic, backtracking line search, penalty and log-barrier methods,
 Lagrangian duality, and a 2D LCP solved by mode enumeration.
 
+Slide decks:        05, 06 and 07 (05_unconstrained_optimization.html, 06_constrained_optimization.html, 07_convexity_and_duality.html);
+                    their cells follow the "Deck NN" header cells near the end.
 Run locally:        marimo edit 01_optimization_fundamentals.py
 Export for web:     marimo export html-wasm 01_optimization_fundamentals.py -o site/
 """
@@ -328,6 +330,36 @@ def _(lcp_modes, mo):
     combinatorics every contact solver is implicitly searching.
     """
     )
+    return
+
+
+@app.cell
+def _(mo):
+    mo.md(r"""
+    # Deck 05 · Unconstrained optimization: gradient descent and Newton's method
+
+    Slides: `slides/05_unconstrained_optimization.html`
+    """)
+    return
+
+
+@app.cell
+def _(mo):
+    mo.md(r"""
+    # Deck 06 · Constrained optimization: Lagrange multipliers and the KKT conditions
+
+    Slides: `slides/06_constrained_optimization.html`
+    """)
+    return
+
+
+@app.cell
+def _(mo):
+    mo.md(r"""
+    # Deck 07 · Convexity, duality, and complementarity
+
+    Slides: `slides/07_convexity_and_duality.html`
+    """)
     return
 
 

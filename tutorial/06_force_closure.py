@@ -2,8 +2,11 @@
 # requires-python = ">=3.10"
 # dependencies = ["marimo", "numpy", "matplotlib", "scipy"]
 # ///
-"""Companion notebook for slide decks Parts 4-6 (slides/04-06) and the tutorial's
-grasping chapter: force closure, Nguyen's theorem, 3D grasps, grasp quality.
+"""Companion notebook for slide decks 14-16 (slides/14_planar_force_closure.html,
+15_grasps_in_3d.html, 16_grasp_quality.html) and the tutorial's grasping chapter: force
+closure, Nguyen's theorem, 3D grasps, grasp quality. The three decks were Parts 4-6 of the
+stand-alone series "Friction & Grasping from Scratch"; the section headers below cite deck and
+slide numbers.
 
 Verifies: the positive-span / linear-program force-closure test, Nguyen's
 theorem against that test on thousands of random grasps, the box / disk /
@@ -14,7 +17,7 @@ theorem, Mirtich & Canny's moment formula, and the Ferrari-Canny epsilon.
 
 Run locally:        marimo edit 06_force_closure.py
 Export for web:     marimo export html-wasm 06_force_closure.py -o site/
-Slides:             open slides/index.html (Parts 4-6)
+Slides:             open slides/index.html (decks 14-16)
 """
 
 import marimo
@@ -38,7 +41,7 @@ def _():
 @app.cell
 def _(mo):
     mo.md(r"""
-    # Force Closure — Numerical Companion (Slides, Parts 4–6)
+    # Force Closure — Numerical Companion (Decks 14–16)
 
     A grasp is **force closure** when its contacts can cancel any disturbance
     wrench. With friction cones replaced by finitely many edges, that becomes
@@ -52,7 +55,7 @@ def _(mo):
 @app.cell
 def _(mo):
     mo.md(r"""
-    ## 1. The test: rank plus a strictly positive squeeze (Part 6, slide 5)
+    ## 1. The test: rank plus a strictly positive squeeze (deck 16, slide 5)
 
     Vectors $\mathbf w_1, \dots, \mathbf w_m$ positively span $\mathbb R^d$
     iff they span it linearly **and** some combination with all weights
@@ -107,7 +110,7 @@ def _(mo, np, positively_spans):
     _ang = lambda degs: np.array([[np.cos(np.radians(a)), np.sin(np.radians(a))] for a in degs]).T
     mo.md(
         f"""
-Warm-ups (Part 4, slides 5–6):
+Warm-ups (deck 14, slides 5–6):
 
 | vectors | positively span? |
 |---|---|
@@ -122,7 +125,7 @@ Warm-ups (Part 4, slides 5–6):
 
 @app.cell
 def _(frictionless_wrenches_2d, mo, np, positively_spans):
-    # Box of width 2, height 1.4 (Part 4, slides 8-9).
+    # Box of width 2, height 1.4 (deck 14, slides 8-9).
     _two = [(np.array([-1.0, 0.0]), [1, 0]), (np.array([1.0, 0.0]), [-1, 0])]
     _pinwheel = [(np.array([-1.0, 0.3]), [1, 0]), (np.array([1.0, -0.3]), [-1, 0]),
                  (np.array([0.5, -0.7]), [0, 1]), (np.array([-0.5, 0.7]), [0, -1])]
@@ -145,7 +148,7 @@ def _(frictionless_wrenches_2d, mo, np, positively_spans):
 @app.cell
 def _(mo):
     mo.md(r"""
-    ## 2. Nguyen's theorem, tested on random grasps (Part 4, slides 12–15)
+    ## 2. Nguyen's theorem, tested on random grasps (deck 14, slides 12–15)
 
     Two frictional contacts in the plane are force closure iff the segment
     joining them lies strictly inside both friction cones. We draw random
@@ -234,7 +237,7 @@ def _(edge_wrenches_2d, ellipse_point, mo, nguyen, normal_angle, np, polygon_poi
 @app.cell
 def _(mo):
     mo.md(r"""
-    ## 3. Three pinches you can do in your head (Part 4, slides 17–19)
+    ## 3. Three pinches you can do in your head (deck 14, slides 17–19)
 
     Bisect on the geometry until the exact wrench test flips, and compare
     with the closed forms: box offset $d < \mu w$, disk misplacement
@@ -297,7 +300,7 @@ for $\\delta$ = 10°, 30°, 43.6°: exactly $\\delta$, i.e. $2\\beta$ with $\\be
 @app.cell
 def _(mo):
     mo.md(r"""
-    ## 4. Grasps in 3D: hard vs. soft fingers (Part 5, slides 6–7)
+    ## 4. Grasps in 3D: hard vs. soft fingers (deck 15, slides 6–7)
 
     3D primitive wrenches are $(\mathbf f, \mathbf p\times\mathbf f)\in\mathbb R^6$.
     A hard finger's cone is replaced by $k$ edges $\hat{\mathbf n} +
@@ -373,7 +376,7 @@ Antipodal pinch of a unit ball, $\\mu = 0.5$:
 @app.cell
 def _(mo):
     mo.md(r"""
-    ## 5. Three fingers on a ball (Part 5, slides 14–16; Part 6, slide 11)
+    ## 5. Three fingers on a ball (deck 15, slides 14–16; deck 16, slide 11)
 
     Fingers 120° apart around the circle at latitude $\varphi$. The slides
     claim force closure iff $\tan\varphi < \mu$. Then: what do 4-sided
@@ -431,7 +434,7 @@ def _(bisect, mo, np, positively_spans, wrenches_3d):
     _mu_min = bisect(lambda m: not _fc(m), 0.01, 5.0, iters=30)   # smallest mu that works
     mo.md(
         f"""
-**Bunched fingers (Part 5, check-yourself Q4).** Three fingers on the equator at 0°, 60°, 120°:
+**Bunched fingers (deck 15, check-yourself Q4).** Three fingers on the equator at 0°, 60°, 120°:
 force closure at μ = 0.5: **{_fc(0.5)}**, at μ = 2: **{_fc(2.0)}**. The smallest μ that works
 is about **{_mu_min:.3f}**.
 """
@@ -442,7 +445,7 @@ is about **{_mu_min:.3f}**.
 @app.cell
 def _(mo):
     mo.md(r"""
-    ## 6. The three-force theorem, numerically (Part 5, slides 11–12)
+    ## 6. The three-force theorem, numerically (deck 15, slides 11–12)
 
     Take three contacts on a random ellipsoid. The **internal forces**
     (finger forces with zero total wrench) form the null space of the
@@ -490,7 +493,7 @@ and 2 (relative) {_worst_concur:.1e}. Coplanar and concurrent. ✓
 @app.cell
 def _(mo):
     mo.md(r"""
-    ## 7. Mirtich & Canny's optimum grasps (Part 5, slides 9, 18)
+    ## 7. Mirtich & Canny's optimum grasps (deck 15, slides 9, 18)
 
     **Two fingers, collinear normals, spacing $d$.** With total normal force
     at most 1 (each finger $1/2$), friction resists a pure twist of at most
@@ -559,7 +562,7 @@ def _(cross2, linprog, mo, np):
 @app.cell
 def _(mo):
     mo.md(r"""
-    ## 8. Ferrari–Canny quality $\varepsilon$ (Part 6, slides 6–10)
+    ## 8. Ferrari–Canny quality $\varepsilon$ (deck 16, slides 6–10)
 
     With total finger normal force at most 1, the reachable wrenches are the
     convex hull of the primitive wrenches. $\varepsilon$ is the distance from
@@ -618,7 +621,7 @@ def _(epsilon_l1, mo, ring_contacts, wrenches_3d):
     _ec = epsilon_l1(wrenches_3d(_C, 0.5, k=4, how="circumscribed"))
     _rows.append(f"| circumscribed, k = 4 | {_ec:.3f} | {100*(_ec/_exact-1):+.0f}% |")
     mo.md(
-        f"Three fingers on the equator, μ = 0.5, λ = R (Part 6, slide 10). Reference (k = 128): "
+        f"Three fingers on the equator, μ = 0.5, λ = R (deck 16, slide 10). Reference (k = 128): "
         f"**ε = {_exact:.3f}**.\n\n| cone model | ε | error |\n|---|---|---|\n" + "\n".join(_rows)
     )
     return
@@ -627,7 +630,7 @@ def _(epsilon_l1, mo, ring_contacts, wrenches_3d):
 @app.cell
 def _(mo):
     mo.md(r"""
-    ## 9. Case study: the sphere pinch filter (Part 4, slides 22–26; Part 6, slide 13)
+    ## 9. Case study: the sphere pinch filter (deck 14, slides 22–26; deck 16, slide 13)
 
     The filter accepts a thumb–index pinch of a sphere when
     $\cos\angle(-\hat{\mathbf n}_0, \hat{\mathbf n}_1) \ge \cos(2\arctan\mu)$.
@@ -663,7 +666,7 @@ def _(mo, np, positively_spans, wrenches_3d):
   twist about the thumb–index axis is free.
 
 (Pinches within 0.01 rad of the boundary are skipped: a 64-sided inscribed pyramid is very
-slightly conservative there, which is Part 2's lesson again.)
+slightly conservative there, which is deck 12's lesson again.)
 """
     )
     return

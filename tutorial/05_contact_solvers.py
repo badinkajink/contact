@@ -10,6 +10,8 @@ separate), the sliding-block-with-friction simulation against the analytic
 -mu*g deceleration, and the 1D complementarity-free (ComFree) closed-form
 contact force from the tutorial's worked example (beta = 10, lambda_N = mg).
 
+Slide decks:        17, 18, 19 and 20 (17_rigid_body_motion.html, 18_contact_dynamics.html, 19_contact_solvers.html, 20_complementarity_free_contact.html);
+                    their cells follow the "Deck NN" header cells near the end.
 Run locally:        marimo edit 05_contact_solvers.py
 Export for web:     marimo export html-wasm 05_contact_solvers.py -o site/
 Background:         04_friction_cones.py (friction cones and pyramids from scratch)
@@ -262,6 +264,54 @@ no mode enumeration, no iteration, and (after a SoftPlus swap for the max)
 differentiable end-to-end. That is the entire pitch of
 complementarity-free contact-implicit MPC.
 """
+    )
+    return
+
+
+@app.cell
+def _(mo):
+    mo.md(
+        r"""
+        # Deck 17 · Rigid-body motion: rotations, quaternions, twists, and wrenches
+
+        Slides: `slides/17_rigid_body_motion.html`
+        """
+    )
+    return
+
+
+@app.cell
+def _(mo):
+    mo.md(
+        r"""
+        # Deck 18 · Rigid-body dynamics with contact
+
+        Slides: `slides/18_contact_dynamics.html`
+        """
+    )
+    return
+
+
+@app.cell
+def _(mo):
+    mo.md(
+        r"""
+        # Deck 19 · Contact solvers: LCP, CCP, and MuJoCo's soft contact
+
+        Slides: `slides/19_contact_solvers.html`
+        """
+    )
+    return
+
+
+@app.cell
+def _(mo):
+    mo.md(
+        r"""
+        # Deck 20 · Complementarity-free contact
+
+        Slides: `slides/20_complementarity_free_contact.html`
+        """
     )
     return
 

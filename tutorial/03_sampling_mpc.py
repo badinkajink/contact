@@ -9,6 +9,8 @@ example, demonstrates effective sample size vs. temperature, and runs
 Predictive Sampling / MPPI / CEM head-to-head on the sliding block with
 spline-parameterized controls.
 
+Slide decks:        10 (10_sampling_mpc.html);
+                    their cells follow the "Deck NN" header cells near the end.
 Run locally:        marimo edit 03_sampling_mpc.py
 Export for web:     marimo export html-wasm 03_sampling_mpc.py -o site/
 """
@@ -269,6 +271,18 @@ Predictive Sampling is jumpy but never regresses (elitism); MPPI is
 smooth; CEM converges fastest here but would freeze without the
 variance floor (`sigma_floor`) — delete it and watch.
 """
+    )
+    return
+
+
+@app.cell
+def _(mo):
+    mo.md(
+        r"""
+        # Deck 10 · Sampling-based model predictive control and MuJoCo MPC
+
+        Slides: `slides/10_sampling_mpc.html`
+        """
     )
     return
 

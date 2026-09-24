@@ -84,8 +84,12 @@ def open_page(browser, url: str, mode="print", scale=1, timeout=45_000, log=None
 
     page.on("console", on_console)
     page.on("pageerror", lambda e: msgs.append(("pageerror", str(e))))
-    sep = "&" if "?" in url else "?"
-    page.goto(url if mode is None else f"{url}{sep}mode={mode}")
+    if mode is not None:
+        # The query goes before the fragment: "deck.html?mode=read#slide-id".
+        base, hsep, frag = url.partition("#")
+        base += ("&" if "?" in base else "?") + f"mode={mode}"
+        url = base + hsep + frag
+    page.goto(url)
     try:
         page.wait_for_function(WAIT_JS, timeout=timeout)
     except Exception as e:  # noqa: BLE001 - report and continue with what rendered

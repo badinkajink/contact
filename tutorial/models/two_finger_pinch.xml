@@ -1,0 +1,53 @@
+<!--
+  two_finger_pinch.xml: two slide-jointed fingers squeeze a 0.2 kg box from the sides.
+
+  Units are SI (m, kg, s, N). Each finger is a pad on a horizontal slide joint (axis x) driven by
+  a force motor; ctrl is the squeeze force in newtons, pushing each pad toward the box. Gravity
+  pulls the box down; only friction at the two pads holds it. With pad friction mu and squeeze
+  force F on each side, Coulomb friction holds the box when 2 mu F >= m g, that is
+  F >= 0.2 * 9.81 / (2 mu) = 1.96 N for mu = 0.5. Below that the box slips and falls 0.07 m to
+  the floor.
+
+  The pads have priority="1", so their friction sets the pad-box contacts' friction; a slide or
+  notebook changes mu by writing geom_friction[left, 0] and geom_friction[right, 0].
+  The keyframe "hold" squeezes with 5 N on each side.
+-->
+<mujoco model="two_finger_pinch">
+  <option timestep="0.002" gravity="0 0 -9.81"/>
+
+  <default>
+    <!-- Joint damping settles the pads onto the box without ringing. -->
+    <joint type="slide" axis="1 0 0" damping="2" range="-0.05 0.05" limited="true"/>
+    <geom rgba="0.8 0.8 0.8 1"/>
+  </default>
+
+  <worldbody>
+    <geom name="floor" type="plane" size="0.25 0.25 0.05" rgba="0.9 0.9 0.9 1"/>
+
+    <!-- Pads: 0.02 m thick (x), 0.04 m wide (y), 0.04 m tall (z), touching the box faces at x = -+0.03. -->
+    <body name="left" pos="-0.04 0 0.1">
+      <joint name="left"/>
+      <geom name="left" type="box" size="0.01 0.02 0.02" mass="0.1" priority="1" friction="0.5 0.005 0.0001"/>
+    </body>
+    <body name="right" pos="0.04 0 0.1">
+      <joint name="right"/>
+      <geom name="right" type="box" size="0.01 0.02 0.02" mass="0.1" priority="1" friction="0.5 0.005 0.0001"/>
+    </body>
+
+    <!-- The held object: a 0.06 m cube of 0.2 kg, centred between the pads 0.1 m above the floor. -->
+    <body name="box" pos="0 0 0.1">
+      <freejoint name="box"/>
+      <geom name="box" type="box" size="0.03 0.03 0.03" mass="0.2"/>
+    </body>
+  </worldbody>
+
+  <actuator>
+    <!-- Positive ctrl pushes each pad toward the box: +x for the left pad, -x for the right pad. -->
+    <motor name="left" joint="left" gear="1" ctrlrange="0 20" ctrllimited="true"/>
+    <motor name="right" joint="right" gear="-1" ctrlrange="0 20" ctrllimited="true"/>
+  </actuator>
+
+  <keyframe>
+    <key name="hold" ctrl="5 5"/>
+  </keyframe>
+</mujoco>

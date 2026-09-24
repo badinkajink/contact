@@ -9,6 +9,8 @@ the scalar LQR Riccati table (golden-ratio gain), and the iLQR backward
 pass at t=2 (Q_uu = 24.22, K_2 = [0, -2.752]) including one-iteration
 convergence on this linear-quadratic problem.
 
+Slide decks:        08 and 09 (08_optimal_control_and_lqr.html, 09_ddp_and_ilqr.html);
+                    their cells follow the "Deck NN" header cells near the end.
 Run locally:        marimo edit 02_lqr_ilqr_sliding_block.py
 Export for web:     marimo export html-wasm 02_lqr_ilqr_sliding_block.py -o site/
 """
@@ -207,7 +209,7 @@ def _(np):
             return xs, us_new
 
         def total_cost(xs, us):
-            return sum(float(u**2) for u in us) + w * float(
+            return sum(float(np.sum(u**2)) for u in us) + w * float(
                 (xs[-1] - x_goal) @ (xs[-1] - x_goal)
             )
 
@@ -266,7 +268,7 @@ def _(J_hist, bp_debug, mo, us_il, xs_il):
 iteration to optimum, because the problem is linear-quadratic and the
 backward pass is then *exact* dynamic programming.
 
-**Solution found:** u = [{", ".join(f"{float(u):.2f}" for u in us_il)}],
+**Solution found:** u = [{", ".join(f"{float(u[0]):.2f}" for u in us_il)}],
 final state = ({xs_il[-1][0]:.3f}, {xs_il[-1][1]:.3f}).
 Note this differs slightly from notebook §1: the terminal constraint is
 soft here (w=100), so iLQR trades a little terminal error for less effort.
@@ -284,6 +286,30 @@ def _(J_hist, plt):
     _ax.grid(alpha=0.3)
     _fig.tight_layout()
     _fig
+    return
+
+
+@app.cell
+def _(mo):
+    mo.md(
+        r"""
+        # Deck 08 · Optimal control, dynamic programming, and LQR
+
+        Slides: `slides/08_optimal_control_and_lqr.html`
+        """
+    )
+    return
+
+
+@app.cell
+def _(mo):
+    mo.md(
+        r"""
+        # Deck 09 · Differential dynamic programming and iLQR
+
+        Slides: `slides/09_ddp_and_ilqr.html`
+        """
+    )
     return
 
 

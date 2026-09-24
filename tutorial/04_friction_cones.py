@@ -2,8 +2,10 @@
 # requires-python = ">=3.10"
 # dependencies = ["marimo", "numpy", "matplotlib", "scipy"]
 # ///
-"""Companion notebook for slide decks Parts 1-3 (slides/01-03): Coulomb friction,
-friction cones, pyramid approximations, and many contacts.
+"""Companion notebook for slide decks 11-13 (slides/11_coulomb_friction.html,
+12_friction_cone_3d.html, 13_contact_wrench_cone.html): Coulomb friction, friction cones,
+pyramid approximations, and many contacts. The three decks were Parts 1-3 of the stand-alone
+series "Friction & Grasping from Scratch"; the section headers below cite deck and slide numbers.
 
 Verifies every number on those slides: the will-it-slide example, friction
 angles and the tilting-board test, the three equivalent cone tests, maximum
@@ -14,7 +16,7 @@ Coulomb (Ch. 7) sections.
 
 Run locally:        marimo edit 04_friction_cones.py
 Export for web:     marimo export html-wasm 04_friction_cones.py -o site/
-Slides:             open slides/index.html (Parts 1-3)
+Slides:             open slides/index.html (decks 11-13)
 """
 
 import marimo
@@ -37,7 +39,7 @@ def _():
 @app.cell
 def _(mo):
     mo.md(r"""
-    # Friction Cones — Numerical Companion (Slides, Parts 1–3)
+    # Friction Cones — Numerical Companion (Decks 11–13)
 
     The slides build Coulomb friction from scratch: a single point contact,
     the 2D wedge, the 3D ice-cream cone, its pyramid approximations, and
@@ -54,7 +56,7 @@ def _(mo):
 @app.cell
 def _(mo):
     mo.md(r"""
-    ## 1. Will it slide? (Part 1, slides 15–16)
+    ## 1. Will it slide? (deck 11, slides 15–16)
 
     A 10 kg box on a floor with $\mu_s = 0.5$ (static) and $\mu_k = 0.4$
     (kinetic). Static friction matches the push up to the budget $\mu_s N$;
@@ -118,7 +120,7 @@ def _(G, np, plt, push_box):
 @app.cell
 def _(mo):
     mo.md(r"""
-    ## 2. The friction angle and the tilting board (Part 1, slides 24, 29–32)
+    ## 2. The friction angle and the tilting board (deck 11, slides 24, 29–32)
 
     On a board tilted by $\theta$, the block sticks while
     $mg\sin\theta \le \mu\, mg\cos\theta$, i.e. $\tan\theta \le \mu$. So it
@@ -159,7 +161,7 @@ book), 26.6°, 45°, 63.4°. The 50 kg column equals the 1 kg column: mass cance
 @app.cell
 def _(mo):
     mo.md(r"""
-    ## 3. Three ways to say "inside the cone" (Part 1, slide 27)
+    ## 3. Three ways to say "inside the cone" (deck 11, slide 27)
 
     For a force $\mathbf f$ at a contact with inward normal $\hat{\mathbf n}$:
 
@@ -200,7 +202,7 @@ of them. {int(_t1.sum()):,} are inside the cone.
 @app.cell
 def _(mo):
     mo.md(r"""
-    ## 4. Maximum dissipation on circles and ellipses (Part 2, slides 11, 16)
+    ## 4. Maximum dissipation on circles and ellipses (deck 12, slides 11, 16)
 
     Sliding friction is the point of the unit slice that minimizes
     $\mathbf f_t\cdot\mathbf v$ (the "last touch" of a line perpendicular to
@@ -246,7 +248,7 @@ def _(mo, np):
 @app.cell
 def _(mo):
     mo.md(r"""
-    ## 5. How wrong is a $k$-sided pyramid? (Part 2, slides 21–24)
+    ## 5. How wrong is a $k$-sided pyramid? (deck 12, slides 21–24)
 
     A regular $k$-gon **inscribed** in the unit slice (corners on the circle)
     reaches between $\mu\cos(\pi/k)$ and $\mu$; a **circumscribed** one
@@ -304,7 +306,7 @@ def _(mo, np, reach, regular_polygon):
     _box = regular_polygon(4, "circumscribed")
     mo.md(
         f"""
-### Cost 1: the budget depends on direction (Part 2, slide 25)
+### Cost 1: the budget depends on direction (deck 12, slide 25)
 
 Reach at 45°, per unit $\\mu f_n$: circle 1.000, diamond **{reach(_dia, _u):.3f}**,
 box **{reach(_box, _u):.3f}**. For the 10 kg box with $\\mu = 0.5$ pushed at 45°:
@@ -318,7 +320,7 @@ box model {_budget*reach(_box, _u):.1f} N. (Slide: 49.1 / 34.7 / 69.4 N.)
 @app.cell
 def _(mo):
     mo.md(r"""
-    ## 6. Sliding pucks: why pyramid paths bend (Part 2, slides 26–28)
+    ## 6. Sliding pucks: why pyramid paths bend (deck 12, slides 26–28)
 
     Implicit (maximum-dissipation) time stepping: each step picks the
     friction force in $\mu g\cdot$slice that makes the next velocity as small
@@ -468,13 +470,13 @@ a side.
 @app.cell
 def _(mo):
     mo.md(r"""
-    ## 7. Slide or tip, and the floor's wrench cone (Part 3, slides 7–9, 22–23)
+    ## 7. Slide or tip, and the floor's wrench cone (deck 13, slides 7–9, 22–23)
 
     Push a box of width $w$ with $P$ at height $h$. Torques about the front
     corner give $N_A = \tfrac12 mg - Ph/w$ and $N_B = \tfrac12 mg + Ph/w$.
     It slides at $P = \mu mg$ and tips at $P = mg\,w/(2h)$.
 
-    The same answer, the Part 3b way: the floor's four edge wrenches are
+    The same answer, the wrench-cone way of deck 13: the floor's four edge wrenches are
     $(\pm\mu, 1, \pm w/2)$ and the needed wrench is $(-P, mg, hP)$. It is
     in the contact wrench cone iff a non-negative combination makes it,
     which we test with non-negative least squares.
@@ -520,7 +522,7 @@ def _(mo, nnls, np):
 @app.cell
 def _(mo):
     mo.md(r"""
-    ## 8. The wobbly table (Part 3, slides 13–16)
+    ## 8. The wobbly table (deck 13, slides 13–16)
 
     Four legs at $(\pm a, \pm a)$, weight $mg$ in the middle. Three equations
     (vertical force, two tipping torques), four unknowns. The null space of
@@ -568,7 +570,7 @@ def _(mo, np):
         _worst = max(_worst, np.linalg.norm(_Ftot - (-_mu * _mg * _vhat)))
     mo.md(
         f"""
-**Sliding without turning (Part 3, slide 17).** Over 1,000 random load splits, the total
+**Sliding without turning (deck 13, slide 17).** Over 1,000 random load splits, the total
 corner friction differs from $-\\mu\\, mg\\, \\hat{{\\mathbf v}}$ by at most {_worst:.1e}.
 The split doesn't matter.
 """
@@ -579,7 +581,7 @@ The split doesn't matter.
 @app.cell
 def _(mo):
     mo.md(r"""
-    ## 9. The dual cone (Part 2, slide 33)
+    ## 9. The dual cone (deck 12, slide 33)
 
     $\mathcal K^* = \{\mathbf v : \mathbf v\cdot\mathbf f \ge 0\ \forall \mathbf f\in\mathcal K\}$.
     For the Coulomb cone it suffices to check the cone's edges. The claim:
@@ -622,7 +624,7 @@ def _(mo):
 
     **Next:** `05_contact_solvers.py` — how simulators find these forces
     every time step (LCP, PGS, cone projections). Then `06_force_closure.py`
-    for Parts 4–6: grasps.
+    for decks 14–16: grasps.
     """)
     return
 

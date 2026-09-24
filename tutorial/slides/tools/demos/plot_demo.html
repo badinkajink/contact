@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>plot.js feature demonstration</title>
+<link rel="stylesheet" href="../../lib/katex/katex.min.css">
+<link rel="stylesheet" href="../../lib/retro.css">
+<script defer src="../../lib/katex/katex.min.js"></script>
+<script defer src="../../lib/katex/contrib/auto-render.min.js"></script>
+<script src="../../lib/fig.js"></script>
+<script src="../../lib/plot.js"></script>
+<script>window.DECK_MACROS = { "\\vz": "\\mathbf{z}", "\\ve": "\\mathbf{e}" };</script>
+<script defer src="../../lib/deck.js"></script>
+<style>
+  pre.api { font-size: 18px; line-height: 1.25; margin: 6px 0 0; }
+</style>
+</head>
+<!--
+  Test deck for lib/plot.js: one slide per feature. Every figure is drawn by the script at the
+  bottom. Check with:  uv run tools/check.py tools/demos/plot_demo.html --shots DIR
+-->
+<body data-short="plot.js demonstration" data-index="../../index.html">
+<main class="deck">
+
+<!-- ============================================================ title -->
+<section class="slide title" id="title">
+  <h1>Plotting library for the curriculum decks<br>Demonstration of lib/plot.js</h1>
+  <p class="authors">Test deck for <code>tutorial/slides/lib/plot.js</code>, drawn on top of <code>lib/fig.js</code></p>
+  <p class="links">[<a href="../../index.html">index</a>] [<a href="../../lib/plot.js">source</a>] [<a href="#" data-action="print">pdf</a>]</p>
+  <hr>
+  <figure style="width:700px">
+    <svg id="f-hero"></svg>
+    <figcaption>The quartic $J(z) = z^4 - 4z^2 + z + 4$ with its three stationary points, found by
+      Newton's method in the page. The shaded set is $\{z : J(z) \le 0\}$.</figcaption>
+  </figure>
+  <p class="updated">Last updated September 2026.</p>
+</section>
+
+<!-- ============================================================ axes -->
+<section class="slide" id="axes-styles">
+  <h2>Axes in box style and origin style</h2>
+  <div class="cols">
+    <figure><svg id="f-box"></svg>
+<pre class="api">const F = Plot.fig("#f-box", {w: 540, h: 330,
+  xlim: [-2.2, 2.2], ylim: [0, 10]});
+F.axes({xlabel: "$z$", ylabel: "$J(z)$",
+  grid: true});
+F.curve(J, {color: Fig.C.blue});</pre></figure>
+    <figure><svg id="f-origin"></svg>
+<pre class="api">const G = Fig("#f-origin", {w: 540, h: 330,
+  xlim: [-3.3, 3.3], ylim: [-2, 2]});
+G.axes({xlim: [-3, 3], ylim: [-1.7, 1.7],
+  origin: true, xstep: 1, ystep: 1,
+  xlabel: "$x$", ylabel: "$y$"});</pre></figure>
+  </div>
+  <aside class="notes">Left: Plot.fig maps the limits $[-2.2, 2.2] \times [0, 10]$ onto the area inside
+    the margins with separate x and y scales, and F.axes draws the bottom and left spines with outward
+    ticks, round tick values from 1-2-5 steps, a light grid and both axis labels. The rotated y label
+    sits left of the widest tick label. Right: a plain Fig keeps one scale for both axes, so the unit
+    circle stays round; F.axes with origin: true draws math-style axes through $(0, 0)$ with arrowheads,
+    ticks that cross the lines and no label at the crossing. The dashed line is $y = x/2$, clipped to
+    the axes range.</aside>
+</section>
+
+<!-- ============================================================ curves -->
+<section class="slide" id="curves">
+  <h2>Function graphs clipped to the plot box</h2>
+  <div class="cols l2 mid">
+    <figure><svg id="f-curves"></svg></figure>
+    <div>
+      <ul class="small">
+        <li>F.curve samples $f$ at 401 points and clips each segment to the box.</li>
+        <li>A segment whose ends lie beyond opposite edges is dropped, so $\tan x$ and $1/x$ show
+          no vertical line at their poles.</li>
+        <li>Tick labels can be pairs such as <code>[Math.PI, "$π$"]</code>.</li>
+      </ul>
+<pre class="api">F.curve(Math.tan, {color: C.blue});
+F.curve(Math.sin, {color: C.red,
+  dash: true});
+F.curve((x) => 1 / x, {color: C.green});
+F.legend([{name: "tan $x$", ...}]);</pre>
+    </div>
+  </div>
+  <aside class="notes">The figure shows $\tan x$, $\sin x$ and $1/x$ on $[-2\pi, 2\pi]$ with the y range
+    cut to $[-3, 3]$. Every curve is one SVG path with one subpath per visible piece: the clipper
+    (Liang-Barsky on each segment) starts a new subpath wherever the curve re-enters the box. The
+    asymptote rule drops a segment only when one end is above the box and the other below, which a
+    continuous curve sampled at 401 points never does inside the range shown. Non-finite values
+    ($1/0$) also break the line. The legend is F.legend with line samples; dash: true gives the
+    6 px / 5 px dash of fig.js.</aside>
+</section>
+
+<!-- ============================================================ param, polyline, scatter -->
+<section class="slide" id="param-points">
+  <h2>Parametric curves, polylines, and scatter points</h2>
+  <div class="cols">
+    <figure><svg id="f-param"></svg>
+<pre class="api">F.param((t) => mul(A, [cos(t), sin(t)]),
+  0, 2 * Math.PI, {color: C.blue});
+F.polyline(tri, {close: true,
+  fill: C.cone, color: C.orange});</pre></figure>
+    <figure><svg id="f-scatter"></svg>
+<pre class="api">F.scatter(pts, {r: 4.5, fill: "#ffffff",
+  stroke: C.blue, width: 1.5});
+F.polyline([p, q], {color: C.gray});</pre></figure>
+  </div>
+  <aside class="notes">Left: the unit circle (dashed) and its image under $A = \begin{bmatrix} 1.6 &amp; 0.6 \\
+    0.3 &amp; 0.9 \end{bmatrix}$, both drawn by F.param with equal axis scales. The orange triangle
+    extends past the plot box on three sides; F.polyline with a fill clips the polygon with
+    Sutherland-Hodgman and the outline with the same segment clipper as F.curve. Right: 25 points
+    $y = 0.8x + 0.5 + 0.6\,\varepsilon$ with $\varepsilon$ from a seeded Gaussian generator, the
+    least-squares line computed in the page (the legend shows its coefficients), and each residual
+    as a two-point polyline. Scatter markers are open circles here; shape "square", "x" and "+"
+    also exist.</aside>
+</section>
+
+<!-- ============================================================ contour -->
+<section class="slide" id="contour">
+  <h2>Contour lines of a quadratic bowl with a gradient-descent path</h2>
+  <div class="cols l2 mid">
+    <figure><svg id="f-contour"></svg></figure>
+    <div>
+      <p class="small">$J(\vz) = \tfrac12 (z_1^2 + 8 z_2^2)$, step $\alpha = 0.22$, from
+        $\vz_0 = (-2.8, 1.0)$.</p>
+<pre class="api">const lines = F.contour(J,
+  [0.25, 0.5, 1, 2, 4, 8, 16],
+  {color: C.gray, labels: true});
+F.polyline(path, {color: C.red});
+F.scatter(path, {r: 3.5, fill: C.red});</pre>
+      <div class="readout" id="contour-read"></div>
+    </div>
+  </div>
+  <aside class="notes">Marching squares runs on a grid of one cell per 5 px (here 107 by 59 cells), with
+    each crossing point found by linear interpolation along its cell edge. Crossings are keyed by the
+    edge they lie on, so the segments of neighbouring cells join exactly into polylines, and the
+    readout reports how many polylines came back and whether each ellipse closed. Labels sit on the
+    longest line of each level with a white halo, at the first of several arc-length positions that
+    keeps them inside the box and clear of earlier labels. The red path is gradient descent,
+    $\vz_{k+1} = \vz_k - \alpha \nabla J(\vz_k)$: the $z_2$ component is multiplied by
+    $1 - 8\alpha = -0.76$ each step, so it zig-zags, while $z_1$ shrinks by $0.78$.</aside>
+</section>
+
+<!-- ============================================================ heat -->
+<section class="slide" id="heat">
+  <h2>Heat maps with the sequential and diverging colormaps</h2>
+  <div class="cols">
+    <figure><svg id="f-heat1"></svg>
+<pre class="api">const im = F.heat(g, {cmap: "heat"});
+F.contour(g, [1, 2, 3, 4, 5, 6],
+  {color: "#666666", width: 0.8});
+F.colorbar({of: im, label: "log(1 + $f$)"});</pre></figure>
+    <figure><svg id="f-heat2"></svg>
+<pre class="api">F.heat((x, y) => x * x - y * y,
+  {cmap: "diverging", vmin: -4, vmax: 4});
+F.contour(h, [0], {dash: "5 4"});
+F.colorbar({cmap: "diverging", ...});</pre></figure>
+  </div>
+  <aside class="notes">Left: Himmelblau's function $f(x, y) = (x^2 + y - 11)^2 + (x + y^2 - 7)^2$ on
+    a log scale, with its four minima as the four darkest-free white basins. F.heat evaluates the
+    function at cell centres (one cell per 3 px), writes the colors into an offscreen canvas and
+    embeds it as a PNG data URL in an SVG image, which works from file://. Right: the saddle
+    $x^2 - y^2$ on the diverging map with symmetric limits, so zero is white; the dashed zero
+    contour is the pair of diagonals. Colorbars take their map and range from the image
+    (of: im) or from explicit options.</aside>
+</section>
+
+<!-- ============================================================ region -->
+<section class="slide" id="region">
+  <h2>Feasible region of four linear inequalities and a disk</h2>
+  <div class="cols l2 mid">
+    <figure><svg id="f-region"></svg></figure>
+    <div>
+      <div class="controls">
+        <label>disk radius $r$ = <input type="range" id="rg-r" min="0.5" max="3.5" step="0.01" value="1.8">
+          <span id="rg-r-out"></span></label>
+      </div>
+      <p class="small">$x_1, x_2 \ge 0$, $x_1 + 2x_2 \le 4$, $3x_1 + x_2 \le 6$, $x_1^2 + x_2^2 \le r^2$.
+        Dashed: levels of $2x_1 + 3x_2$.</p>
+<pre class="api">const R = F.region((x, y) => x >= 0 &amp;&amp;
+  y >= 0 &amp;&amp; x + 2 * y &lt;= 4 &amp;&amp;
+  3 * x + y &lt;= 6 &amp;&amp; x * x + y * y &lt;= r * r);
+R.lines;  // boundary polylines</pre>
+      <div class="readout" id="rg-read"></div>
+    </div>
+  </div>
+  <aside class="notes">F.region evaluates the predicate on a grid of one cell per 4 px, finds each
+    boundary crossing by 16 bisection steps along its cell edge, and fills every inside piece as a
+    counter-clockwise polygon in one SVG path, so shared cell edges cancel under the nonzero rule and
+    no seams show. The boundary is stroked from the same crossings. A corner of the set is cut within
+    one cell, about 4 px. The readout takes the largest value of $2x_1 + 3x_2$ over the boundary
+    points; the true maximum of a linear function over this set lies on its boundary, so the grid
+    estimate is low by less than the cell size times $\sqrt{13}$. Moving the slider redraws the
+    whole figure.</aside>
+</section>
+
+<!-- ============================================================ quiver -->
+<section class="slide" id="quiver">
+  <h2>Negative gradient field of a quadratic</h2>
+  <div class="cols l2 mid">
+    <figure><svg id="f-quiver"></svg></figure>
+    <div>
+      <p class="small">$J(\vz) = \tfrac12 \vz^\top Q \vz$ with
+        $Q = \begin{bmatrix} 1 & 0.6 \\ 0.6 & 2 \end{bmatrix}$; arrows show $-\nabla J = -Q\vz$.</p>
+<pre class="api">const q = F.quiver((x, y) =>
+  [-(x + 0.6 * y), -(0.6 * x + 2 * y)],
+  {n: 13, color: C.ink});
+q.scale;  // world units per unit of field</pre>
+      <div class="readout" id="quiver-read"></div>
+    </div>
+  </div>
+  <aside class="notes">F.quiver samples the field at the centres of a 13 by 13 grid and scales every
+    arrow by one factor, chosen so the longest arrow spans 0.85 of a cell; the readout prints that
+    factor. Arrows are centred on their sample points (pivot "mid"). The contours of $J$ are drawn
+    first in gray, and every arrow crosses them at a right angle only when the axes have equal scales,
+    which is why this figure uses equal: true. Arrow heads shrink with short arrows so that the
+    arrows near the minimum stay readable.</aside>
+</section>
+
+<!-- ============================================================ grid2 -->
+<section class="slide" id="grid2">
+  <h2>Image of the integer grid under a 2&times;2 matrix</h2>
+  <div class="cols l2 mid">
+    <figure><svg id="f-grid2"></svg></figure>
+    <div>
+      <div class="controls">
+        <label>$a$ <input type="range" id="g2-a" min="-2" max="2" step="0.1" value="1.2"> <span id="g2-a-out"></span></label><br>
+        <label>$b$ <input type="range" id="g2-b" min="-2" max="2" step="0.1" value="0.6"> <span id="g2-b-out"></span></label><br>
+        <label>$c$ <input type="range" id="g2-c" min="-2" max="2" step="0.1" value="-0.3"> <span id="g2-c-out"></span></label><br>
+        <label>$d$ <input type="range" id="g2-d" min="-2" max="2" step="0.1" value="0.9"> <span id="g2-d-out"></span></label>
+      </div>
+      <div class="readout" id="g2-read"></div>
+<pre class="api">F.grid2([[a, b], [c, d]],
+  {original: true, square: true});</pre>
+    </div>
+  </div>
+  <aside class="notes">F.grid2 draws the images of the lines $x = i$ and $y = i$ under
+    $\vv \mapsto A\vv$ in light blue, the images of the two axes in dark blue, and the arrows
+    $A\ve_1 = (a, c)$ and $A\ve_2 = (b, d)$. The pale yellow parallelogram is the image of the unit
+    square; its signed area is $\det A = ad - bc$, printed in the readout. The gray grid underneath
+    is the original. The number of lines is chosen from $A^{-1}$ so the image covers the plot box;
+    for a singular $A$ every line collapses onto the column space and the figure shows one line.</aside>
+</section>
+
+<!-- ============================================================ surface3 -->
+<section class="slide" id="surface3">
+  <h2>Surfaces in 3D with painter's ordering</h2>
+  <div class="cols">
+    <figure><svg id="f-surf1"></svg>
+<pre class="api">const view = Fig.view3(d(-55), d(28));
+F.surface3(view, (x, y) => 0.5 * (x * x
+  + 2 * y * y), {xlim: [-1.5, 1.5],
+  ylim: [-1.5, 1.5], n: 22, fill: "heat"});</pre></figure>
+    <figure><svg id="f-surf2"></svg>
+<pre class="api">F.axes3(view, {len: [1.9, 1.9, 1.5]});
+F.surface3(view, (x, y) => x * x - y * y,
+  {n: 20, zscale: 0.6});</pre></figure>
+  </div>
+  <aside class="notes">Left: the bowl $\tfrac12(x^2 + 2y^2)$ colored by height on the heat map. Right:
+    the saddle $x^2 - y^2$ in the default pale yellow, with height scaled by 0.6 for display. Each
+    grid cell is one quadrilateral; F.surface3 sorts them by the depth of their centres along the
+    viewing direction and paints the far ones first. Shading darkens faces turned away from a light
+    near the viewer. On the right the axes are drawn before the surface, so the surface hides the
+    parts of the axes behind it.</aside>
+</section>
+
+<!-- ============================================================ hist -->
+<section class="slide" id="hist">
+  <h2>Histogram of 2000 Gaussian samples with the density overlaid</h2>
+  <div class="cols l2 mid">
+    <figure><svg id="f-hist"></svg></figure>
+    <div>
+<pre class="api">const h = F.hist(xs, {bins: 32,
+  range: [-4, 4], density: true});
+F.curve(pdf, {color: C.red});
+F.vline(1, {label: "+1"});</pre>
+      <div class="readout" id="hist-read"></div>
+      <p class="small">Samples come from a seeded generator (mulberry32 and Box-Muller), so the
+        figure is the same on every load.</p>
+    </div>
+  </div>
+  <aside class="notes">With density: true the bar heights are count divided by (number of samples in
+    range times bin width), so the bars have total area 1 and sit on the same scale as the standard
+    normal density $\varphi(x) = e^{-x^2/2} / \sqrt{2\pi}$. The readout gives the sample mean, the
+    sample standard deviation and the fraction of samples within one standard deviation of zero,
+    which should be near $0.683$. The dashed lines at $\pm 1$ are F.vline with labels.</aside>
+</section>
+
+<!-- ============================================================ bars -->
+<section class="slide" id="bars">
+  <h2>Probability mass of the sum of two dice</h2>
+  <div class="cols l2 mid">
+    <figure><svg id="f-bars"></svg></figure>
+    <div>
+<pre class="api">F.axes({xticks: false, ylabel:
+  "probability", ystep: 0.05});
+F.bars(p, ["2", "3", ..., "12"], {
+  values: true, fill: (v, i) =>
+    i === 5 ? C.cone : "#cccccc",
+  fmt: (v) => Math.round(36 * v) + "/36"});</pre>
+      <p class="small">$P(\text{sum} = s) = (6 - \lvert s - 7 \rvert)/36$; the most likely sum is 7,
+        with probability $6/36 = 0.167$.</p>
+    </div>
+  </div>
+  <aside class="notes">F.bars centres bar $i$ at $x = i$ with width 0.7 and writes the category labels
+    where the x tick labels would go, so the axes are drawn with xticks: false. The value labels sit
+    4 px above each bar; fmt turns the probabilities into sixths of six. Fill can be one color, an
+    array, or a function of the value and index, used here to mark the mode.</aside>
+</section>
+
+<!-- ============================================================ colormaps -->
+<section class="slide" id="colormaps">
+  <h2>Colormaps heat, diverging, and gray</h2>
+  <div class="cols">
+    <figure><svg id="f-cmaps"></svg>
+<pre class="api">const cm = Plot.colormap("heat");
+cm(0.5);      // "#f37a29"
+cm.rgb(0.5);  // [r, g, b]</pre></figure>
+    <figure><svg id="f-light"></svg>
+<pre class="api">// CIE lightness L* of cm(t), computed
+// in the page from the sRGB values</pre></figure>
+  </div>
+  <aside class="notes">The sequential map runs white, pale yellow (#ffff99, the friction-cone color),
+    orange, dark red. Its CIE lightness falls monotonically from 100 to 19, so a grayscale print keeps
+    the order of the values, and low values stay distinguishable from the white page through their
+    yellow tint. The diverging map runs from dark blue through white at $t = 0.5$ to dark red, with
+    lightness symmetric within 3 units about the middle. The right figure is computed in the page
+    from each map, so it is a live check of the stops in plot.js.</aside>
+</section>
+
+<!-- ============================================================ strip -->
+<section class="slide" id="strip">
+  <h2>Strip chart beside a running pendulum simulation</h2>
+  <div class="cols r2 mid">
+    <figure><svg id="f-pend"></svg></figure>
+    <div>
+      <figure><svg id="f-strip"></svg></figure>
+      <div class="controls"><button id="pd-reset">restart</button>
+        <span class="readout" id="pd-read"></span></div>
+<pre class="api">const S = Plot.strip("#f-strip", {w: 640,
+  h: 300, window: 8, series: [
+  {name: "$θ$ (rad)"}, {name: "$ω$ (rad/s)"}]});
+S.push(t, [theta, omega]);  // once a frame</pre>
+    </div>
+  </div>
+  <aside class="notes">A damped pendulum, $\ddot\theta = -(g/L)\sin\theta - c\dot\theta$ with $g = 9.81$
+    m/s$^2$, $L = 1$ m and $c = 0.3$ 1/s, released from $\theta = 2$ rad and integrated by
+    semi-implicit Euler at $h = 1/120$ s, two steps per animation frame. The first 5 s are simulated
+    when the page loads so the chart is filled in print and reading views. The simulation runs only
+    while this slide is shown. Plot.strip keeps the last 8 s, redraws once per animation frame, and
+    grows its y range to round values around everything pushed since the last restart.</aside>
+</section>
+
+</main>
+<script>
+(function () {
+  "use strict";
+  const C = Fig.C, d = Fig.deg, PI = Math.PI;
+
+  // Seeded uniform generator (mulberry32) and Box-Muller normals.
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function gauss(rng) {
+    const u = 1 - rng(), v = rng();
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * PI * v);
+  }
+  const fx = (v, n) => v.toFixed(n === undefined ? 2 : n);
+
+  const J = (z) => z ** 4 - 4 * z * z + z + 4;
+  const dJ = (z) => 4 * z ** 3 - 8 * z + 1, d2J = (z) => 12 * z * z - 8;
+  function newton(z) { for (let k = 0; k < 40; k++) z -= dJ(z) / d2J(z); return z; }
+
+  // --- title: the quartic, its stationary points, the set J <= 0
+  {
+    const F = Plot.fig("#f-hero", { w: 700, h: 250, xlim: [-2.4, 2.4], ylim: [-2, 8], margin: { l: 56, r: 16, t: 12, b: 46 } });
+    F.area((z) => Math.min(J(z), 0), -2.4, 2.4, { base: 0, fill: C.cone, opacity: 0.9 });
+    F.axes({ xlabel: "$z$", ylabel: "$J(z)$", grid: true, ystep: 2 });
+    F.hline(0, { color: C.ink, dash: null, width: 1 });
+    F.curve(J, { color: C.blue });
+    const zs = [-1.5, 0.1, 1.4].map(newton);
+    F.scatter(zs.filter((z) => d2J(z) > 0).map((z) => [z, J(z)]), { r: 5, fill: C.green });
+    F.scatter(zs.filter((z) => d2J(z) < 0).map((z) => [z, J(z)]), { r: 5, fill: C.red });
+    F.legend([{ name: "local minimum", color: C.green, marker: true }, { name: "local maximum", color: C.red, marker: true }], { at: "ne" });
+  }
+
+  // --- axes: box style and origin style
+  {
+    const F = Plot.fig("#f-box", { w: 540, h: 330, xlim: [-2.2, 2.2], ylim: [0, 10] });
+    F.axes({ xlabel: "$z$", ylabel: "$J(z)$", grid: true });
+    F.curve(J, { color: C.blue });
+    const G = Fig("#f-origin", { w: 540, h: 330, xlim: [-3.3, 3.3], ylim: [-2, 2] });
+    G.axes({ xlim: [-3, 3], ylim: [-1.7, 1.7], origin: true, xstep: 1, ystep: 1, xlabel: "$x$", ylabel: "$y$" });
+    G.param((t) => [Math.cos(t), Math.sin(t)], 0, 2 * PI, { color: C.red });
+    G.curve((x) => 0.5 * x, { color: C.green, dash: true });
+  }
+
+  // --- curves with asymptotes
+  {
+    const F = Plot.fig("#f-curves", { w: 640, h: 400, xlim: [-2 * PI, 2 * PI], ylim: [-3, 3], margin: { l: 50, r: 16, t: 14, b: 50 } });
+    const pi = [[-2 * PI, "−2$π$"], [-PI, "−$π$"], [0, "0"], [PI, "$π$"], [2 * PI, "2$π$"]];
+    F.axes({ xticks: pi, grid: true, xlabel: "$x$" });
+    F.curve(Math.tan, { color: C.blue });
+    F.curve(Math.sin, { color: C.red, dash: true });
+    F.curve((x) => 1 / x, { color: C.green });
+    F.legend([{ name: "tan $x$", color: C.blue }, { name: "sin $x$", color: C.red, dash: true },
+      { name: "1/$x$", color: C.green }], { at: "nw" });
+  }
+
+  // --- param, polyline, scatter
+  {
+    const A = [[1.6, 0.6], [0.3, 0.9]];
+    const F = Plot.fig("#f-param", { w: 540, h: 330, xlim: [-2.2, 2.2], ylim: [-1.5, 1.5], equal: true, margin: { l: 44, r: 14, t: 12, b: 40 } });
+    F.polyline([[-3, -0.6], [0.2, -2.5], [1.2, 1.9]], { close: true, fill: C.cone, fillOpacity: 0.8, color: C.orange });
+    F.axes({ grid: true, xstep: 1, ystep: 1 });
+    F.param((t) => [Math.cos(t), Math.sin(t)], 0, 2 * PI, { color: C.gray, dash: true });
+    F.param((t) => [A[0][0] * Math.cos(t) + A[0][1] * Math.sin(t), A[1][0] * Math.cos(t) + A[1][1] * Math.sin(t)], 0, 2 * PI, { color: C.blue });
+
+    const rng = mulberry32(7), pts = [];
+    for (let i = 0; i < 25; i++) { const x = 4 * rng(); pts.push([x, 0.8 * x + 0.5 + 0.6 * gauss(rng)]); }
+    const n = pts.length, mx = pts.reduce((s, p) => s + p[0], 0) / n, my = pts.reduce((s, p) => s + p[1], 0) / n;
+    const sxy = pts.reduce((s, p) => s + (p[0] - mx) * (p[1] - my), 0), sxx = pts.reduce((s, p) => s + (p[0] - mx) ** 2, 0);
+    const k = sxy / sxx, b = my - k * mx;
+    const G = Plot.fig("#f-scatter", { w: 540, h: 330, xlim: [0, 4], ylim: [-1, 5] });
+    G.axes({ xlabel: "$x$", ylabel: "$y$", grid: true });
+    pts.forEach((p) => G.polyline([p, [p[0], b + k * p[0]]], { color: C.gray, width: 1 }));
+    G.curve((x) => b + k * x, { color: C.red });
+    G.scatter(pts, { r: 4.5, fill: "#ffffff", stroke: C.blue, width: 1.5 });
+    G.legend([{ name: "data", color: C.blue, marker: true },
+      { name: "$y$ = " + fx(k) + "$x$ + " + fx(b), color: C.red }], { at: "nw" });
+  }
+
+  // --- contour + gradient descent
+  {
+    const Jq = (x, y) => 0.5 * (x * x + 8 * y * y);
+    const F = Plot.fig("#f-contour", { w: 640, h: 400, xlim: [-3, 3], ylim: [-1.5, 1.5], equal: true, margin: { l: 56, r: 14, t: 12, b: 50 } });
+    const lines = F.contour(Jq, [0.25, 0.5, 1, 2, 4, 8, 16], { color: C.gray, labels: true });
+    F.axes({ xlabel: "$z_1$", ylabel: "$z_2$", xstep: 1, ystep: 0.5 });
+    const path = [[-2.8, 1.0]], al = 0.22;
+    for (let k = 0; k < 14; k++) { const z = path[path.length - 1]; path.push([z[0] - al * z[0], z[1] - al * 8 * z[1]]); }
+    F.polyline(path, { color: C.red, width: 1.8 });
+    F.scatter(path, { r: 3.5, fill: C.red });
+    const closed = lines.filter((l) => l.closed).length;
+    document.getElementById("contour-read").textContent =
+      lines.length + " polylines, " + closed + " closed\nlevels: " + lines.levels.join(", ") +
+      "\nz_14 = (" + fx(path[14][0], 3) + ", " + fx(path[14][1], 3) + ")";
+  }
+
+  // --- heat maps
+  {
+    const himmel = (x, y) => Math.log1p((x * x + y - 11) ** 2 + (x + y * y - 7) ** 2);
+    const F = Plot.fig("#f-heat1", { w: 540, h: 330, xlim: [-5, 5], ylim: [-5, 5], equal: true, margin: { l: 50, r: 84, t: 30, b: 46 } });
+    const im = F.heat(himmel, { cmap: "heat" });
+    F.contour(himmel, [1, 2, 3, 4, 5, 6], { color: "#666666", width: 0.8 });
+    F.axes({ xlabel: "$x$", ylabel: "$y$", xstep: 2.5, ystep: 2.5 });
+    F.colorbar({ of: im, label: "log(1 + $f$)" });
+    const sad = (x, y) => x * x - y * y;
+    const G = Plot.fig("#f-heat2", { w: 540, h: 330, xlim: [-2, 2], ylim: [-2, 2], equal: true, margin: { l: 50, r: 84, t: 30, b: 46 } });
+    G.heat(sad, { cmap: "diverging", vmin: -4, vmax: 4 });
+    G.contour(sad, [0], { dash: "5 4", width: 1.2 });
+    G.axes({ xlabel: "$x$", ylabel: "$y$", xstep: 1, ystep: 1 });
+    G.colorbar({ cmap: "diverging", vmin: -4, vmax: 4, label: "$x^2 - y^2$", step: 2 });
+  }
+
+  // --- region (live)
+  {
+    const F = Plot.fig("#f-region", { w: 640, h: 420, xlim: [-0.5, 3.5], ylim: [-0.5, 2.5], equal: true, margin: { l: 56, r: 14, t: 12, b: 50 } });
+    const r = document.getElementById("rg-r");
+    function draw() {
+      const R2 = (+r.value) ** 2;
+      F.clear();
+      F.contour((x, y) => 2 * x + 3 * y, [2, 4, 6, 8, 10], { color: C.gray, dash: "4 4", width: 1, labels: true });
+      const feas = (x, y) => x >= 0 && y >= 0 && x + 2 * y <= 4 && 3 * x + y <= 6 && x * x + y * y <= R2;
+      const R = F.region(feas, { fill: C.cone, opacity: 0.8 });
+      F.axes({ xlabel: "$x_1$", ylabel: "$x_2$", xstep: 1, ystep: 1 });
+      F.curve((x) => (4 - x) / 2, { color: C.blue, width: 1.2 });
+      F.curve((x) => 6 - 3 * x, { color: C.green, width: 1.2 });
+      F.param((t) => [+r.value * Math.cos(t), +r.value * Math.sin(t)], 0, 2 * PI, { color: C.red, width: 1.2 });
+      let best = null, bv = -Infinity, np = 0;
+      R.lines.forEach((l) => l.forEach((p) => { np++; const v = 2 * p[0] + 3 * p[1]; if (v > bv) { bv = v; best = p; } }));
+      if (best) F.scatter([best], { r: 5, fill: C.ink });
+      document.getElementById("rg-r-out").textContent = fx(+r.value);
+      document.getElementById("rg-read").textContent = R.lines.length ?
+        R.lines.length + " boundary line(s), " + np + " points\nmax 2x1 + 3x2 = " + fx(bv, 3) +
+        "\n  at (" + fx(best[0], 3) + ", " + fx(best[1], 3) + ")" : "empty set";
+    }
+    r.addEventListener("input", draw);
+    draw();
+  }
+
+  // --- quiver
+  {
+    const Jq = (x, y) => 0.5 * (x * x + 1.2 * x * y + 2 * y * y);
+    const F = Plot.fig("#f-quiver", { w: 640, h: 420, xlim: [-3, 3], ylim: [-2, 2], equal: true, margin: { l: 50, r: 14, t: 12, b: 46 } });
+    F.contour(Jq, [0.25, 1, 2, 3, 4.5, 6], { color: "#999999", width: 1 });
+    F.axes({ xlabel: "$z_1$", ylabel: "$z_2$", xstep: 1, ystep: 1 });
+    const q = F.quiver((x, y) => [-(x + 0.6 * y), -(0.6 * x + 2 * y)], { n: 13, color: C.ink });
+    document.getElementById("quiver-read").textContent = "scale = " + fx(q.scale, 4) + " world units per unit";
+  }
+
+  // --- grid2 (live)
+  {
+    const F = Plot.fig("#f-grid2", { w: 620, h: 440, xlim: [-3.2, 3.2], ylim: [-2.4, 2.4], equal: true, margin: 8 });
+    const ids = ["a", "b", "c", "d"], inp = ids.map((k) => document.getElementById("g2-" + k));
+    function draw() {
+      const [a, b, c, dd] = inp.map((e) => +e.value);
+      F.clear();
+      F.grid2([[a, b], [c, dd]], { original: true, square: true });
+      ids.forEach((k, i) => { document.getElementById("g2-" + k + "-out").textContent = fx(+inp[i].value, 1); });
+      document.getElementById("g2-read").textContent =
+        "A e1 = (" + fx(a, 1) + ", " + fx(c, 1) + ")\nA e2 = (" + fx(b, 1) + ", " + fx(dd, 1) + ")\ndet A = " + fx(a * dd - b * c, 2);
+    }
+    inp.forEach((e) => e.addEventListener("input", draw));
+    draw();
+  }
+
+  // --- 3D surfaces
+  {
+    const view = Fig.view3(d(-55), d(28));
+    const F = Fig("#f-surf1", { w: 540, h: 330, xlim: [-2.4, 2.4], ylim: [-1.5, 2.2] });
+    F.surface3(view, (x, y) => 0.5 * (x * x + 2 * y * y), { xlim: [-1.5, 1.5], ylim: [-1.5, 1.5], n: 22, fill: "heat" });
+    const G = Fig("#f-surf2", { w: 540, h: 330, xlim: [-2.4, 2.4], ylim: [-1.7, 1.9] });
+    G.axes3(view, { len: [1.9, 1.9, 1.5] });
+    G.surface3(view, (x, y) => x * x - y * y, { n: 20, zscale: 0.6 });
+  }
+
+  // --- histogram
+  {
+    const rng = mulberry32(2026), xs = [];
+    for (let i = 0; i < 2000; i++) xs.push(gauss(rng));
+    const F = Plot.fig("#f-hist", { w: 640, h: 400, xlim: [-4, 4], ylim: [0, 0.5], margin: { l: 62, r: 16, t: 14, b: 50 } });
+    F.axes({ xlabel: "$x$", ylabel: "density", xstep: 1 });
+    const h = F.hist(xs, { bins: 32, range: [-4, 4], density: true });
+    const pdf = (x) => Math.exp(-x * x / 2) / Math.sqrt(2 * PI);
+    F.curve(pdf, { color: C.red });
+    F.vline(-1, { label: "−1" });
+    F.vline(1, { label: "+1" });
+    const n = xs.length, m = xs.reduce((s, x) => s + x, 0) / n;
+    const sd = Math.sqrt(xs.reduce((s, x) => s + (x - m) ** 2, 0) / (n - 1));
+    const within = xs.filter((x) => Math.abs(x) <= 1).length / n;
+    const area = h.heights.reduce((s, v, i) => s + v * (h.edges[i + 1] - h.edges[i]), 0);
+    document.getElementById("hist-read").textContent =
+      "n = " + n + " (in range " + h.n + ")\nmean = " + fx(m, 3) + ", sd = " + fx(sd, 3) +
+      "\nP(|x| <= 1) = " + fx(within, 3) + "\nbar area = " + fx(area, 3);
+  }
+
+  // --- bars
+  {
+    const p = [], lab = [];
+    for (let s = 2; s <= 12; s++) { p.push((6 - Math.abs(s - 7)) / 36); lab.push(String(s)); }
+    const F = Plot.fig("#f-bars", { w: 640, h: 400, xlim: [-0.6, 10.6], ylim: [0, 0.2], margin: { l: 70, r: 16, t: 14, b: 52 } });
+    F.axes({ xticks: false, ylabel: "probability", ystep: 0.05, xlabel: "sum of two dice" });
+    F.bars(p, lab, { values: true, fill: (v, i) => (i === 5 ? C.cone : "#cccccc"), fmt: (v) => Math.round(36 * v) + "/36", size: 17 });
+  }
+
+  // --- colormaps and their lightness
+  {
+    const names = ["heat", "diverging", "gray"];
+    const F = Plot.fig("#f-cmaps", { w: 540, h: 330, xlim: [0, 1], ylim: [0, 3.2], margin: { l: 100, r: 20, t: 14, b: 52 } });
+    names.forEach((nm, k) => {
+      const y0 = 2.25 - 1.05 * k;
+      F.heat((x) => x, { xlim: [0, 1], ylim: [y0, y0 + 0.8], cmap: nm, vmin: 0, vmax: 1, nx: 200, ny: 1 });
+      F.polyline([[0, y0], [1, y0], [1, y0 + 0.8], [0, y0 + 0.8]], { close: true, width: 1, clip: false });
+      F.text([0, y0 + 0.4], nm, { anchor: "end", dx: -10, size: 20 });
+    });
+    F.axes({ xlim: [0, 1], ylim: [0, 3.2], yticks: false, xlabel: "$t$", xstep: 0.25 });
+    const lin = (c) => { c /= 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };
+    const Lstar = (rgb) => {
+      const Y = 0.2126 * lin(rgb[0]) + 0.7152 * lin(rgb[1]) + 0.0722 * lin(rgb[2]);
+      return 116 * (Y > 0.008856 ? Math.cbrt(Y) : 7.787 * Y + 16 / 116) - 16;
+    };
+    const G = Plot.fig("#f-light", { w: 540, h: 330, xlim: [0, 1], ylim: [0, 100] });
+    G.axes({ xlabel: "$t$", ylabel: "lightness $L$*", grid: true, xstep: 0.25, ystep: 20 });
+    const cols = [C.orange, C.blue, C.gray];
+    names.forEach((nm, k) => G.curve((t) => Lstar(Plot.colormap(nm).rgb(t)), { color: cols[k], width: 2.2, dash: k === 2 ? true : null }));
+    G.legend(names.map((nm, k) => ({ name: nm, color: cols[k], dash: k === 2 ? true : null })), { at: "sw" });
+  }
+
+  // --- strip chart beside a pendulum
+  {
+    const P = Fig("#f-pend", { w: 400, h: 400, xlim: [-1.3, 1.3], ylim: [-1.3, 1.3] });
+    const S = Plot.strip("#f-strip", { w: 640, h: 300, window: 8,
+      series: [{ name: "$θ$ (rad)" }, { name: "$ω$ (rad/s)" }] });
+    const g = 9.81, L = 1, c = 0.3, h = 1 / 120;
+    let th, om, t;
+    function reset() { th = 2.0; om = 0; t = 0; S.clear(); S.push(t, [th, om]); }
+    function step() { om += h * (-(g / L) * Math.sin(th) - c * om); th += h * om; t += h; }
+    function drawPend() {
+      P.clear();
+      P.surface([0.35, 1.1], [-0.35, 1.1]);
+      const tip = [L * Math.sin(th), 1.1 - L * Math.cos(th)];
+      P.line([0, 1.1], tip, { width: 2 });
+      P.arc([0, 1.1], 46, -PI / 2, -PI / 2 + th, { label: "θ", color: C.blue });
+      P.line([0, 1.1], [0, 0.0], { width: 1, dash: true, color: C.gray });
+      P.circle(tip, 0.09, { fill: "#cccccc", width: 1.5 });
+      document.getElementById("pd-read").textContent = "t = " + fx(t, 2) + " s";
+    }
+    function frame() { step(); step(); S.push(t, [th, om]); drawPend(); }
+    reset();
+    for (let k = 0; k < 300; k++) frame();
+    const slide = document.getElementById("strip");
+    let running = false;
+    function loop() {
+      if (!slide.classList.contains("current") || !document.body.classList.contains("present")) { running = false; return; }
+      frame();
+      requestAnimationFrame(loop);
+    }
+    slide.addEventListener("slideshown", () => { if (!running) { running = true; requestAnimationFrame(loop); } });
+    document.getElementById("pd-reset").addEventListener("click", () => { reset(); drawPend(); });
+  }
+})();
+</script>
+</body>
+</html>
