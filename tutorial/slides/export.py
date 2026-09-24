@@ -5,7 +5,7 @@
 """Export the HTML decks to PDF, per-slide PNGs, or an image-per-slide PPTX.
 
     uv run export.py                    # every numbered deck -> out/pdf/<deck>.pdf
-    uv run export.py 02_the_cone.html   # just one deck
+    uv run export.py 12_friction_cone_3d.html   # just one deck
     uv run export.py --png              # also out/png/<deck>/NN.png (2x resolution)
     uv run export.py --pptx             # also out/pptx/<deck>.pptx (for PowerPoint-only venues)
 

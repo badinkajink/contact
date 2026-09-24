@@ -3,7 +3,7 @@
  * A deck is a plain HTML file:
  *
  *   <body data-short="2. The Friction Cone" data-index="index.html"
- *         data-prev="01_pushing.html" data-next="03_many_contacts.html">
+ *         data-prev="11_coulomb_friction.html" data-next="13_contact_wrench_cone.html">
  *     <main class="deck">
  *       <section class="slide"> ... </section>
  *       ...

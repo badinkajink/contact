@@ -5,12 +5,12 @@ theme they're built on. Open `index.html` in any browser.
 
 | deck | topic | companion code |
 |---|---|---|
-| `01_pushing.html` | forces, Coulomb's law, the 2D friction cone | `../04_friction_cones.py` |
-| `02_the_cone.html` | 3D cones, maximum dissipation, elliptic cones, pyramids | `../04_friction_cones.py` |
-| `03_many_contacts.html` | torque, slide-or-tip, indeterminacy, wrench cones | `../04_friction_cones.py` |
-| `04_two_fingers.html` | force closure, Nguyen's theorem, the normal-angle test | `../06_force_closure.py` |
-| `05_grasps_in_3d.html` | 6D wrenches, soft fingers, three-finger grasps | `../06_force_closure.py` |
-| `06_grasp_quality.html` | LP / convex-hull tests, Ferrari–Canny epsilon | `../06_force_closure.py` |
+| `11_coulomb_friction.html` | forces, Coulomb's law, the 2D friction cone | `../04_friction_cones.py` |
+| `12_friction_cone_3d.html` | 3D cones, maximum dissipation, elliptic cones, pyramids | `../04_friction_cones.py` |
+| `13_contact_wrench_cone.html` | torque, slide-or-tip, indeterminacy, wrench cones | `../04_friction_cones.py` |
+| `14_planar_force_closure.html` | force closure, Nguyen's theorem, the normal-angle test | `../06_force_closure.py` |
+| `15_grasps_in_3d.html` | 6D wrenches, soft fingers, three-finger grasps | `../06_force_closure.py` |
+| `16_grasp_quality.html` | LP / convex-hull tests, Ferrari–Canny epsilon | `../06_force_closure.py` |
 
 ## Why HTML
 
@@ -25,14 +25,14 @@ theme they're built on. Open `index.html` in any browser.
 
 Keys: `→`/`space` next, `←` back, `R` reading view (all slides on one scrolling
 page, with notes), `F` fullscreen, `12 Enter` jumps to slide 12, `?` help.
-Every slide has a URL: `02_the_cone.html#17`. `?mode=read` opens the
+Every slide has a URL: `12_friction_cone_3d.html#17`. `?mode=read` opens the
 reading view directly.
 
 ## Exporting
 
 ```sh
 uv run export.py                    # every deck -> out/pdf/<deck>.pdf
-uv run export.py 04_two_fingers.html --png --pptx
+uv run export.py 14_planar_force_closure.html --png --pptx
 ```
 
 `export.py` drives headless Chromium through Playwright (downloaded on first
