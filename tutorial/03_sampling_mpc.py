@@ -286,8 +286,9 @@ def _(mo):
         - Replace `rollout_cost` with a discontinuous cost (e.g. a contact-like
           `if x[0] > wall: ...`) — sampling won't care; iLQR would.
 
-        **Next:** `04_contact_solvers.py` — LCP, PGS, cone projections, and the
-        complementarity-free closed form.
+        **Next:** `04_friction_cones.py` — Coulomb friction and friction cones
+        from first principles, then `05_contact_solvers.py` — LCP, PGS, cone
+        projections, and the complementarity-free closed form.
         """
     )
     return

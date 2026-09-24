@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Friction &amp; Grasping from Scratch</title>
+<style>
+body { font-family: "Times New Roman", Times, serif; font-size: 17px; color: #000; background: #fff;
+    max-width: 700px; margin: 30px auto; padding: 0 16px; }
+  h1 { font-size: 24px; margin-bottom: 4px; }
+  h2 { font-size: 19px; border-bottom: 1px solid #000; margin-top: 40px; }
+  dt { font-weight: bold; margin-top: 14px; }
+  dd { margin-left: 24px; }
+  pre, code { font-family: "Courier New", Courier, monospace; }
+  pre { background: #f2f2f2; padding: 10px; overflow-x: auto; font-size: 14px; }
+  kbd { border: 1px solid #000; padding: 0 3px; font-size: 14px; }
+  table { border-collapse: collapse; }
+  td { padding: 1px 12px 1px 0; vertical-align: top; }
+</style>
+</head>
+<body>
+
+<h1>Friction &amp; Grasping from Scratch</h1>
+
+<p>
+Six short slide decks on Coulomb friction, friction cones, and force closure, starting from
+&ldquo;what is a vector?&rdquo; and ending at grasp quality metrics. Written for a strong high
+schooler or a first-year undergraduate; everything else is built along the way.
+</p>
+
+<p>
+[<a href="01_pushing.html">start</a>]
+[<a href="../04_friction_cones.py">code, parts 1&ndash;3</a>]
+[<a href="../06_force_closure.py">code, parts 4&ndash;6</a>]
+[<a href="template.html">slide template</a>]
+</p>
+
+<hr>
+
+<h2>The decks</h2>
+<dl>
+  <dt>1. Pushing on Things</dt>
+  <dd>Vectors, forces, the normal force, Coulomb's law, and the 2D friction cone. The tilting-board
+    experiment. [<a href="01_pushing.html">slides</a>] [<a href="01_pushing.html?mode=read">read</a>]</dd>
+
+  <dt>2. The Friction Cone in 3D</dt>
+  <dd>The round cone and its slices, maximum dissipation, elliptic (anisotropic) cones, pyramid
+    approximations and exactly what they cost, torsional friction, the dual cone.
+    [<a href="02_the_cone.html">slides</a>] [<a href="02_the_cone.html?mode=read">read</a>]</dd>
+
+  <dt>3. Many Contacts</dt>
+  <dd>Torque, slide-or-tip, center of pressure, the wobbly four-legged table, and the contact wrench
+    cone. [<a href="03_many_contacts.html">slides</a>] [<a href="03_many_contacts.html?mode=read">read</a>]</dd>
+
+  <dt>4. Holding Things with Two Fingers</dt>
+  <dd>Force closure, positive spans, squeezing, Nguyen's theorem with a proof, three worked examples,
+    and when the normal-angle shortcut is exact.
+    [<a href="04_two_fingers.html">slides</a>] [<a href="04_two_fingers.html?mode=read">read</a>]</dd>
+
+  <dt>5. Grasping in 3D</dt>
+  <dd>Cross products and 6D wrenches, why two hard fingers never suffice, soft fingers, antipodal pairs
+    (Chen &amp; Burdick), three-finger grasps and the three-force theorem, Mirtich &amp; Canny's optimum
+    grasps. [<a href="05_grasps_in_3d.html">slides</a>] [<a href="05_grasps_in_3d.html?mode=read">read</a>]</dd>
+
+  <dt>6. How Good Is a Grasp?</dt>
+  <dd>Force closure as a convex hull or a linear program, the Ferrari&ndash;Canny quality, and how
+    pyramid approximations create false positives.
+    [<a href="06_grasp_quality.html">slides</a>] [<a href="06_grasp_quality.html?mode=read">read</a>]</dd>
+</dl>
+
+<h2>Using the slides</h2>
+<table>
+  <tr><td><kbd>&rarr;</kbd> <kbd>space</kbd> / <kbd>&larr;</kbd></td><td>next / previous (steps first, then slides)</td></tr>
+  <tr><td><kbd>R</kbd></td><td>reading view: every slide on one page, with notes</td></tr>
+  <tr><td><kbd>F</kbd></td><td>fullscreen</td></tr>
+  <tr><td>12 <kbd>Enter</kbd></td><td>jump to slide 12 (or link to <code>deck.html#12</code>)</td></tr>
+  <tr><td><kbd>?</kbd></td><td>key help</td></tr>
+</table>
+<p>
+Slides with sliders are live: drag things. They work offline; KaTeX is bundled in <code>lib/</code>.
+</p>
+
+<h2>PDF, PNG, PowerPoint</h2>
+<pre>cd tutorial/slides
+uv run export.py                 # every deck -> out/pdf/
+uv run export.py --png --pptx    # also per-slide PNGs and an image-only .pptx</pre>
+<p>
+Or open a deck in Chrome and print it; the page size is already 1280&times;720.
+The HTML files are the source; the exports are throwaway copies.
+</p>
+
+<h2>Companion code</h2>
+<p>
+Every number on the slides is recomputed in two <a href="https://marimo.io">marimo</a> notebooks:
+</p>
+<pre>uvx marimo edit --sandbox tutorial/04_friction_cones.py   # parts 1-3
+uvx marimo edit --sandbox tutorial/06_force_closure.py    # parts 4-6</pre>
+
+<hr>
+<p><small>Last updated September 2026.</small></p>
+
+</body>
+</html>

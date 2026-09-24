@@ -1,0 +1,273 @@
+/* retro.css — the "1998 professor homepage" slide theme.
+ *
+ * Deliberately plain: Times New Roman, black on white, default link blue,
+ * 1px black rules and borders, #f2f2f2 code blocks, #ffffcc note boxes.
+ * Matches the look of sr2-hand.github.io, scaled up to a 1280x720 slide.
+ */
+
+:root {
+  --ink: #000;
+  --paper: #fff;
+  --link: #0000ee;
+  --visited: #551a8b;
+  --gray: #f2f2f2;
+  --mid: #999;
+  --note: #ffffcc;
+  --red: #cc0000;
+  --blue: #0000cc;
+  --green: #008800;
+  --slide-w: 1280px;
+  --slide-h: 720px;
+}
+
+html, body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+}
+
+body {
+  font-family: "Times New Roman", Times, serif;
+}
+
+a { color: var(--link); }
+a:visited { color: var(--visited); }
+
+/* ------------------------------------------------------------------ */
+/* The slide canvas                                                     */
+/* ------------------------------------------------------------------ */
+
+.slide {
+  box-sizing: border-box;
+  width: var(--slide-w);
+  height: var(--slide-h);
+  padding: 30px 64px 58px;
+  position: relative;
+  overflow: hidden;
+  background: var(--paper);
+  font-size: 27px;
+  line-height: 1.32;
+}
+
+.slide h1 { font-size: 46px; line-height: 1.12; margin: 0 0 10px; }
+.slide h2 {
+  font-size: 37px;
+  line-height: 1.15;
+  margin: 0 0 16px;
+  padding-bottom: 3px;
+  border-bottom: 1px solid var(--ink);
+}
+.slide h3 { font-size: 29px; margin: 10px 0 6px; }
+.slide p { margin: 0 0 13px; }
+.slide ul, .slide ol { margin: 0 0 13px; padding-left: 1.15em; }
+.slide li { margin: 0 0 7px; }
+.slide li > ul, .slide li > ol { margin: 6px 0 0; }
+.slide hr { border: 0; border-top: 1px solid var(--ink); margin: 12px 0; }
+.slide small, .small { font-size: 21px; }
+.tiny { font-size: 17px; }
+.center { text-align: center; }
+.right { text-align: right; }
+.muted { color: #555; }
+.nowrap { white-space: nowrap; }
+
+code, pre, kbd {
+  font-family: "Courier New", Courier, monospace;
+  font-size: 0.86em;
+}
+pre {
+  background: var(--gray);
+  padding: 10px 14px;
+  margin: 0 0 13px;
+  overflow: hidden;
+  line-height: 1.25;
+}
+kbd { border: 1px solid var(--ink); padding: 0 4px; }
+
+/* Footer: deck name on the left, bracket nav + page number on the right. */
+.foot {
+  position: absolute;
+  left: 64px;
+  right: 64px;
+  bottom: 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  border-top: 1px solid var(--ink);
+  padding-top: 5px;
+  font-size: 17px;
+}
+.foot .num { margin-left: 12px; }
+
+/* ------------------------------------------------------------------ */
+/* Layouts                                                              */
+/* ------------------------------------------------------------------ */
+
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 34px; align-items: start; }
+.cols.l2 { grid-template-columns: 3fr 2fr; }
+.cols.r2 { grid-template-columns: 2fr 3fr; }
+.cols.l3 { grid-template-columns: 2fr 1fr; }
+.cols.r3 { grid-template-columns: 1fr 2fr; }
+.cols.three { grid-template-columns: 1fr 1fr 1fr; gap: 24px; }
+.cols.mid { align-items: center; }
+.cols > * { min-width: 0; }
+
+/* Title slide: mirrors the header of the reference site. */
+.slide.title h1 { font-size: 44px; margin-top: 18px; }
+.slide.title .authors { font-size: 26px; margin: 8px 0 4px; }
+.slide.title .links { font-size: 24px; }
+.slide.title .updated { position: absolute; left: 64px; bottom: 56px; font-size: 18px; margin: 0; }
+
+/* Section divider. */
+.slide.section { padding-top: 200px; }
+.slide.section h1 { font-size: 58px; margin: 0 0 10px; }
+.slide.section .kicker { font-size: 24px; margin: 0 0 6px; }
+
+/* ------------------------------------------------------------------ */
+/* Boxes                                                                */
+/* ------------------------------------------------------------------ */
+
+.box, .example, .warn, .quote {
+  padding: 9px 16px 10px;
+  margin: 8px 0 14px;
+}
+.box { background: var(--note); border: 1px solid var(--ink); }
+.example { background: var(--gray); }
+.warn { border: 1px dashed var(--red); }
+.warn > b:first-child { color: var(--red); }
+.quote { border-left: 4px solid var(--mid); background: var(--gray); font-style: italic; }
+.box > :last-child, .example > :last-child, .warn > :last-child, .quote > :last-child { margin-bottom: 0; }
+
+.good { color: var(--green); font-weight: bold; }
+.bad { color: var(--red); font-weight: bold; }
+.meh { color: #996600; font-weight: bold; }
+.new { color: var(--red); font-weight: bold; font-size: 0.8em; }
+
+/* ------------------------------------------------------------------ */
+/* Figures                                                              */
+/* ------------------------------------------------------------------ */
+
+figure { margin: 0 0 8px; }
+figure > svg, figure > img, svg.fig {
+  display: block;
+  border: 1px solid var(--ink);
+  background: var(--paper);
+  max-width: 100%;
+}
+/* Figures inside columns grow or shrink to the column width. */
+.cols figure > svg { width: 100%; height: auto; }
+figure.bare > svg, svg.fig.bare { border: 0; }
+figcaption, .caption {
+  font-size: 19px;
+  font-style: italic;
+  margin-top: 4px;
+  line-height: 1.25;
+}
+svg text { font-family: "Times New Roman", Times, serif; }
+svg .handle { cursor: grab; }
+svg .handle:active { cursor: grabbing; }
+
+/* ------------------------------------------------------------------ */
+/* Tables                                                               */
+/* ------------------------------------------------------------------ */
+
+table { border-collapse: collapse; margin: 4px 0 13px; }
+th, td { border: 1px solid var(--ink); padding: 3px 11px; text-align: left; vertical-align: top; }
+th { background: var(--gray); }
+td.num, th.num { text-align: right; }
+table.small { font-size: 21px; }
+
+/* ------------------------------------------------------------------ */
+/* Controls for live figures: default browser widgets, on purpose.      */
+/* ------------------------------------------------------------------ */
+
+.controls { font-size: 20px; line-height: 1.6; }
+.controls label { white-space: nowrap; margin-right: 14px; }
+.controls input[type="range"] { width: 230px; vertical-align: middle; }
+.readout {
+  font-family: "Courier New", Courier, monospace;
+  font-size: 19px;
+  background: var(--gray);
+  padding: 6px 10px;
+  white-space: pre;
+  line-height: 1.3;
+  margin: 6px 0;
+}
+
+/* "Check yourself": native disclosure widgets. */
+details { margin: 0 0 10px; }
+details > summary {
+  cursor: pointer;
+  color: var(--link);
+  text-decoration: underline;
+  font-size: 0.85em;
+}
+details[open] > summary { color: var(--visited); }
+details > div { margin-top: 4px; padding-left: 16px; border-left: 2px solid var(--mid); }
+
+/* Speaker/reader notes: hidden while presenting, shown in reading mode. */
+aside.notes { display: none; }
+
+/* Build steps. */
+body.present .step:not(.shown) { visibility: hidden; }
+/* SVG groups can be steps too (Fig.group({class: 'step'})). */
+
+/* References. */
+ol.refs { font-size: 19px; line-height: 1.25; }
+ol.refs li { margin-bottom: 5px; }
+
+/* ------------------------------------------------------------------ */
+/* Modes                                                                */
+/* ------------------------------------------------------------------ */
+
+/* Present: one slide at a time, scaled to the window. */
+body.present { overflow: hidden; }
+body.present .deck {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: var(--slide-w);
+  height: var(--slide-h);
+  transform-origin: 0 0;
+}
+body.present .slide { position: absolute; left: 0; top: 0; display: none; }
+body.present .slide.current { display: block; }
+
+/* Read: every slide stacked like a long web page, notes underneath. */
+body.read { max-width: 1320px; margin: 0 auto; padding: 16px; box-sizing: border-box; }
+body.read .readhead { font-size: 17px; margin: 0 0 12px; }
+body.read .slot { position: relative; border: 1px solid var(--ink); margin: 0 0 6px; overflow: hidden; }
+body.read .slot > .slide { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+body.read .notes-out { font-size: 17px; margin: 0 0 26px; max-width: 900px; }
+body.read .notes-out:empty { margin-bottom: 20px; }
+
+/* Print / PDF: one slide per page, no scaling. */
+body.print { margin: 0; }
+body.print .slide { break-after: page; page-break-after: always; }
+body.print .foot .nav { display: none; }
+body.print details > summary { display: none; }
+body.print details > div { border-left: 0; padding-left: 0; }
+
+@page { size: 1280px 720px; margin: 0; }
+@media print {
+  html, body { background: #fff; }
+  .readhead, .notes-out, .help { display: none !important; }
+}
+
+/* Keyboard help overlay. */
+.help {
+  position: fixed;
+  right: 16px;
+  top: 16px;
+  z-index: 10;
+  background: var(--note);
+  border: 1px solid var(--ink);
+  padding: 10px 16px;
+  font-size: 16px;
+  display: none;
+}
+.help.on { display: block; }
+.help td, .help th { border: 0; padding: 1px 8px 1px 0; }
+
+/* KaTeX defaults to 1.21em, which towers over Times; tone it down. */
+.katex { font-size: 1.08em; }
+.katex-display { margin: 10px 0 14px; }

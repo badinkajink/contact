@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Part 4: Two Fingers in the Plane</title>
+<link rel="stylesheet" href="lib/katex/katex.min.css">
+<link rel="stylesheet" href="lib/retro.css">
+<script defer src="lib/katex/katex.min.js"></script>
+<script defer src="lib/katex/contrib/auto-render.min.js"></script>
+<script src="lib/fig.js"></script>
+<script src="lib/contact.js"></script>
+<script defer src="lib/deck.js"></script>
+</head>
+<body data-short="Part 4 &middot; Two Fingers in the Plane" data-index="index.html"
+      data-prev="03_many_contacts.html" data-next="05_grasps_in_3d.html">
+<main class="deck">
+
+<!-- ================================================================== 1 -->
+<section class="slide title">
+  <h1>Friction &amp; Grasping from Scratch<br>Part 4: Holding Things with Two Fingers</h1>
+  <p class="authors">William Xie</p>
+  <p class="links">[<a href="index.html">index</a>] [<a href="../06_force_closure.py">code</a>]
+    [<a href="#" data-action="print">pdf</a>] [<a href="03_many_contacts.html">previous part</a>]
+    [<a href="05_grasps_in_3d.html">next part</a>]</p>
+  <hr>
+  <figure style="width:600px">
+    <svg id="f-hero"></svg>
+    <figcaption>Two fingertips, two friction cones, and the line between the fingers. Whether that
+      line fits inside both cones decides everything.</figcaption>
+  </figure>
+  <p class="updated">Last updated September 2026.</p>
+</section>
+
+<!-- ================================================================== 2 -->
+<section class="slide">
+  <h2>From floors to fingers</h2>
+  <div class="cols mid">
+    <figure><svg id="f-fingers"></svg></figure>
+    <div>
+      <ul>
+        <li>A fingertip is just a contact: it pushes, never pulls, and its friction is limited by a
+          cone around its normal.</li>
+        <li>A <b>grasp</b> is a set of fingertip contacts on one object.</li>
+        <li>The difference from a floor: fingers can push from <b>several sides</b>.</li>
+      </ul>
+      <p class="small">In this part everything is flat (2D): think of pinching a coin lying on a
+        table, seen from above. Part 5 goes to 3D.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 3 -->
+<section class="slide">
+  <h2>What does &ldquo;holding&rdquo; mean?</h2>
+  <ul>
+    <li>As the hand moves, gravity points in different directions relative to the object.</li>
+    <li>Things bump into it. The hand accelerates it.</li>
+    <li>We want a grasp that can cancel <b>any</b> disturbance: whatever force and torque the world
+      applies, the fingers can pick forces inside their cones that cancel it.</li>
+  </ul>
+  <div class="box"><b>Force closure</b>: for every disturbance wrench, the fingers can find forces
+    inside their friction cones whose total wrench cancels it.</div>
+  <p class="small">For now, fingers may squeeze as hard as needed. Part 6 asks how hard.</p>
+</section>
+
+<!-- ================================================================== 4 -->
+<section class="slide">
+  <h2>Force closure, in symbols</h2>
+  <p>Contacts at points $\vp_1, \dots, \vp_k$ with friction cones $\K_1, \dots, \K_k$. Each contact
+    force $\vf_i$ makes the wrench $(\vf_i,\ \vp_i \times \vf_i)$, where in 2D
+    $\vp \times \vf = p_x f_y - p_y f_x$.</p>
+  $$\text{force closure} \iff \Big\{ \sum_{i} (\vf_i,\ \vp_i \times \vf_i) \;:\; \vf_i \in \K_i \Big\} = \text{all of } \R^3$$
+  <ul>
+    <li>In Part 3's words: the contact wrench cone is <b>everything</b>.</li>
+    <li>$\R^3$ just means &ldquo;all lists of 3 numbers&rdquo;: every $(f_x, f_y, \tau)$.</li>
+  </ul>
+</section>
+
+<!-- ================================================================== 5 -->
+<section class="slide">
+  <h2>Warm-up in 1D: a bead on a wire</h2>
+  <div class="cols mid">
+    <figure><svg id="f-bead"></svg></figure>
+    <div>
+      <ul>
+        <li>One finger pushing right can resist being pushed left, and nothing else.</li>
+        <li>Mixes of $\{+1\}$ with non-negative weights: only $[0, \infty)$, half the line.</li>
+        <li>Add a finger pushing left: mixes of $\{+1, -1\}$ give <b>every</b> number.</li>
+      </ul>
+      <p class="small">The whole story of force closure is already here: contacts only push, so you
+        need them to push from enough sides.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 6 -->
+<section class="slide">
+  <h2>Tool #5: positive combinations</h2>
+  <div class="cols mid">
+    <figure><svg id="f-span"></svg></figure>
+    <div>
+      <ul>
+        <li>A <b>positive combination</b> of vectors $\vd_1, \dots, \vd_m$ is
+          $\beta_1\vd_1 + \dots + \beta_m\vd_m$ with every $\beta_j \ge 0$.</li>
+        <li>The vectors <b>positively span</b> a space if every vector in it is such a combination.</li>
+        <li>In the plane you need at least <b>3</b> vectors, spread out so they don't all fit in
+          one half-plane.</li>
+        <li>In general: in $d$ dimensions you need at least $d + 1$.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 7 -->
+<section class="slide">
+  <h2>The escape-direction test</h2>
+  <div class="cols mid">
+    <figure><svg id="f-escape"></svg></figure>
+    <div>
+      <p>The vectors fail to positively span exactly when there is a direction $\vu$ making an angle
+        of $90^\circ$ or more with <b>all</b> of them:</p>
+      $$\vu \cdot \vd_j \le 0 \quad \text{for every } j.$$
+      <ul>
+        <li>Physically: push the object along $\vu$ and no combination of contact forces pushes back.
+          The object <b>escapes</b> along $\vu$.</li>
+        <li>Equivalently: the origin is not strictly inside the convex hull of the vectors.</li>
+      </ul>
+      <p class="small">Mathematicians call this Farkas' lemma. The failure certificate is itself
+        physical: it tells you how the object gets away.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 8 -->
+<section class="slide">
+  <h2>Counting edges</h2>
+  <ul>
+    <li>Planar wrenches have 3 numbers, so we need at least <b>4</b> edge wrenches that positively
+      span $\R^3$.</li>
+    <li><b>Frictionless</b> contact: its cone is a single ray, 1 edge. So you need
+      <b>at least 4 frictionless fingers</b> to hold a flat object.</li>
+    <li><b>Frictional</b> contact: its cone has 2 edges. So <b>2 fingers</b> might be enough.</li>
+  </ul>
+  <div class="warn"><b>Watch out:</b> counting is necessary, not sufficient. Four edges pointing
+    badly still fail. Where the fingers go matters.</div>
+</section>
+
+<!-- ================================================================== 9 -->
+<section class="slide">
+  <h2>Frictionless fingers: the bar of soap</h2>
+  <div class="cols mid">
+    <figure><svg id="f-soap"></svg></figure>
+    <div>
+      <ul>
+        <li>Two wet fingers on a bar of soap can only push along their normals.</li>
+        <li>A tiny sideways nudge: nothing resists it. A slight misalignment: the two pushes make a
+          twist, and the soap spins and shoots out.</li>
+        <li>With no friction, a <b>disk</b> can never be held, by any number of fingers: every normal
+          passes through the center, so nothing can resist spinning.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 10 -->
+<section class="slide">
+  <h2>Two fingers with friction</h2>
+  <div class="cols mid">
+    <figure><svg id="f-twoplace"></svg></figure>
+    <div>
+      <ul>
+        <li>Each finger's cone has two edges: 4 edge wrenches in total, just enough to count.</li>
+        <li>Left: fingers directly across from each other. Holds, whatever the disturbance.</li>
+        <li>Right: same box, same $\mu$, fingers offset. A twist makes it spin out.</li>
+      </ul>
+      <p>What exactly separates the two?</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 11 -->
+<section class="slide">
+  <h2>Squeezing: internal forces</h2>
+  <div class="cols mid">
+    <figure><svg id="f-squeeze"></svg></figure>
+    <div>
+      <ul>
+        <li>Push the two fingers toward each other along the line joining them, equally hard.</li>
+        <li>Net force: zero. Net torque: zero (both forces lie on the same line).</li>
+        <li>The object feels nothing overall, but both contacts press harder, so both friction budgets
+          grow.</li>
+        <li>Force combinations with zero net wrench are called <b>internal forces</b>.</li>
+      </ul>
+      <p class="small">For two fingers this is the <i>only</i> kind: zero net force needs equal and opposite
+        forces, and zero net torque then forces them onto the line through both contacts.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 12 -->
+<section class="slide">
+  <h2>Nguyen's theorem (1988)</h2>
+  <div class="box">Two frictional point contacts on a planar object form a force-closure grasp
+    <b>if and only if</b> the segment joining the contact points lies <b>strictly inside both
+    friction cones</b> (pointing into the object at each end).</div>
+  <div class="cols mid">
+    <figure><svg id="f-nguyen"></svg></figure>
+    <div>
+      <ul>
+        <li>Left: the segment is inside both cones. <span class="good">Force closure.</span></li>
+        <li>Right: the segment leaves the cones. <span class="bad">Not force closure.</span></li>
+      </ul>
+      <p class="small">Such a grasp is often called <b>antipodal</b>. V.-D. Nguyen, &ldquo;Constructing
+        force-closure grasps&rdquo;, IJRR 7(3), 1988.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 13 -->
+<section class="slide">
+  <h2>Why it works: squeeze harder</h2>
+  <div class="cols mid">
+    <figure><svg id="f-harder"></svg>
+      <figcaption>Finger 1's force as the squeeze $s$ grows: it turns toward the segment direction
+        $\vd$ and enters the cone.</figcaption></figure>
+    <div>
+      <ol>
+        <li>Given a disturbance, first find finger forces that cancel it <i>ignoring</i> the cones.
+          Always possible: 4 unknowns, 3 equations.</li>
+        <li>Now add a squeeze $s\,\vd$ at finger 1 and $-s\,\vd$ at finger 2. The total wrench doesn't
+          change.</li>
+        <li>For big $s$, each finger's force points almost along the segment, which is strictly inside
+          its cone. So eventually both forces are inside.</li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 14 -->
+<section class="slide">
+  <h2>Why it's needed</h2>
+  <p>Suppose the grasp is force closure. Then:</p>
+  <ol>
+    <li>Pick any forces $\vf^{0}$ strictly inside the cones (say, straight along the normals).
+      They make some wrench $\vw_0$.</li>
+    <li>Force closure lets us cancel $\vw_0$ with allowed forces $\vf'$.</li>
+    <li>Add them: $\vf^{0} + \vf'$ is still strictly inside the cones (inside + allowed = inside), and its
+      total wrench is $\vw_0 - \vw_0 = 0$.</li>
+    <li>So a squeeze strictly inside both cones exists. For two fingers every squeeze lies along the
+      segment. So the segment is strictly inside both cones.</li>
+  </ol>
+</section>
+
+<!-- ================================================================== 15 -->
+<section class="slide">
+  <h2>The general recipe (any number of fingers)</h2>
+  <div class="box">A grasp is force closure <b>if and only if</b>
+    <ol>
+      <li>ignoring friction limits, the contacts can make every wrench, and</li>
+      <li>there is a <b>squeeze</b> (a zero-total-wrench choice of forces) strictly inside all the
+        cones.</li>
+    </ol></div>
+  <ul>
+    <li>The two arguments on the last two slides prove this in general, not just for two fingers.</li>
+    <li>Nguyen's theorem is this recipe plus one geometric fact: two fingers can only squeeze along
+      the line between them.</li>
+    <li>Part 5 reuses the recipe in 3D, where three fingers squeeze in more interesting ways.</li>
+  </ul>
+  <p class="small">See Murray, Li &amp; Sastry, <i>A Mathematical Introduction to Robotic
+    Manipulation</i> (1994), Ch. 5.</p>
+</section>
+
+<!-- ================================================================== 16 -->
+<section class="slide section">
+  <p class="kicker">Part 4a</p>
+  <h1>Examples</h1>
+  <hr>
+  <p>Three shapes, three formulas you can do in your head.</p>
+</section>
+
+<!-- ================================================================== 17 -->
+<section class="slide">
+  <h2>Example 1: pinching a box off-center</h2>
+  <div class="cols mid">
+    <figure><svg id="f-offset"></svg></figure>
+    <div>
+      <ul>
+        <li>Box width $w$. Fingers on opposite faces, at heights differing by $d$.</li>
+        <li>The normals are exactly opposite, but the segment tilts by $\beta$ with
+          $\tan\beta = d / w$.</li>
+        <li>Force closure $\iff \beta &lt; \alpha \iff$
+          $$d &lt; \mu\, w.$$</li>
+      </ul>
+      <div class="example small"><b>Numbers.</b> $w = 6$ cm. With $\mu = 0.5$ the fingers may be up to
+        3 cm apart in height; with $\mu = 0.2$, only 1.2 cm.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 18 -->
+<section class="slide">
+  <h2>Example 2: a disk</h2>
+  <div class="cols mid">
+    <figure><svg id="f-disk"></svg></figure>
+    <div>
+      <ul>
+        <li>On a disk every inward normal points at the center.</li>
+        <li>Put the fingers $\delta$ of arc away from exactly opposite. The triangle formed by the center and
+          the two contacts is isosceles, so the segment makes the same angle $\delta/2$ with both
+          normals.</li>
+        <li>Force closure $\iff \delta/2 &lt; \alpha \iff \delta &lt; 2\arctan\mu$.</li>
+      </ul>
+      <div class="example small"><b>Numbers.</b> $\mu = 0.4$: up to $43.6^\circ$ of misplacement.
+        $\mu = 0.1$: only $11.4^\circ$. Slippery objects need precise fingers.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 19 -->
+<section class="slide">
+  <h2>Example 3: the watermelon seed</h2>
+  <div class="cols mid">
+    <figure><svg id="f-seed"></svg></figure>
+    <div>
+      <ul>
+        <li>A wedge whose faces meet at angle $2\beta$, squeezed on its faces at equal heights.</li>
+        <li>The segment between the fingers makes angle $\beta$ with each face's normal.</li>
+        <li>Force closure $\iff \beta &lt; \alpha$.</li>
+        <li>If the wedge is too pointy ($\beta &gt; \alpha$), squeezing harder only pushes it harder out
+          toward its wide end. That's the squirting watermelon seed.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 20 -->
+<section class="slide">
+  <h2>Try it: two-finger grasp explorer</h2>
+  <div class="cols l2 mid">
+    <figure><svg id="f-explore"></svg></figure>
+    <div>
+      <div class="controls">
+        <label>shape <select id="gx-shape">
+          <option value="box">box</option><option value="disk">disk</option>
+          <option value="ellipse">ellipse</option><option value="wedge">wedge (20&deg;)</option>
+        </select></label><br>
+        <label>finger 1 <input type="range" id="gx-s1" min="0" max="1" step="0.002"></label><br>
+        <label>finger 2 <input type="range" id="gx-s2" min="0" max="1" step="0.002"></label><br>
+        <label>$\mu$ = <input type="range" id="gx-mu" min="0" max="1.2" step="0.01" value="0.4">
+          <span id="gx-mu-out"></span></label>
+      </div>
+      <div class="readout" id="gx-read"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 21 -->
+<section class="slide section">
+  <p class="kicker">Part 4b</p>
+  <h1>A tempting shortcut, and when it is exact</h1>
+  <hr>
+  <p>Grasp filters often check only the two normals. What does that buy you?</p>
+</section>
+
+<!-- ================================================================== 22 -->
+<section class="slide">
+  <h2>A normal-angle test from a real grasp filter</h2>
+  <div class="quote">Antipodal grasp feasibility: contact normals satisfy a friction-cone
+    force-closure test. For friction coefficient $\mu$, feasibility requires
+    $\cos(\angle(-\nhat_0, \nhat_1)) \ge \cos(2\arctan\mu)$.</div>
+  <ul>
+    <li>$\nhat_0, \nhat_1$ are the outward surface normals at the two contacts. For a perfect pinch they
+      are exactly opposite, so $\angle(-\nhat_0, \nhat_1) = 0$.</li>
+    <li>The test says: the normals may be at most $2\alpha$ away from exactly opposite.</li>
+    <li>It never looks at <b>where</b> the contacts are. Nguyen's condition does.</li>
+  </ul>
+  <p class="small">(From a thumb&ndash;index pinch filter for grasping spheres.)</p>
+</section>
+
+<!-- ================================================================== 23 -->
+<section class="slide">
+  <h2>The shortcut is necessary</h2>
+  <div class="cols mid">
+    <figure><svg id="f-tri"></svg></figure>
+    <div>
+      <ul>
+        <li>Suppose Nguyen's condition holds. Then the segment direction $\vd$ is within $\alpha$ of the
+          inward normal $-\nhat_0$ at one end,</li>
+        <li>and $-\vd$ is within $\alpha$ of $-\nhat_1$ at the other, i.e. $\vd$ is within $\alpha$ of
+          $\nhat_1$.</li>
+        <li>Going from $-\nhat_0$ to $\vd$ to $\nhat_1$, the angles add up to at most $2\alpha$. So
+          $$\angle(-\nhat_0, \nhat_1) \le 2\alpha.$$</li>
+      </ul>
+      <p class="small">Every force-closure pinch passes the test. But&hellip;</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 24 -->
+<section class="slide">
+  <h2>&hellip;it is not sufficient</h2>
+  <div class="cols mid">
+    <figure><svg id="f-counter"></svg></figure>
+    <div>
+      <ul>
+        <li>The off-center box pinch: normals exactly opposite, so the test passes for any $\mu$.</li>
+        <li>But with $d &gt; \mu w$ the segment leaves both cones.
+          <span class="bad">Not force closure</span>: squeezing makes the box spin between the fingers.</li>
+        <li>The shortcut can't tell these apart because it ignores contact positions.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 25 -->
+<section class="slide">
+  <h2>&hellip;but on a sphere it is exact</h2>
+  <div class="cols mid">
+    <figure><svg id="f-sphere"></svg></figure>
+    <div>
+      <ul>
+        <li>On a circle or sphere every normal passes through the center.</li>
+        <li>Center + two contacts: an isosceles triangle. The segment makes the <b>same</b> angle $\beta$
+          with both normals, and $\angle(-\nhat_0, \nhat_1) = 2\beta$.</li>
+        <li>So &ldquo;$\angle \le 2\alpha$&rdquo; is the same as &ldquo;$\beta \le \alpha$&rdquo;:
+          Nguyen's condition exactly.</li>
+      </ul>
+      <div class="box small">For spheres the shortcut <b>is</b> the force-closure test, except exactly at
+        equality, where the grasp is on the verge of slipping.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 26 -->
+<section class="slide">
+  <h2>Making the shortcut safe</h2>
+  <ul>
+    <li><b>Keep a margin.</b> Use $\mu_{\text{design}} &lt; \mu$ (say $0.7\mu$&ndash;$0.8\mu$), or require
+      $\angle(-\nhat_0, \nhat_1) \le 2\alpha - \text{margin}$. Equality means zero tolerance.</li>
+    <li><b>Non-spherical objects</b>: check Nguyen's condition with the actual contact points, not just
+      the normals.</li>
+    <li><b>In 3D</b>, two point contacts can't resist twisting about the finger-to-finger line. True
+      force closure needs soft fingertips (torsional friction). That's Part 5.</li>
+  </ul>
+  <p class="small">For a sphere, that last twist only spins the ball in place, which rarely matters for
+    holding it. But it does matter for calling the grasp &ldquo;force closure&rdquo;.</p>
+</section>
+
+<!-- ================================================================== 27 -->
+<section class="slide">
+  <h2>Check yourself</h2>
+  <ol>
+    <li>Box, $w = 4$ cm, $\mu = 0.3$, fingers offset by 1.5 cm. Force closure?
+      <details><summary>answer</summary><div>No: needs $d &lt; \mu w = 1.2$ cm.</div></details></li>
+    <li>Disk, $\mu = 1$. How far from exactly opposite can the fingers be?
+      <details><summary>answer</summary><div>Up to $2\arctan 1 = 90^\circ$ of arc.</div></details></li>
+    <li>Two frictionless fingers exactly opposite on a disk. Force closure?
+      <details><summary>answer</summary><div>No. Nothing resists sideways pushes or spinning.</div></details></li>
+    <li>On a sphere, can the normal-angle test pass while Nguyen's condition fails?
+      <details><summary>answer</summary><div>Only at exact equality ($\beta = \alpha$), where the strict
+        inequality fails.</div></details></li>
+  </ol>
+</section>
+
+<!-- ================================================================== 28 -->
+<section class="slide">
+  <h2>Summary</h2>
+  <ul>
+    <li>Force closure: the contacts can cancel any disturbance wrench.</li>
+    <li>Contacts only push, so what matters is <b>positive</b> spanning: $d+1$ edges at least,
+      and no escape direction.</li>
+    <li>General recipe: full rank + a squeeze strictly inside all cones.</li>
+    <li>Two fingers in the plane (Nguyen): the segment between them must lie strictly inside both cones.
+      Box: $d &lt; \mu w$. Disk: misplacement $&lt; 2\arctan\mu$. Wedge: half-angle $&lt; \arctan\mu$.</li>
+    <li>The normal-angle test is necessary; for spheres it's also sufficient.</li>
+  </ul>
+  <p>Next: <a href="05_grasps_in_3d.html">Part 5: grasping in 3D &gt;&gt;</a></p>
+</section>
+
+</main>
+<script>
+(function () {
+  const C = Fig.C, d = Fig.deg, V = Contact.V, CT = Contact;
+  const mu0 = 0.5, a0 = Math.atan(mu0);
+
+  // Draw a fingertip pressing at p along inward normal n (a small disk outside the object).
+  function finger(F, p, n, o) {
+    o = o || {};
+    const r = o.r || 0.16, c = V.sub(p, V.mul(V.unit(n), r));
+    F.circle(c, r, { fill: "#ffcc99", width: 1.3 });
+  }
+  function cone(F, p, n, mu, len, o) {
+    return F.wedge(p, Math.atan2(n[1], n[0]), Math.atan(mu), len, Object.assign({ flat: true, fillOpacity: 0.75 }, o || {}));
+  }
+  // A box pinched on its left and right faces with the right finger raised by `off`.
+  function pinch(F, c, w, h, off, mu, o) {
+    o = o || {};
+    F.rect(c, w, h, { fill: "#dddddd" });
+    const p1 = [c[0] - w / 2, c[1] - off / 2], p2 = [c[0] + w / 2, c[1] + off / 2];
+    cone(F, p1, [1, 0], mu, o.len || 0.7);
+    cone(F, p2, [-1, 0], mu, o.len || 0.7);
+    const ok = CT.nguyen(p1, [1, 0], p2, [-1, 0], mu).ok;
+    F.line(p1, p2, { color: ok ? C.green : C.red, width: 3 });
+    finger(F, p1, [1, 0]); finger(F, p2, [-1, 0]);
+    F.dot(p1); F.dot(p2);
+    return ok;
+  }
+
+  // --- hero
+  {
+    const F = Fig("#f-hero", { w: 600, h: 250, xlim: [-2.4, 2.4], ylim: [-1.0, 1.0] });
+    pinch(F, [0, 0], 2.2, 1.4, 0.35, mu0, { len: 1.1 });
+  }
+
+  // --- fingers on a box
+  {
+    const F = Fig("#f-fingers", { w: 520, h: 360, xlim: [-2.2, 2.2], ylim: [-1.5, 1.5] });
+    F.rect([0, 0], 2.0, 1.4, { fill: "#dddddd" });
+    [[[-1, 0.2], [1, 0]], [[1, -0.1], [-1, 0]], [[0.3, 0.7], [0, -1]]].forEach(([p, n]) => {
+      cone(F, p, n, mu0, 0.6);
+      finger(F, p, n);
+      F.dot(p);
+    });
+  }
+
+  // --- bead on a wire
+  {
+    const F = Fig("#f-bead", { w: 520, h: 250, xlim: [-2.6, 2.6], ylim: [-0.9, 0.9] });
+    F.line([-2.5, 0], [2.5, 0], { width: 2, color: C.gray });
+    F.circle([0, 0], 0.3, { fill: "#99ccff", width: 1.5 });
+    F.circle([-0.52, 0], 0.2, { fill: "#ffcc99", width: 1.3 });
+    F.arrow([-1.6, 0.55], [-0.6, 0.55], { color: C.force, width: 2.5, label: "+1", lpos: "start", loff: [-8, 0] });
+    const g = F.group({ class: "step" });
+    g.circle([0.52, 0], 0.2, { fill: "#ffcc99", width: 1.3 });
+    g.arrow([1.6, 0.55], [0.6, 0.55], { color: C.force, width: 2.5, label: "−1", lpos: "start", loff: [8, 0] });
+  }
+
+  // --- positive span vs half-plane
+  {
+    const F = Fig("#f-span", { w: 520, h: 300, xlim: [-2.6, 2.6], ylim: [-1.35, 1.25] });
+    const L = [-1.3, 0], R = [1.3, 0];
+    F.circle(L, 1.05, { dash: "2 4", color: C.gray, width: 1 });
+    [90, 210, 330].forEach((a) => F.arrow(L, V.add(L, Fig.dir(d(a))), { color: C.green, width: 3 }));
+    F.text([L[0], -1.22], "spans: every direction", { anchor: "middle", size: 17, color: C.green });
+    F.circle(R, 1.05, { dash: "2 4", color: C.gray, width: 1 });
+    [40, 90, 150].forEach((a) => F.arrow(R, V.add(R, Fig.dir(d(a))), { color: C.red, width: 3 }));
+    F.text([R[0], -1.22], "all in a half-plane", { anchor: "middle", size: 17, color: C.red });
+  }
+
+  // --- escape direction
+  {
+    const F = Fig("#f-escape", { w: 520, h: 360, xlim: [-2.0, 2.0], ylim: [-1.5, 1.5] });
+    F.poly([[-2, 0.28 * -2], [2, 0.28 * 2], [2, -1.5], [-2, -1.5]], { fill: "#ffe6e6", stroke: "none" });
+    F.line([-2, -0.56], [2, 0.56], { dash: "6 4", width: 1.5 });
+    [55, 100, 150, 175].forEach((a) => F.arrow([0, 0], Fig.dir(d(a)), { color: C.ink, width: 2.5 }));
+    const u = V.unit([0.28, -1]);
+    F.arrow([0, 0], V.mul(u, 1.25), { color: C.red, width: 3.5, label: "u", loff: [14, 4] });
+    F.text([1.95, -1.3], "escape side", { anchor: "end", size: 18, color: C.red });
+    F.dot([0, 0]);
+  }
+
+  // --- soap bar
+  {
+    const F = Fig("#f-soap", { w: 520, h: 330, xlim: [-2.3, 2.3], ylim: [-1.3, 1.5] });
+    F.rect([0, 0.1], 2.2, 1.0, { fill: "#ccffff" });
+    F.circle([-1.1 - 0.16, 0.3], 0.16, { fill: "#ffcc99", width: 1.3 });
+    F.circle([1.1 + 0.16, -0.1], 0.16, { fill: "#ffcc99", width: 1.3 });
+    F.arrow([-2.2, 0.3], [-1.43, 0.3], { color: C.normal, width: 3 });
+    F.arrow([2.2, -0.1], [1.43, -0.1], { color: C.normal, width: 3 });
+    const r = 0.55, c0 = [0, 0.1], a1 = d(20); // clockwise twist, from 160 deg down to 20 deg
+    F.arc(c0, r * F.s, d(160), a1, { color: C.red, width: 2.5 });
+    const e = V.add(c0, V.mul(Fig.dir(a1), r)), tng = Fig.dir(a1 - Math.PI / 2);
+    F.arrow(V.sub(e, V.mul(tng, 0.05)), V.add(e, V.mul(tng, 0.12)), { color: C.red, width: 2.5, headpx: 13 });
+    F.text([0, 1.25], "misaligned pushes twist it", { anchor: "middle", size: 18, color: C.red });
+    F.arrow([0, -0.45], [0, -1.05], { color: C.force, width: 2.5 });
+    F.text([0.12, -0.95], "nudge", { size: 18, color: C.force });
+  }
+
+  // --- two placements
+  {
+    const F = Fig("#f-twoplace", { w: 560, h: 280, xlim: [-2.9, 2.9], ylim: [-1.2, 1.2] });
+    pinch(F, [-1.45, 0], 1.6, 1.4, 0.0, mu0, { len: 0.7 });
+    pinch(F, [1.45, 0], 1.6, 1.4, 1.15, mu0, { len: 0.7 });
+    F.text([-1.45, -1.0], "across: holds", { anchor: "middle", size: 18, color: C.green });
+    F.text([1.45, -1.0], "offset: spins out", { anchor: "middle", size: 18, color: C.red });
+  }
+
+  // --- squeeze
+  {
+    const F = Fig("#f-squeeze", { w: 520, h: 330, xlim: [-2.3, 2.3], ylim: [-1.3, 1.3] });
+    const p1 = [-1.1, -0.25], p2 = [1.1, 0.25];
+    F.rect([0, 0], 2.2, 1.6, { fill: "#dddddd" });
+    F.line(V.sub(p1, [1, 0.227]), V.add(p2, [1, 0.227]), { dash: "5 4", color: C.gray, width: 1.2 });
+    const u = V.unit(V.sub(p2, p1));
+    F.arrow(p1, V.add(p1, V.mul(u, 0.85)), { color: C.force, width: 3.5 });
+    F.arrow(p2, V.sub(p2, V.mul(u, 0.85)), { color: C.force, width: 3.5 });
+    finger(F, p1, [1, 0]); finger(F, p2, [-1, 0]);
+    F.dot(p1); F.dot(p2);
+    F.text([0, 1.05], "equal, opposite, same line", { anchor: "middle", size: 18, italic: true });
+  }
+
+  // --- Nguyen yes / no
+  {
+    const F = Fig("#f-nguyen", { w: 560, h: 280, xlim: [-2.9, 2.9], ylim: [-1.2, 1.2] });
+    const el = CT.Shapes.ellipse(1.15, 0.75);
+    [[-1.45, 0.53, 0.02], [1.45, 0.56, 0.17]].forEach(([cx, s1, s2]) => {
+      const sh = { at: (s) => { const q = el.at(s); return { p: V.add(q.p, [cx, 0]), n: q.n }; } };
+      F.poly(el.outline().map((q) => V.add(q, [cx, 0])), { fill: "#dddddd", width: 1.5 });
+      const c1 = sh.at(s1), c2 = sh.at(s2), n1 = V.mul(c1.n, -1), n2 = V.mul(c2.n, -1);
+      cone(F, c1.p, n1, mu0, 0.75); cone(F, c2.p, n2, mu0, 0.75);
+      const ok = CT.nguyen(c1.p, n1, c2.p, n2, mu0).ok;
+      F.line(c1.p, c2.p, { color: ok ? C.green : C.red, width: 3 });
+      finger(F, c1.p, n1); finger(F, c2.p, n2);
+      F.dot(c1.p); F.dot(c2.p);
+    });
+  }
+
+  // --- squeeze harder: f + s d rotates into the cone
+  {
+    const F = Fig("#f-harder", { w: 520, h: 360, xlim: [-0.5, 2.9], ylim: [-1.2, 1.55] });
+    const p = [0, 0], dvec = [1, 0.15], f0 = [0.2, 1.1];
+    F.surface([0, -1.1], [0, 1.2]);
+    cone(F, p, [1, 0], mu0, 2.6);
+    F.line(p, V.mul(V.unit(dvec), 2.8), { dash: "6 4", width: 1.5, color: C.green });
+    F.label(V.mul(V.unit(dvec), 2.85), "d", { color: C.green, dx: 4, dy: 16 });
+    [[0, "s = 0"], [0.8, "s = 1"], [2.5, "s = 3"]].forEach(([s, lab], i) => {
+      const f = V.add(f0, V.mul(dvec, s * 1.2)), dir = V.unit(f);
+      const inside = CT.classify2(f, [1, 0], mu0).mode === "inside";
+      const tip = V.mul(dir, 1.25 + 0.3 * i);
+      F.arrow(p, tip, { color: inside ? C.green : C.red, width: 3 });
+      F.text(V.add(tip, [0.08, 0.05]), lab, { size: 18, color: inside ? C.green : C.red });
+    });
+    F.dot(p);
+  }
+
+  // --- example 1: offset box
+  {
+    const F = Fig("#f-offset", { w: 520, h: 380, xlim: [-2.2, 2.2], ylim: [-1.5, 1.6] });
+    const w = 2.2, off = 0.8;
+    pinch(F, [0, 0], w, 1.8, off, mu0, { len: 1.0 });
+    const p1 = [-w / 2, -off / 2];
+    F.line([-w / 2, -off / 2], [w / 2, -off / 2], { dash: "3 3", width: 1, color: C.gray });
+    F.arc(p1, 70, 0, Math.atan2(off, w), { label: "β", lgap: 16 });
+    F.line([w / 2 + 0.35, -off / 2], [w / 2 + 0.35, off / 2], { width: 1 });
+    F.label([w / 2 + 0.5, 0], "d", { anchor: "start" });
+    F.line([-w / 2, -1.15], [w / 2, -1.15], { width: 1 });
+    F.label([0, -1.33], "w");
+  }
+
+  // --- example 2: disk
+  {
+    const F = Fig("#f-disk", { w: 520, h: 400, xlim: [-1.8, 1.8], ylim: [-1.5, 1.4] });
+    const R = 1.1, delta = d(36);
+    const t1 = Math.PI, t2 = delta;
+    const p1 = V.mul(Fig.dir(t1), R), p2 = V.mul(Fig.dir(t2), R);
+    F.circle([0, 0], R, { fill: "#dddddd", width: 1.5 });
+    cone(F, p1, V.mul(p1, -1), mu0, 0.9);
+    cone(F, p2, V.mul(p2, -1), mu0, 0.9);
+    F.line([0, 0], p1, { dash: "4 3", width: 1.2 });
+    F.line([0, 0], p2, { dash: "4 3", width: 1.2 });
+    F.line([0, 0], [R, 0], { dash: "2 4", width: 1, color: C.gray });
+    F.line(p1, p2, { color: C.green, width: 3 });
+    F.arc([0, 0], 40, 0, delta, { label: "δ", lgap: 14 });
+    F.arc(p1, 60, Math.atan2(p2[1] - p1[1], p2[0] - p1[0]), 0, { label: "δ/2", lgap: 22 });
+    finger(F, p1, V.mul(p1, -1)); finger(F, p2, V.mul(p2, -1));
+    F.dot([0, 0], { rpx: 3 }); F.dot(p1); F.dot(p2);
+  }
+
+  // --- example 3: watermelon seed
+  {
+    const F = Fig("#f-seed", { w: 520, h: 400, xlim: [-2.0, 2.0], ylim: [-1.7, 1.6] });
+    const beta = d(34), H = 2.6, bw = H * Math.tan(beta) / 1;
+    const top = [0, 1.3], bl = [-bw / 2 * 1.0, -1.3], br = [bw / 2, -1.3];
+    const Wd = Math.tan(beta) * H; // half width at the base
+    const B1 = [-Wd, -1.3], B2 = [Wd, -1.3];
+    F.poly([top, B1, B2], { fill: "#ccff99", width: 1.5 });
+    const y = -0.2, x = Wd * (1.3 - y) / H;
+    const p1 = [-x, y], p2 = [x, y];
+    const n1 = [Math.cos(beta), -Math.sin(beta)], n2 = [-Math.cos(beta), -Math.sin(beta)];
+    cone(F, p1, n1, mu0, 0.95);
+    cone(F, p2, n2, mu0, 0.95);
+    F.line(p1, p2, { color: C.red, width: 3 });
+    finger(F, p1, n1); finger(F, p2, n2);
+    F.dot(p1); F.dot(p2);
+    F.arrow([0, -0.55], [0, -1.55], { color: C.purple, width: 3.5, label: "squirts out", upright: true, loff: [60, -8] });
+    F.arc(top, 60, d(-90) - beta, d(-90), { label: "β", lgap: 14 });
+  }
+
+  // --- two-finger explorer (interactive)
+  {
+    const F = Fig("#f-explore", { w: 560, h: 440, xlim: [-2.2, 2.2], ylim: [-1.72, 1.72] });
+    const shapes = {
+      box: CT.Shapes.box(2.4, 1.5), disk: CT.Shapes.disk(1.15),
+      ellipse: CT.Shapes.ellipse(1.5, 0.85), wedge: CT.Shapes.wedge(d(20), 2.8),
+    };
+    const sel = document.getElementById("gx-shape"), s1 = document.getElementById("gx-s1"),
+      s2 = document.getElementById("gx-s2"), mu = document.getElementById("gx-mu");
+    function closestS(sh, q) {
+      let best = 0, bd = Infinity;
+      for (let i = 0; i < 1000; i++) { const dd = V.norm(V.sub(sh.at(i / 1000).p, q)); if (dd < bd) { bd = dd; best = i / 1000; } }
+      return best;
+    }
+    function reset() {
+      const sh = shapes[sel.value];
+      s1.value = closestS(sh, [-3, 0.2]);
+      s2.value = closestS(sh, [3, 0.1]);
+      draw();
+    }
+    function draw() {
+      const sh = shapes[sel.value], m = +mu.value;
+      const c1 = sh.at(+s1.value), c2 = sh.at(+s2.value);
+      const n1 = V.mul(c1.n, -1), n2 = V.mul(c2.n, -1);
+      F.clear();
+      F.poly(sh.outline(), { fill: "#dddddd", width: 1.5 });
+      if (m > 0.005) { cone(F, c1.p, n1, m, 1.0); cone(F, c2.p, n2, m, 1.0); }
+      else { F.arrow(c1.p, V.add(c1.p, V.mul(n1, 0.9)), { width: 2 }); F.arrow(c2.p, V.add(c2.p, V.mul(n2, 0.9)), { width: 2 }); }
+      const ng = CT.nguyen(c1.p, n1, c2.p, n2, m);
+      const na = CT.normalAngleTest(n1, n2, m);
+      const exact = CT.positivelySpans3(CT.edgeWrenches2([{ p: c1.p, n: n1 }, { p: c2.p, n: n2 }], m), 1e-9);
+      F.line(c1.p, c2.p, { color: ng.ok ? C.green : C.red, width: 3 });
+      finger(F, c1.p, n1); finger(F, c2.p, n2);
+      F.dot(c1.p); F.dot(c2.p);
+      F.label(V.add(c1.p, V.mul(c1.n, 0.5)), "1", { italic: false, size: 18 });
+      F.label(V.add(c2.p, V.mul(c2.n, 0.5)), "2", { italic: false, size: 18 });
+      document.getElementById("gx-mu-out").textContent = m.toFixed(2);
+      document.getElementById("gx-read").textContent =
+        "alpha = arctan(mu)       = " + CT.deg(ng.alpha).toFixed(1) + " deg" +
+        "\nsegment vs normal 1      = " + CT.deg(ng.beta1).toFixed(1) + " deg" +
+        "\nsegment vs normal 2      = " + CT.deg(ng.beta2).toFixed(1) + " deg" +
+        "\nNguyen:           " + (ng.ok ? "FORCE CLOSURE" : "no") +
+        "\nexact wrench test: " + (exact ? "FORCE CLOSURE" : "no") +
+        "\nnormal-angle test: " + (na.ok ? "pass" : "fail") + " (" + CT.deg(na.angle).toFixed(1) + " <= " + CT.deg(2 * ng.alpha).toFixed(1) + "?)";
+    }
+    sel.addEventListener("change", reset);
+    [s1, s2, mu].forEach((e) => e.addEventListener("input", draw));
+    reset();
+  }
+
+  // --- the shortcut is necessary: angles add
+  {
+    const F = Fig("#f-tri", { w: 520, h: 330, xlim: [-0.4, 2.8], ylim: [-0.4, 1.8] });
+    const a = d(18), b = d(14);
+    const nu0 = Fig.dir(0), dd = Fig.dir(a), n1 = Fig.dir(a + b);
+    F.arrow([0, 0], V.mul(nu0, 2.3), { color: C.blue, width: 3, label: "−n" + "̂" + "_0", loff: [18, 0] });
+    F.arrow([0, 0], V.mul(dd, 2.4), { color: C.green, width: 3, label: "d", loff: [14, 0] });
+    F.arrow([0, 0], V.mul(n1, 2.3), { color: C.blue, width: 3, label: "n" + "̂" + "_1", loff: [10, -6] });
+    F.arc([0, 0], 150, 0, a, { label: "≤ α", lgap: 24 });
+    F.arc([0, 0], 110, a, a + b, { label: "≤ α", lgap: 24 });
+    F.dot([0, 0]);
+  }
+
+  // --- counterexample: big offset
+  {
+    const F = Fig("#f-counter", { w: 520, h: 360, xlim: [-2.2, 2.2], ylim: [-1.5, 1.5] });
+    pinch(F, [0, 0], 2.0, 2.0, 1.6, mu0, { len: 1.0 });
+    F.arc([0, 0], 55, d(40), d(320), { color: C.red, width: 2 });
+    F.text([0, 1.3], "normals opposite, still slips", { anchor: "middle", size: 18, color: C.red });
+  }
+
+  // --- sphere: isosceles triangle
+  {
+    const F = Fig("#f-sphere", { w: 520, h: 400, xlim: [-1.8, 1.8], ylim: [-1.4, 1.4] });
+    const R = 1.1, p1 = V.mul(Fig.dir(d(200)), R), p2 = V.mul(Fig.dir(d(45)), R);
+    F.circle([0, 0], R, { fill: "#dddddd", width: 1.5 });
+    F.poly([[0, 0], p1, p2], { fill: "#ffffcc", fillOpacity: 0.7, color: C.gray, width: 1 });
+    F.line(p1, p2, { color: C.green, width: 3 });
+    F.arrow(p1, V.add(p1, V.mul(V.unit(p1), 0.6)), { color: C.blue, width: 2.5, label: "n" + "̂" + "_0", loff: [-6, 12] });
+    F.arrow(p2, V.add(p2, V.mul(V.unit(p2), 0.6)), { color: C.blue, width: 2.5, label: "n" + "̂" + "_1", loff: [6, -6] });
+    const u = V.unit(V.sub(p2, p1));
+    F.arc(p1, 50, Math.atan2(u[1], u[0]), Math.atan2(-p1[1], -p1[0]), { label: "β", lgap: 14 });
+    F.arc(p2, 50, Math.atan2(-p2[1], -p2[0]), Math.atan2(-u[1], -u[0]), { label: "β", lgap: 14 });
+    F.dot([0, 0], { rpx: 3 }); F.dot(p1); F.dot(p2);
+    F.label([0.08, -0.2], "center", { italic: false, size: 16 });
+  }
+})();
+</script>
+</body>
+</html>

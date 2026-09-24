@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Part 5: Grasping in 3D</title>
+<link rel="stylesheet" href="lib/katex/katex.min.css">
+<link rel="stylesheet" href="lib/retro.css">
+<script defer src="lib/katex/katex.min.js"></script>
+<script defer src="lib/katex/contrib/auto-render.min.js"></script>
+<script src="lib/fig.js"></script>
+<script src="lib/contact.js"></script>
+<script defer src="lib/deck.js"></script>
+</head>
+<body data-short="Part 5 &middot; Grasping in 3D" data-index="index.html"
+      data-prev="04_two_fingers.html" data-next="06_grasp_quality.html">
+<main class="deck">
+
+<!-- ================================================================== 1 -->
+<section class="slide title">
+  <h1>Friction &amp; Grasping from Scratch<br>Part 5: Grasping in 3D</h1>
+  <p class="authors">William Xie</p>
+  <p class="links">[<a href="index.html">index</a>] [<a href="../06_force_closure.py">code</a>]
+    [<a href="#" data-action="print">pdf</a>] [<a href="04_two_fingers.html">previous part</a>]
+    [<a href="06_grasp_quality.html">next part</a>]</p>
+  <hr>
+  <figure style="width:520px">
+    <svg id="f-hero"></svg>
+    <figcaption>Three fingers on a ball, 120&deg; apart. Their pushes lie in one plane and meet at
+      one point, which turns out to be the whole trick.</figcaption>
+  </figure>
+  <p class="updated">Last updated September 2026.</p>
+</section>
+
+<!-- ================================================================== 2 -->
+<section class="slide">
+  <h2>What changes in 3D</h2>
+  <ul>
+    <li>Forces have 3 numbers. Torques have 3 numbers too: you can twist about any axis, not just
+      &ldquo;in the page&rdquo;.</li>
+    <li>So a wrench has <b>6</b> numbers, and force closure asks the contact wrench cone to be all
+      of $\R^6$.</li>
+    <li>What doesn't change: the recipe from Part 4.
+      <div class="box">Force closure $\iff$ (1) ignoring friction limits, the contacts can make every
+        wrench, and (2) a squeeze exists strictly inside all the cones.</div></li>
+    <li>This part: why two ordinary fingers are never enough, how fingertip pads fix it, and how three
+      fingers squeeze.</li>
+  </ul>
+</section>
+
+<!-- ================================================================== 3 -->
+<section class="slide">
+  <h2>Tool #6: the cross product</h2>
+  <div class="cols mid">
+    <figure><svg id="f-cross"></svg></figure>
+    <div>
+      <p>The 3D torque of force $\vf$ applied at $\vr$ (from the pivot):</p>
+      $$\vtau = \vr \times \vf = \begin{pmatrix} r_y f_z - r_z f_y \\ r_z f_x - r_x f_z \\ r_x f_y - r_y f_x \end{pmatrix}$$
+      <ul>
+        <li>Its <b>direction</b> is the axis of the twist (right-hand rule: curl your fingers from $\vr$
+          to $\vf$; your thumb points along $\vtau$).</li>
+        <li>Its <b>length</b> is force &times; lever arm, as before.</li>
+        <li>The last row is Part 3's 2D torque: a flat world only twists about the $z$ axis.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 4 -->
+<section class="slide">
+  <h2>Wrenches and counting in 3D</h2>
+  <ul>
+    <li>A contact force $\vf$ at point $\vp$ makes the wrench $\vw = (\vf,\ \vp \times \vf) \in \R^6$.</li>
+    <li>To positively span $\R^6$ we need at least $6 + 1 = 7$ edge wrenches.</li>
+    <li><b>Frictionless</b> fingers give 1 edge each: at least <b>7 frictionless fingers</b>. For
+      most shapes 7 is also enough (Markenscoff, Ni &amp; Papadimitriou, 1990).</li>
+    <li>Shapes of revolution (balls, cylinders, bottles) can't be held by frictionless fingers at all:
+      nothing resists spinning about the axis.</li>
+    <li><b>Frictional</b> fingers give a whole cone of edges each, so far fewer fingers can work.
+      How few?</li>
+  </ul>
+</section>
+
+<!-- ================================================================== 5 -->
+<section class="slide">
+  <h2>Three contact models</h2>
+  <table>
+    <tr><th>model</th><th>what the contact can do</th><th class="num">numbers</th><th>MuJoCo</th></tr>
+    <tr><td><b>frictionless point</b></td><td>push along the normal only</td><td class="num">1</td>
+      <td><code>condim="1"</code></td></tr>
+    <tr><td><b>hard finger</b><br><span class="small">point contact with friction</span></td>
+      <td>push inside the Coulomb cone</td><td class="num">3</td><td><code>condim="3"</code></td></tr>
+    <tr><td><b>soft finger</b></td><td>cone, plus a limited twist about the normal:
+      $\abs{\tau_n} \le \gamma f_n$</td><td class="num">4</td><td><code>condim="4"</code></td></tr>
+  </table>
+  <p>&ldquo;Soft finger&rdquo; is the torsional friction from Part 2: a rubbery pad touching over a
+    small patch. The names come from Murray, Li &amp; Sastry (1994), Ch. 5.</p>
+</section>
+
+<!-- ================================================================== 6 -->
+<section class="slide">
+  <h2>Two hard fingers can't hold anything</h2>
+  <div class="cols mid">
+    <figure><svg id="f-axis"></svg></figure>
+    <div>
+      <ul>
+        <li>Draw the line through the two contact points: the <b>grasp axis</b>.</li>
+        <li>Any force applied at a point <i>on</i> a line has zero torque <i>about</i> that line.
+          Both contacts sit on the grasp axis.</li>
+        <li>So no finger forces, however large, can resist a twist about the axis. Pinch a pencil at
+          its two ends and it spins.</li>
+      </ul>
+      <p class="small">In numbers: all the edge wrenches of two hard fingers lie in a 5-dimensional slice
+        of $\R^6$. Checked in <code>06_force_closure.py</code>.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 7 -->
+<section class="slide">
+  <h2>Soft fingers fix it</h2>
+  <ul>
+    <li>A fingertip pad resists twisting about its own normal: $\abs{\tau_n} \le \gamma f_n$.</li>
+    <li>In a good pinch the normals lie along the grasp axis, so the pads resist exactly the twist
+      that was missing.</li>
+  </ul>
+  <div class="box">Two soft-finger contacts form a force-closure grasp <b>if and only if</b> the segment
+    joining them lies strictly inside both friction cones.</div>
+  <ul>
+    <li>That's Nguyen's condition again, now in 3D. Part 4's box, disk, and sphere results carry over
+      unchanged.</li>
+    <li>Real robot fingertips are soft pads, which is why pinch grasps work in practice.
+      In simulation, use <code>condim="4"</code> or pinches can slowly spin.</li>
+  </ul>
+</section>
+
+<!-- ================================================================== 8 -->
+<section class="slide">
+  <h2>Finding antipodal pairs (Chen &amp; Burdick, 1993)</h2>
+  <div class="cols mid">
+    <figure><svg id="f-blob"></svg></figure>
+    <div>
+      <ul>
+        <li><b>Antipodal pair</b>: two surface points whose normals point straight along the line between
+          them, in opposite directions.</li>
+        <li>Idea: a &ldquo;grasp energy&rdquo; that grows with the distance between the fingers, like a
+          rubber band pulling them together.</li>
+        <li>Slide either finger along the surface: if the distance doesn't change (to first order), the
+          chord must be perpendicular to the surface there. So <b>critical points of the distance are
+          antipodal pairs.</b></li>
+        <li>Find them with optimization, on 2D curves and 3D surfaces.</li>
+      </ul>
+      <p class="small">I.-M. Chen and J. W. Burdick, &ldquo;Finding antipodal point grasps on irregularly shaped
+        objects&rdquo;, IEEE T-RA 9(4), 1993.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 9 -->
+<section class="slide">
+  <h2>Which pair is best? (Mirtich &amp; Canny, 1994)</h2>
+  <ul>
+    <li>Rank two-finger grasps of a flat object in two stages:
+      <ol>
+        <li>resist pushes through the grip: best when the normals are exactly opposite;</li>
+        <li>among those, resist twisting. Friction at the two ends makes a couple of size $\mu f d$,
+          where $d$ is the finger spacing. Longer is better.</li>
+      </ol></li>
+    <li>Winner: the <b>longest chord</b>, the object's diameter. Its endpoints are automatically
+      antipodal.</li>
+    <li>In the language of the last slide: the best pinch is the <b>global maximum</b> of Chen &amp;
+      Burdick's distance function. Two papers, one function.</li>
+  </ul>
+  <p class="small">B. Mirtich and J. Canny, &ldquo;Easily computable optimum grasps in 2-D and 3-D&rdquo;,
+    ICRA 1994.</p>
+</section>
+
+<!-- ================================================================== 10 -->
+<section class="slide section">
+  <p class="kicker">Part 5a</p>
+  <h1>Three hard fingers</h1>
+  <hr>
+  <p>Three plain fingertips can hold a 3D object. How they squeeze is the key.</p>
+</section>
+
+<!-- ================================================================== 11 -->
+<section class="slide">
+  <h2>Three balanced forces lie in one plane</h2>
+  <div class="cols mid">
+    <figure><svg id="f-plane3"></svg></figure>
+    <div>
+      <p>Suppose three finger forces squeeze: total force 0 and total torque 0.</p>
+      <ul>
+        <li>Take torques about the line through $\vp_1$ and $\vp_2$. Forces 1 and 2 are applied on that
+          line: zero torque about it.</li>
+        <li>So force 3 must have zero torque about it too: its line of action must meet the line
+          $\vp_1\vp_2$ (or run parallel to it).</li>
+        <li>That puts $\vf_3$ in the plane through $\vp_1, \vp_2, \vp_3$. The same goes for $\vf_1$ and
+          $\vf_2$.</li>
+      </ul>
+      <p>All squeezes live in the <b>grip plane</b>.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 12 -->
+<section class="slide">
+  <h2>&hellip;and their lines meet at one point</h2>
+  <div class="cols mid">
+    <figure><svg id="f-concur"></svg>
+      <figcaption>Inside the grip plane. Lines 1 and 2 cross at $\vq$; line 3 must pass through it too.</figcaption></figure>
+    <div>
+      <ul>
+        <li>Inside the grip plane, let lines 1 and 2 cross at a point $\vq$.</li>
+        <li>Take torques about $\vq$: forces 1 and 2 give zero. So force 3 must too: its line passes
+          through $\vq$.</li>
+        <li>Unless lines 1 and 2 are parallel, in which case all three are parallel.</li>
+      </ul>
+      <div class="box small">Three forces in balance are <b>coplanar</b> and <b>concurrent</b> (or parallel).
+        Statics textbooks call this the three-force theorem.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 13 -->
+<section class="slide">
+  <h2>The three-finger test</h2>
+  <p>Three hard fingers, not all on one line, give force closure <b>iff</b> they can squeeze strictly
+    inside their cones. By the last two slides, that squeeze:</p>
+  <ol>
+    <li>lies in the grip plane, so each cone must <b>reach into the grip plane</b>: each normal must be
+      tilted less than $\alpha$ out of it;</li>
+    <li>has three lines of action through one point $\vq$ (or parallel). So look for a
+      <b>meeting point</b> $\vq$ that every finger can push along.</li>
+  </ol>
+  <ul class="small">
+    <li>Usual case (fingers around a convex object): $\vq$ inside the finger triangle, every finger
+      pushing toward it.</li>
+    <li>Parallel case: a thumb on one side of a flat plate, two fingers on the other.</li>
+  </ul>
+  <p class="small">Three fingers in a line never work: nothing resists twisting about that line.</p>
+</section>
+
+<!-- ================================================================== 14 -->
+<section class="slide">
+  <h2>Example: three fingers on a ball</h2>
+  <div class="cols mid">
+    <figure><svg id="f-lat"></svg></figure>
+    <div>
+      <ul>
+        <li>Fingers 120&deg; apart around a circle at latitude $\varphi$ (angle above the equator).
+          The grip plane is that circle's plane.</li>
+        <li>Each normal points at the ball's center, tilted $\varphi$ out of the grip plane. The cone
+          reaches the plane iff $\varphi &lt; \alpha$.</li>
+        <li>Then the in-plane pushes all point at the circle's center, inside the triangle.</li>
+      </ul>
+      $$\text{force closure} \iff \tan\varphi &lt; \mu$$
+      <p class="small">$\mu = 0.5$: grab below $26.6^\circ$. Grab higher and the ball squirts out
+        downward.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 15 -->
+<section class="slide">
+  <h2>Try it: the ball, side view</h2>
+  <div class="cols l2 mid">
+    <figure><svg id="f-ball"></svg></figure>
+    <div>
+      <div class="controls">
+        <label>latitude $\varphi$ = <input type="range" id="bl-phi" min="-60" max="60" step="0.5" value="15">
+          <span id="bl-phi-out"></span>&deg;</label><br>
+        <label>$\mu$ = <input type="range" id="bl-mu" min="0" max="1.5" step="0.01" value="0.5">
+          <span id="bl-mu-out"></span></label>
+      </div>
+      <div class="readout" id="bl-read"></div>
+      <p class="small">A slice through the center and one finger. The dashed line is the grip plane,
+        seen edge-on. The cone must poke through it.</p>
+      <p class="small">A full 6D force-closure test gives the same boundary; see
+        <code>06_force_closure.py</code>.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 16 -->
+<section class="slide">
+  <h2>Try it: three fingers around the equator</h2>
+  <div class="cols l2 mid">
+    <figure><svg id="f-three"></svg></figure>
+    <div>
+      <div class="controls">
+        <label>finger 1 <input type="range" id="t3-a" min="0" max="360" step="1" value="90"></label><br>
+        <label>finger 2 <input type="range" id="t3-b" min="0" max="360" step="1" value="210"></label><br>
+        <label>finger 3 <input type="range" id="t3-c" min="0" max="360" step="1" value="330"></label><br>
+        <label>$\mu$ = <input type="range" id="t3-mu" min="0" max="2" step="0.01" value="0.5">
+          <span id="t3-mu-out"></span></label>
+      </div>
+      <div class="readout" id="t3-read"></div>
+      <p class="small">Normals in the grip plane, so the problem is flat. Green: the points $\vq$ every
+        finger can push toward. Try bunching the fingers on one side.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 17 -->
+<section class="slide">
+  <h2>Why three fingers are enough (Mirtich &amp; Canny)</h2>
+  <ul>
+    <li>With friction and rounded fingertips, Mirtich &amp; Canny show that <b>any</b> smooth 3D object can
+      be held by <b>3</b> fingers, and any flat object by <b>2</b>. That's one fewer than the earlier bounds
+      (4 and 3).</li>
+    <li>The construction: find three surface points whose normals lie in one plane, 120&deg; apart,
+      meeting at one point.</li>
+    <li>Squeezing along those normals is a squeeze straight down the middle of every cone, so it works
+      for <b>any</b> $\mu &gt; 0$.</li>
+  </ul>
+  <p class="small">Rounded fingertips matter: on a sharp edge or corner of a polyhedron, a round fingertip
+    can push in a whole range of directions, as if the corner were slightly rounded.</p>
+</section>
+
+<!-- ================================================================== 18 -->
+<section class="slide">
+  <h2>The best three-finger grasp (Mirtich &amp; Canny)</h2>
+  <div class="cols mid">
+    <figure><svg id="f-mc3"></svg></figure>
+    <div>
+      <ol>
+        <li>Resist pushes in the grip plane: normals <b>120&deg; apart</b> (an &ldquo;equilateral grasp&rdquo;).</li>
+        <li>Then resist twisting about the plane's normal. With each finger pressing with $f$:
+          $$m_{\max} = \tfrac{\sqrt3}{2}\,f\,(\mu\, s_o - s_i)$$
+          $s_o$: side of the <b>outer</b> triangle (lines through the contacts, perpendicular to the
+          normals). $s_i$: side of the <b>inner</b> triangle formed by the normals' lines.</li>
+      </ol>
+      <p class="small">Best: the largest outer triangle; then the normals meet at one point
+        ($s_i = 0$). In 3D: the largest equilateral prism that fits around the object.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 19 -->
+<section class="slide">
+  <h2>How many fingers? Cheat sheet</h2>
+  <table>
+    <tr><th>contact model</th><th class="num">flat object (2D)</th><th class="num">solid object (3D)</th></tr>
+    <tr><td>frictionless</td><td class="num">4</td><td class="num">7</td></tr>
+    <tr><td>hard finger (friction)</td><td class="num">2, antipodal</td><td class="num">3</td></tr>
+    <tr><td>soft finger (friction + twist)</td><td class="num">2, antipodal</td><td class="num">2, antipodal</td></tr>
+  </table>
+  <ul class="small">
+    <li>Frictionless counts come from counting edges ($d + 1$); they are achievable for most shapes, but
+      never for shapes of revolution.</li>
+    <li>Frictional counts assume smooth objects or rounded fingertips (Mirtich &amp; Canny, 1994).</li>
+    <li>These are minimums for force closure. Real hands use more fingers for strength and robustness.</li>
+  </ul>
+</section>
+
+<!-- ================================================================== 20 -->
+<section class="slide">
+  <h2>Check yourself</h2>
+  <ol>
+    <li>Two hard fingers pinch a pencil at its ends. Which disturbance can't they resist?
+      <details><summary>answer</summary><div>A twist about the pencil's own axis, the line through
+        both contacts.</div></details></li>
+    <li>Three fingers on a ball at latitude 30&deg;, $\mu = 0.5$. Force closure?
+      <details><summary>answer</summary><div>No: $\tan 30^\circ = 0.577 &gt; 0.5$.</div></details></li>
+    <li>Three fingers whose contact points lie on one straight line. Force closure?
+      <details><summary>answer</summary><div>Never: all their forces have zero torque about that
+        line.</div></details></li>
+    <li>Three fingers on a ball's equator at 0&deg;, 60&deg;, 120&deg;, $\mu = 0.5$. Force closure?
+      <details><summary>answer</summary><div>No. The normals meet at the center, outside the finger
+        triangle. It takes $\mu &gt; \tan 30^\circ \approx 0.58$ to bend the pushes enough.</div></details></li>
+  </ol>
+</section>
+
+<!-- ================================================================== 21 -->
+<section class="slide">
+  <h2>Summary</h2>
+  <ul>
+    <li>3D wrenches have 6 numbers; torque is $\vr \times \vf$.</li>
+    <li>Two hard fingers can never close a grasp (twist about the grasp axis). Two soft fingers can:
+      Nguyen's condition again. Antipodal pairs are critical points of the finger distance.</li>
+    <li>Three balanced forces are coplanar and concurrent. So three hard fingers need cones that reach
+      into the grip plane and a common meeting point.</li>
+    <li>Ball example: force closure iff $\tan\varphi &lt; \mu$.</li>
+    <li>Mirtich &amp; Canny: 3 fingers suffice for any smooth solid; the best grasp is equilateral with
+      concurrent normals.</li>
+  </ul>
+  <p>Next: <a href="06_grasp_quality.html">Part 6: how good is a grasp? &gt;&gt;</a></p>
+</section>
+
+</main>
+<script>
+(function () {
+  const C = Fig.C, d = Fig.deg, V = Contact.V, CT = Contact;
+  const HAT = "̂";
+  const view = Fig.view3(d(-55), d(24));
+
+  // Sphere of radius R at the origin with a latitude ring; front half solid, back half dashed.
+  function sphere(F, T, R, o) {
+    o = o || {};
+    F.circle([0, 0], R, { fill: o.fill || "#e8e8e8", width: 1.5 });
+    (o.rings || [0]).forEach((lat) => {
+      const ring = Fig.ring3([0, 0, R * Math.sin(lat)], [0, 0, 1], R * Math.cos(lat), 120);
+      for (let i = 0; i < ring.length - 1; i++) {
+        const front = view.depth(ring[i]) >= 0;
+        T.line(ring[i], ring[i + 1], { width: 1.2, color: front ? C.ink : C.gray, dash: front ? null : "3 4" });
+      }
+    });
+  }
+  function fingerAt(T, p, R) {
+    const q = V.mul(p, (R + 0.13) / R);
+    T.dot(q, { rpx: 9, fill: "#ffcc99", stroke: "#000" });
+  }
+
+  // --- hero: three fingers on the equator
+  {
+    const F = Fig("#f-hero", { w: 520, h: 300, xlim: [-1.9, 1.9], ylim: [-1.15, 1.2] });
+    const T = F.in3(view), R = 0.9;
+    T.poly(Fig.ring3([0, 0, 0], [0, 0, 1], 1.7, 90), { fill: "#ccccff", fillOpacity: 0.35, color: C.blue, width: 1, dash: "5 4" });
+    sphere(F, T, R);
+    [90, 210, 330].forEach((a) => {
+      const p = [R * Math.cos(d(a)), R * Math.sin(d(a)), 0];
+      T.arrow(p, V.mul(p, 0.25), { color: C.force, width: 2.5 });
+      fingerAt(T, p, R);
+    });
+    T.dot([0, 0, 0], { rpx: 3 });
+    F.text([1.2, -0.95], "grip plane", { size: 18, color: C.blue });
+  }
+
+  // --- cross product
+  {
+    const F = Fig("#f-cross", { w: 520, h: 380, xlim: [-1.6, 1.9], ylim: [-1.0, 1.7] });
+    const T = F.in3(view);
+    T.arrow([0, 0, 0], [1.4, 0, 0], { width: 2.5, label: "r", loff: [6, 12] });
+    T.arrow([1.4, 0, 0], [1.4, 1.1, 0], { color: C.force, width: 3, label: "f", loff: [10, 0] });
+    T.arrow([0, 0, 0], [0, 0, 1.45], { color: C.purple, width: 3.5, label: "τ = r × f", loff: [0, -4] });
+    const ring = Fig.ring3([0, 0, 0.55], [0, 0, 1], 0.45, 60).slice(0, 44);
+    T.path(ring, { color: C.purple, width: 2 });
+    T.arrow(ring[ring.length - 2], ring[ring.length - 1], { color: C.purple, width: 2, headpx: 11 });
+    T.dot([0, 0, 0], { rpx: 5 });
+    T.text([-0.2, 0.1, -0.2], "pivot", { size: 17 });
+  }
+
+  // --- two hard fingers: the grasp axis
+  {
+    const F = Fig("#f-axis", { w: 520, h: 360, xlim: [-1.9, 1.9], ylim: [-1.2, 1.35] });
+    const T = F.in3(view), R = 0.85;
+    T.line([-1.7, 0, 0], [1.7, 0, 0], { dash: "7 4", color: C.purple, width: 2 });
+    sphere(F, T, R, { rings: [] });
+    [[R, 0, 0], [-R, 0, 0]].forEach((p) => { T.arrow(p, V.mul(p, 0.3), { color: C.force, width: 2.5 }); fingerAt(T, p, R); });
+    const ring = Fig.ring3([1.35, 0, 0], [1, 0, 0], 0.3, 60).slice(0, 46);
+    T.path(ring, { color: C.purple, width: 2.5 });
+    T.arrow(ring[ring.length - 2], ring[ring.length - 1], { color: C.purple, width: 2.5, headpx: 12 });
+    T.text([1.45, 0, -0.65], "unresisted twist", { size: 18, color: C.purple, anchor: "middle" });
+    T.text([-1.7, 0.05, -0.25], "grasp axis", { size: 18, color: C.purple });
+  }
+
+  // --- a blob with its antipodal pairs
+  {
+    const F = Fig("#f-blob", { w: 520, h: 380, xlim: [-2.2, 2.2], ylim: [-1.55, 1.65] });
+    // A smooth closed curve r(t) = 1 + 0.25 cos 2t + 0.12 cos 3t (egg-ish).
+    const r = (t) => 1.25 + 0.3 * Math.cos(2 * t) + 0.12 * Math.cos(3 * t);
+    const P = (t) => [r(t) * Math.cos(t), r(t) * Math.sin(t) * 0.85];
+    const pts = []; for (let i = 0; i <= 240; i++) pts.push(P((2 * Math.PI * i) / 240));
+    F.poly(pts, { fill: "#dddddd", width: 1.5 });
+    // Critical points of |P(s) - P(t)|: brute-force local search on a grid.
+    const N = 240, dist = (i, j) => V.norm(V.sub(P((2 * Math.PI * i) / N), P((2 * Math.PI * j) / N)));
+    let best = [0, 0, 0];
+    for (let i = 0; i < N; i++) for (let j = i + 1; j < N; j++) { const dd = dist(i, j); if (dd > best[2]) best = [i, j, dd]; }
+    const a = P((2 * Math.PI * best[0]) / N), b = P((2 * Math.PI * best[1]) / N);
+    F.line(a, b, { color: C.red, width: 3 });
+    F.dot(a); F.dot(b);
+    F.text(V.add(V.mul(V.add(a, b), 0.5), [0, 0.2]), "longest chord", { anchor: "middle", size: 18, color: C.red });
+    // The short antipodal pair across the waist (a local minimum of the distance).
+    let bestMin = [0, 0, 1e9];
+    for (let i = 40; i < 80; i++) for (let j = 160; j < 200; j++) { const dd = dist(i, j); if (dd < bestMin[2]) bestMin = [i, j, dd]; }
+    const c = P((2 * Math.PI * bestMin[0]) / N), e = P((2 * Math.PI * bestMin[1]) / N);
+    F.line(c, e, { color: C.green, width: 3 });
+    F.dot(c); F.dot(e);
+    F.text([0.1, -1.4], "a shorter antipodal pair", { anchor: "middle", size: 18, color: C.green });
+  }
+
+  // --- three forces in the grip plane (3D)
+  {
+    const F = Fig("#f-plane3", { w: 520, h: 360, xlim: [-1.8, 1.9], ylim: [-1.1, 1.4] });
+    const T = F.in3(view);
+    const p1 = [-0.9, -0.7, 0.1], p2 = [1.0, -0.4, 0.3], p3 = [0.1, 1.0, 0.5];
+    const n = V.unit(V.cross3(V.sub(p2, p1), V.sub(p3, p1)));
+    const c = V.mul(V.add(V.add(p1, p2), p3), 1 / 3);
+    const u = V.unit(V.sub(p2, p1)), w = V.cross3(n, u);
+    const S = 1.6, corner = (a, b) => V.add(c, V.add(V.mul(u, a * S), V.mul(w, b * S)));
+    T.poly([corner(-1, -1), corner(1, -1), corner(1, 1), corner(-1, 1)], { fill: "#ccccff", fillOpacity: 0.35, color: C.blue, width: 1 });
+    T.line(V.add(p1, V.mul(u, -0.7)), V.add(p2, V.mul(u, 0.7)), { dash: "6 4", width: 1.5, color: C.purple });
+    const hit = V.add(p1, V.mul(u, 0.55 * V.norm(V.sub(p2, p1))));
+    T.arrow(p3, V.add(p3, V.mul(V.unit(V.sub(hit, p3)), 0.9)), { color: C.force, width: 3, label: "f_3", loff: [14, 0] });
+    T.line(V.add(p3, V.mul(V.unit(V.sub(hit, p3)), 0.9)), hit, { dash: "2 4", color: C.force, width: 1.5 });
+    [p1, p2, p3].forEach((p, i) => { T.dot(p, { rpx: 5 }); T.label(V.add(p, [0, 0, 0.18]), "p_" + (i + 1), { bold: true }); });
+    T.text(corner(1, 0.6), "grip plane", { size: 18, color: C.blue });
+  }
+
+  // --- concurrency inside the grip plane
+  {
+    const F = Fig("#f-concur", { w: 520, h: 360, xlim: [-2.0, 2.0], ylim: [-1.4, 1.4] });
+    const q = [0.15, -0.1];
+    const P = [[-1.5, -0.9], [1.4, -0.7], [0.1, 1.25]];
+    F.poly(P, { fill: "#ffffcc", color: C.gray, width: 1, dash: "4 4" });
+    P.forEach((p, i) => {
+      const u = V.unit(V.sub(q, p));
+      F.line(V.sub(p, V.mul(u, 0.25)), V.add(q, V.mul(u, 0.6)), { dash: "5 4", color: C.gray, width: 1.2 });
+      F.arrow(p, V.add(p, V.mul(u, 0.75)), { color: C.force, width: 3 });
+      F.dot(p, { rpx: 5 });
+      F.label(V.add(p, V.mul(u, -0.3)), "p_" + (i + 1), { bold: true, size: 20 });
+    });
+    F.dot(q, { rpx: 6, fill: C.purple });
+    F.label([q[0] + 0.25, q[1] - 0.15], "q", { color: C.purple, bold: true });
+  }
+
+  // --- ball, three fingers at latitude phi (static)
+  function ballSide(F, phi, mu, o) {
+    o = o || {};
+    const R = 1.0, p = [R * Math.cos(phi), R * Math.sin(phi)], a = Math.atan(mu);
+    F.circle([0, 0], R, { fill: "#e8e8e8", width: 1.5 });
+    F.line([-1.9, p[1]], [1.9, p[1]], { dash: "7 4", color: C.blue, width: 1.5 });
+    F.text([-1.85, p[1] + 0.12], "grip plane", { size: 17, color: C.blue });
+    const nin = V.mul(p, -1);
+    if (a > 0.004) F.wedge(p, Math.atan2(nin[1], nin[0]), a, 1.05, { flat: true, fillOpacity: 0.8 });
+    F.line(p, [0, 0], { dash: "3 3", width: 1.2 });
+    const ok = Math.abs(phi) < a - 1e-9;
+    F.arrow(p, [p[0] - 0.8, p[1]], { color: ok ? C.green : C.red, width: 3 });
+    F.dot([0, 0], { rpx: 3 });
+    F.circle(V.mul(p, (R + 0.13) / R), 0.12, { fill: "#ffcc99", width: 1.2 });
+    F.dot(p);
+    F.line([0, 0], [1.3, 0], { dash: "2 4", color: C.gray, width: 1 });
+    if (Math.abs(phi) > 0.02) F.arc([0, 0], 36, 0, phi, { label: "φ", lgap: 14 });
+    return ok;
+  }
+  {
+    const F = Fig("#f-lat", { w: 520, h: 380, xlim: [-2.0, 2.0], ylim: [-1.35, 1.55] });
+    ballSide(F, d(18), 0.5);
+    F.text([0.0, -1.25], "needed: a horizontal push inside the cone", { anchor: "middle", size: 17, italic: true });
+  }
+
+  // --- ball (interactive)
+  {
+    const F = Fig("#f-ball", { w: 560, h: 420, xlim: [-2.0, 2.0], ylim: [-1.45, 1.5] });
+    const sp = document.getElementById("bl-phi"), sm = document.getElementById("bl-mu");
+    function draw() {
+      const phi = d(+sp.value), mu = +sm.value;
+      F.clear();
+      const ok = ballSide(F, phi, mu);
+      document.getElementById("bl-phi-out").textContent = (+sp.value).toFixed(1);
+      document.getElementById("bl-mu-out").textContent = mu.toFixed(2);
+      document.getElementById("bl-read").textContent =
+        "|phi| = " + Math.abs(+sp.value).toFixed(1) + " deg\nalpha = arctan(mu) = " + CT.deg(Math.atan(mu)).toFixed(1) +
+        " deg\n" + (ok ? "cone reaches the grip plane:\nFORCE CLOSURE" : "cone misses the grip plane:\nNOT force closure");
+    }
+    [sp, sm].forEach((e) => e.addEventListener("input", draw));
+    draw();
+  }
+
+  // --- three fingers around the equator (interactive)
+  {
+    const F = Fig("#f-three", { w: 560, h: 440, xlim: [-2.0, 2.0], ylim: [-1.6, 1.6] });
+    const ids = ["t3-a", "t3-b", "t3-c"].map((i) => document.getElementById(i)), sm = document.getElementById("t3-mu");
+    const R = 1.15;
+    function draw() {
+      const mu = +sm.value, a = Math.atan(mu);
+      const P = ids.map((e) => V.mul(Fig.dir(d(+e.value)), R)), N = P.map((p) => V.mul(V.unit(p), -1));
+      F.clear();
+      F.circle([0, 0], R, { fill: "#e8e8e8", width: 1.5 });
+      // meeting region: inside the finger triangle and inside all three wedges
+      let tri = P.slice();
+      const area = V.cross2(V.sub(tri[1], tri[0]), V.sub(tri[2], tri[0]));
+      if (area < 0) tri.reverse();
+      let reg = Math.abs(area) > 1e-6 ? tri : [];
+      P.forEach((p, i) => {
+        const th = Math.atan2(N[i][1], N[i][0]), em = Fig.dir(th - a), ep = Fig.dir(th + a);
+        const A1 = [em[1], -em[0]], A2 = [-ep[1], ep[0]];
+        if (reg.length) reg = CT.clip(reg, A1, V.dot(A1, p));
+        if (reg.length) reg = CT.clip(reg, A2, V.dot(A2, p));
+      });
+      let regArea = 0;
+      for (let i = 0; i < reg.length; i++) regArea += V.cross2(reg[i], reg[(i + 1) % reg.length]) / 2;
+      F.poly(P, { fill: "none", color: C.gray, width: 1, dash: "4 4" });
+      if (reg.length > 2 && regArea > 1e-6) F.poly(reg, { fill: C.green, fillOpacity: 0.45, color: C.green, width: 1.5 });
+      P.forEach((p, i) => {
+        if (a > 0.004) F.wedge(p, Math.atan2(N[i][1], N[i][0]), a, 0.9, { flat: true, fillOpacity: 0.6 });
+        F.circle(V.mul(p, (R + 0.14) / R), 0.13, { fill: "#ffcc99", width: 1.2 });
+        F.dot(p);
+      });
+      F.dot([0, 0], { rpx: 3 });
+      const exact = CT.positivelySpans3(CT.edgeWrenches2(P.map((p, i) => ({ p, n: N[i] })), mu));
+      document.getElementById("t3-mu-out").textContent = mu.toFixed(2);
+      document.getElementById("t3-read").textContent =
+        "alpha = " + CT.deg(a).toFixed(1) + " deg\nmeeting region: " + (regArea > 1e-6 ? "yes" : "none") +
+        "\nexact test: " + (exact ? "FORCE CLOSURE" : "not force closure");
+    }
+    [...ids, sm].forEach((e) => e.addEventListener("input", draw));
+    draw();
+  }
+
+  // --- Mirtich-Canny outer and inner triangles
+  {
+    const F = Fig("#f-mc3", { w: 520, h: 420, xlim: [-2.0, 2.0], ylim: [-1.45, 1.75] });
+    const so = 3.2, h = so * Math.sqrt(3) / 2;
+    const Vt = [[-so / 2, -h / 3], [so / 2, -h / 3], [0, 2 * h / 3]];
+    F.poly(Vt, { fill: "none", color: C.blue, width: 2, dash: "7 4" });
+    const e = 0.3, lines = [];
+    for (let i = 0; i < 3; i++) {
+      const A = Vt[i], B = Vt[(i + 1) % 3], mid = V.mul(V.add(A, B), 0.5), u = V.unit(V.sub(B, A));
+      const p = V.add(mid, V.mul(u, e)), nin = V.perp(u);
+      lines.push([p, nin]);
+      F.line(p, V.add(p, V.mul(nin, 2.2)), { dash: "3 3", color: C.gray, width: 1 });
+      F.arrow(p, V.add(p, V.mul(nin, 0.6)), { color: C.force, width: 3 });
+      F.dot(p, { rpx: 5 });
+    }
+    // inner triangle: pairwise intersections of the normal lines
+    const meet = (L1, L2) => {
+      const [p, a] = L1, [q, b] = L2, den = V.cross2(a, b);
+      const t = V.cross2(V.sub(q, p), b) / den;
+      return V.add(p, V.mul(a, t));
+    };
+    const inner = [meet(lines[0], lines[1]), meet(lines[1], lines[2]), meet(lines[2], lines[0])];
+    F.poly(inner, { fill: C.orange, fillOpacity: 0.5, color: C.orange, width: 1.5 });
+    F.text([1.05, 1.1], "outer, side s_o", { size: 18, color: C.blue, math: true, italic: true });
+    F.text([-1.85, -1.3], "inner triangle (orange), side s_i", { size: 18, color: C.orange, math: true, italic: true });
+  }
+})();
+</script>
+</body>
+</html>

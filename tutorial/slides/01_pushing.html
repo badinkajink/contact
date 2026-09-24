@@ -1,0 +1,995 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Part 1: Pushing on Things</title>
+<link rel="stylesheet" href="lib/katex/katex.min.css">
+<link rel="stylesheet" href="lib/retro.css">
+<script defer src="lib/katex/katex.min.js"></script>
+<script defer src="lib/katex/contrib/auto-render.min.js"></script>
+<script src="lib/fig.js"></script>
+<script src="lib/contact.js"></script>
+<script defer src="lib/deck.js"></script>
+</head>
+<body data-short="Part 1 &middot; Pushing on Things" data-index="index.html" data-next="02_the_cone.html">
+<main class="deck">
+
+<!-- ================================================================== 1 -->
+<section class="slide title">
+  <h1>Friction &amp; Grasping from Scratch<br>Part 1: Pushing on Things</h1>
+  <p class="authors">William Xie</p>
+  <p class="links">[<a href="index.html">index</a>] [<a href="../04_friction_cones.py">code</a>]
+    [<a href="#" data-action="print">pdf</a>] [<a href="02_the_cone.html">next part</a>]</p>
+  <hr>
+  <figure style="width:620px">
+    <svg id="f-hero"></svg>
+    <figcaption>A box, a push, and the wedge of forces the floor is willing to supply.
+      By the end of this deck you will know exactly what the yellow wedge means.</figcaption>
+  </figure>
+  <p class="updated">Last updated September 2026.</p>
+</section>
+
+<!-- ================================================================== 2 -->
+<section class="slide">
+  <h2>What this series is about</h2>
+  <p>How does a robot hand hold a mug, a pen, or a ball without dropping it?
+    We will answer that from scratch, in six parts:</p>
+  <ol>
+    <li><b>Pushing on things</b>: forces, the floor, and Coulomb's law of friction. <span class="new">&larr; you are here</span></li>
+    <li><a href="02_the_cone.html">The friction cone in 3D</a>: circles, ellipses, and pyramids.</li>
+    <li><a href="03_many_contacts.html">Many contacts</a>: a block on the floor, sliding and tipping.</li>
+    <li><a href="04_two_fingers.html">Holding things with two fingers</a> (in the plane).</li>
+    <li><a href="05_grasps_in_3d.html">Grasping in 3D</a>: soft fingers and three-finger grasps.</li>
+    <li><a href="06_grasp_quality.html">How good is a grasp?</a> Computing force closure and grasp quality.</li>
+  </ol>
+  <p class="small">You need arithmetic and a little trigonometry. Every other tool is introduced when we
+    first need it. Code for every number on these slides: <code>tutorial/04_friction_cones.py</code>.</p>
+  <aside class="notes">Parts 1&ndash;3 are companion slides for tutorial/04_friction_cones.py; parts 4&ndash;6
+    go with tutorial/06_force_closure.py. Press R to switch between this reading view and presenting.</aside>
+</section>
+
+<!-- ================================================================== 3 -->
+<section class="slide">
+  <h2>Tool #1: arrows (vectors)</h2>
+  <div class="cols mid">
+    <figure><svg id="f-vec"></svg></figure>
+    <div>
+      <ul>
+        <li>A <b>vector</b> is an arrow: it has a length and a direction.</li>
+        <li>We write it with <b>components</b>: $\vf = (f_x, f_y)$ means
+          &ldquo;go $f_x$ to the right and $f_y$ up&rdquo;.</li>
+        <li>Its length comes from Pythagoras:
+          $$\norm{\vf} = \sqrt{f_x^2 + f_y^2}$$</li>
+        <li>Example: $\vf = (3, 2)$ has length $\sqrt{13} \approx 3.61$.</li>
+      </ul>
+      <p class="small">Convention: <b>bold</b> letters are vectors, plain letters are numbers.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 4 -->
+<section class="slide">
+  <h2>Adding and scaling arrows</h2>
+  <div class="cols mid">
+    <figure><svg id="f-add"></svg></figure>
+    <div>
+      <ul>
+        <li><b>Add</b> tip to tail: put $\vb$'s tail on $\va$'s tip.
+          The sum runs from the start to the finish.</li>
+        <li>With numbers, add component by component:
+          $(2,\ 0.5) + (0.8,\ 1.6) = (2.8,\ 2.1)$.</li>
+        <li><b>Scale</b>: $2\va$ is twice as long; $-\va$ points the opposite way.</li>
+        <li>A <b>unit vector</b> has length 1 and wears a hat: $\nhat$.
+          It only says &ldquo;which way&rdquo;.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 5 -->
+<section class="slide">
+  <h2>Forces are arrows</h2>
+  <div class="cols l2">
+    <div>
+      <ul>
+        <li>A force has a size and a direction, so it is a vector.
+          Sizes are measured in <b>newtons</b> (N).</li>
+        <li>Gravity pulls a mass $m$ straight down with force $mg$, where
+          $g \approx 9.81\ \text{m/s}^2$.</li>
+        <li>Several forces on one object add like arrows. Only the total,
+          the <b>net force</b>, decides how the object moves.</li>
+      </ul>
+    </div>
+    <div>
+      <table>
+        <tr><th>mass</th><th class="num">weight $mg$</th></tr>
+        <tr><td>small apple, 0.1 kg</td><td class="num">0.98 N</td></tr>
+        <tr><td>1 L of water, 1 kg</td><td class="num">9.81 N</td></tr>
+        <tr><td>box of books, 10 kg</td><td class="num">98.1 N</td></tr>
+        <tr><td>person, 70 kg</td><td class="num">687 N</td></tr>
+      </table>
+      <p class="small">Rule of thumb: 1 N is about the weight of a small apple.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 6 -->
+<section class="slide">
+  <h2>Newton's rule (the only one we need)</h2>
+  $$\sum \vf = m\,\va \qquad \text{(net force = mass} \times \text{acceleration)}$$
+  <ul>
+    <li>If all the forces on an object add up to <b>zero</b>, it does not speed up, slow down,
+      or turn. If it was sitting still, it stays still.</li>
+    <li>If they don't add to zero, it accelerates in the direction of the leftover force.</li>
+    <li class="step">Most of this series lives in the first case (<b>statics</b>): can the contacts
+      find forces that exactly cancel everything else?</li>
+  </ul>
+  <div class="box step"><b>Key idea.</b> &ldquo;Holding&rdquo; an object means the contact forces on it
+    cancel every other force on it.</div>
+</section>
+
+<!-- ================================================================== 7 -->
+<section class="slide">
+  <h2>A box resting on the floor</h2>
+  <div class="cols mid">
+    <figure><svg id="f-fbd"></svg></figure>
+    <div>
+      <ul>
+        <li>Two forces act on the box: gravity $mg$ pulling down, and the floor pushing up with $N$.</li>
+        <li>The box is still, so they cancel: $N = mg$. For a 10 kg box, $N = 98.1$ N.</li>
+        <li>$N$ is called the <b>normal force</b> (&ldquo;normal&rdquo; means perpendicular to the surface).</li>
+        <li class="step">Puzzle: how does the floor know to push with exactly 98.1 N?</li>
+        <li class="step">It squishes a tiny bit, like a very stiff spring, until it pushes back enough.
+          Rigid-body models skip the squish: the floor pushes with <i>whatever is needed</i>.</li>
+      </ul>
+    </div>
+  </div>
+  <aside class="notes">&ldquo;Whatever is needed&rdquo; is the key modeling move. Contact forces are not given by a
+    formula of positions and velocities; they are unknowns, chosen so that the rules of contact hold.
+    Contact solvers (tutorial/05_contact_solvers.py) are machines for finding those unknowns.</aside>
+</section>
+
+<!-- ================================================================== 8 -->
+<section class="slide">
+  <h2>The floor can push, but never pull</h2>
+  <div class="cols mid">
+    <figure><svg id="f-lift"></svg></figure>
+    <div>
+      <ul>
+        <li>$N \ge 0$. A floor can push; it cannot grab. Lift the box and $N$ drops to zero, not below.</li>
+        <li>The box can't sink into the floor either, so the gap is never negative: $\text{gap} \ge 0.$</li>
+        <li>At every moment at least one of them is zero:
+          touching and maybe pushing, or apart and not pushing.</li>
+      </ul>
+      $$\text{gap} \ge 0,\quad N \ge 0,\quad \text{gap}\times N = 0$$
+    </div>
+  </div>
+  <p class="small">This &ldquo;one or the other&rdquo; rule is called <b>complementarity</b>.
+    Simulators live and die by it; see <code>05_contact_solvers.py</code>.</p>
+</section>
+
+<!-- ================================================================== 9 -->
+<section class="slide">
+  <h2>Zoom in: a point contact</h2>
+  <div class="cols mid">
+    <figure><svg id="f-point"></svg></figure>
+    <div>
+      <ul>
+        <li>The simplest model of touching: a single <b>contact point</b> $\vp$ where two objects meet.</li>
+        <li>The <b>contact normal</b> $\nhat$: a unit arrow perpendicular to the surface,
+          pointing <i>into</i> the object being pushed.</li>
+        <li>The <b>tangent</b> $\that$: a unit arrow along the surface.</li>
+        <li>Any force the floor applies at $\vp$ is some mix of the two.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 10 -->
+<section class="slide">
+  <h2>Splitting a contact force in two</h2>
+  <div class="cols mid">
+    <figure><svg id="f-split"></svg></figure>
+    <div>
+      $$\vf = f_n\,\nhat + f_t\,\that$$
+      <ul>
+        <li>$f_n$, the <b>normal part</b>: how hard the surfaces press together.</li>
+        <li>$f_t$, the <b>tangential part</b>: how hard they drag sideways. This is <b>friction</b>.</li>
+        <li>Flat floor: $\nhat = (0, 1)$ and $\that = (1, 0)$, so the force $\vf = (3, 2)$ has
+          $f_t = 3$ and $f_n = 2$.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 11 -->
+<section class="slide">
+  <h2>Tool #2: the dot product</h2>
+  <div class="cols mid">
+    <figure><svg id="f-dot"></svg></figure>
+    <div>
+      <ul>
+        <li>$\va \cdot \vb = a_x b_x + a_y b_y$. The answer is a number, not an arrow.</li>
+        <li>Geometric meaning: $\va\cdot\vb = \norm{\va}\,\norm{\vb}\cos\theta$, where $\theta$ is the
+          angle between them.</li>
+        <li>If $\hat{\mathbf b}$ has length 1, then $\va\cdot\hat{\mathbf b}$ is the length of
+          $\va$'s shadow on $\hat{\mathbf b}$: &ldquo;how much of $\va$ points along $\hat{\mathbf b}$&rdquo;.</li>
+        <li>So on any surface, flat or tilted: $\ f_n = \vf\cdot\nhat,\ \ f_t = \vf\cdot\that$.</li>
+      </ul>
+      <p class="small">Refresher: $\cos 0^\circ = 1$, $\cos 90^\circ = 0$, $\cos 180^\circ = -1$.
+        A positive dot product means the angle is less than $90^\circ$.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 12 -->
+<section class="slide">
+  <h2>Experiment: push a heavy box</h2>
+  <div class="cols mid">
+    <figure><svg id="f-push"></svg></figure>
+    <div>
+      <ul>
+        <li>Push gently sideways with force $P$. Nothing moves.</li>
+        <li class="step">So something pushes back exactly as hard: <b>friction</b> from the floor,
+          $F = P$.</li>
+        <li class="step">Push harder. Still nothing: friction matches you again&hellip;</li>
+        <li class="step">&hellip;until suddenly the box breaks free and slides.</li>
+      </ul>
+      <div class="box step"><b>Key idea.</b> Static friction is &ldquo;whatever is needed&rdquo;,
+        like the normal force, but only up to a limit.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 13 -->
+<section class="slide">
+  <h2>Coulomb's law of friction</h2>
+  <div class="cols mid">
+    <div>
+      $$\abs{f_t} \;\le\; \mu\, f_n$$
+      <ul>
+        <li>The sideways force can be anything up to $\mu$ times the pressing force.</li>
+        <li>$\mu$ (&ldquo;mu&rdquo;) is the <b>coefficient of friction</b>. It has no units.</li>
+        <li>Press twice as hard and the friction <b>budget</b> $[-\mu f_n,\ \mu f_n]$ doubles.</li>
+      </ul>
+      <p class="small">Leonardo da Vinci wrote it in his notebooks around 1500. Amontons rediscovered it
+        in 1699, and Coulomb studied it carefully in 1781. Engineers call it <b>Coulomb friction</b>.</p>
+    </div>
+    <figure><svg id="f-budget"></svg>
+      <figcaption>The green bar is every sideways force the floor can supply. A heavier box
+        gets a wider bar.</figcaption></figure>
+  </div>
+  <aside class="notes">The absolute value is there because friction can point either way along the
+    surface: left or right in this 2D picture. In 3D the absolute value becomes the length of a
+    2D sideways vector (Part 2).</aside>
+</section>
+
+<!-- ================================================================== 14 -->
+<section class="slide">
+  <h2>Typical values of $\mu$ (ballpark!)</h2>
+  <div class="cols l2">
+    <table>
+      <tr><th>surfaces</th><th class="num">$\mu$, roughly</th></tr>
+      <tr><td>rubber tire on dry concrete</td><td class="num">0.6 &ndash; 1.0</td></tr>
+      <tr><td>dry steel on steel</td><td class="num">0.5 &ndash; 0.8</td></tr>
+      <tr><td>wood on wood</td><td class="num">0.25 &ndash; 0.5</td></tr>
+      <tr><td>greased steel on steel</td><td class="num">0.05 &ndash; 0.15</td></tr>
+      <tr><td>Teflon on steel</td><td class="num">0.04 &ndash; 0.1</td></tr>
+      <tr><td>ice on ice</td><td class="num">0.03 &ndash; 0.1</td></tr>
+      <tr><td>fingertip on glass</td><td class="num">0.5 &ndash; 1.5</td></tr>
+    </table>
+    <div>
+      <p>Real values depend on dirt, moisture, wear, and temperature. Fingertips vary a lot with
+        how sweaty they are.</p>
+      <p>If it matters, <b>measure it</b>; we'll see how in a few slides.</p>
+      <p class="small">Simulators need a number anyway: MuJoCo's default is $\mu = 1$.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 15 -->
+<section class="slide">
+  <h2>Worked example: will it slide?</h2>
+  <div class="example">
+    <p><b>Setup.</b> A 10 kg box on a floor with $\mu = 0.5$.</p>
+    <ul>
+      <li>Normal force: $N = mg = 98.1$ N. Friction budget: $\mu N = 0.5 \times 98.1 = 49.05$ N.</li>
+      <li class="step">Push with 30 N: $30 &lt; 49.05$, so friction matches the push (30 N).
+        <span class="good">It stays put.</span></li>
+      <li class="step">Push with 60 N: $60 &gt; 49.05$, so friction can't keep up.
+        <span class="bad">It slides.</span></li>
+      <li class="step">Once sliding, friction is usually a bit weaker. With a <b>kinetic</b>
+        coefficient $\mu_k = 0.4$: $F = 0.4 \times 98.1 = 39.2$ N. Net force $60 - 39.2 = 20.8$ N,
+        so the acceleration is $a = 20.8 / 10 = 2.08\ \text{m/s}^2$.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ================================================================== 16 -->
+<section class="slide">
+  <h2>Friction force vs. push</h2>
+  <div class="cols l2 mid">
+    <figure><svg id="f-graph"></svg></figure>
+    <div>
+      <div class="controls"><label>push $P$ = <input type="range" id="g-P" min="0" max="100" step="1" value="30">
+        <span id="g-P-out"></span> N</label></div>
+      <div class="readout" id="g-read"></div>
+      <ul class="small">
+        <li>Sticking: friction rises one-for-one with the push.</li>
+        <li>Peak: $\mu_s N$ (the <b>static</b> limit, $\mu_s = 0.5$).</li>
+        <li>Sliding: friction drops to $\mu_k N$ ($\mu_k = 0.4$). That drop is why stuck things lurch
+          when they finally move, and why chalk squeaks.</li>
+      </ul>
+      <p class="tiny">Most simulators use one $\mu$ for both. So do we, from here on.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 17 -->
+<section class="slide">
+  <h2>Surprise: contact area doesn't matter</h2>
+  <div class="cols mid">
+    <figure><svg id="f-rough"></svg></figure>
+    <div>
+      <ul>
+        <li>A brick lying flat and a brick standing on its end need the same push to slide.</li>
+        <li class="step">Why? Surfaces are rough. Zoomed in, they touch only at a few tiny bumps.</li>
+        <li class="step">Press harder and the bumps flatten, so the <i>real</i> contact area grows in
+          proportion to the load. Friction follows the real area, so it follows the load
+          (Bowden &amp; Tabor, 1950).</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 18 -->
+<section class="slide">
+  <h2>Coulomb's law is a model, not a law of nature</h2>
+  <ul>
+    <li>It is an approximation: simple, and good enough for most engineering.</li>
+    <li>Where it bends:
+      <ul>
+        <li>soft materials (rubber, skin, fingertips): friction grows more slowly than the load;</li>
+        <li>sticky things (tape, gecko feet): they can pull, so $f_n &lt; 0$ happens;</li>
+        <li>lubricated or wet surfaces, very high speeds, heat.</li>
+      </ul></li>
+    <li>$\mu$ is not a property of one material. It belongs to a <i>pair</i> of surfaces, plus
+      whatever is between them.</li>
+  </ul>
+  <div class="box">We use Coulomb's model because it captures the one essential fact:
+    <b>sideways grip is limited, and the limit grows with how hard you press.</b></div>
+</section>
+
+<!-- ================================================================== 19 -->
+<section class="slide">
+  <h2>When it slides, which way does friction point?</h2>
+  <div class="cols mid">
+    <figure><svg id="f-slide"></svg></figure>
+    <div>
+      <p>Opposite the sliding, at full strength:</p>
+      $$f_t = -\mu\, f_n\, \operatorname{sign}(v_t)$$
+      <ul>
+        <li>$v_t$ is the sliding velocity along the surface; $\operatorname{sign}(v_t)$ is $+1$ or $-1$.</li>
+        <li>Friction never speeds things up relative to the floor. It always removes energy
+          (turning motion into heat).</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 20 -->
+<section class="slide">
+  <h2>Three things a contact can be doing</h2>
+  <table>
+    <tr><th>mode</th><th>what you see</th><th>force rule</th></tr>
+    <tr><td><b>separated</b></td><td>gap $&gt; 0$</td><td>$f_n = 0,\ f_t = 0$</td></tr>
+    <tr><td><b>sticking</b></td><td>touching, $v_t = 0$</td><td>$f_n \ge 0,\ \abs{f_t} \le \mu f_n$</td></tr>
+    <tr><td><b>sliding</b></td><td>touching, $v_t \ne 0$</td><td>$f_n \ge 0,\ f_t = -\mu f_n \operatorname{sign}(v_t)$</td></tr>
+  </table>
+  <ul>
+    <li>Every contact is in exactly one mode at each instant.</li>
+    <li>A simulator with $n$ contacts must work out which of the $3^n$ combinations is happening.
+      With 10 contacts that is 59,049 combinations. This is why contact solvers are hard.</li>
+  </ul>
+</section>
+
+<!-- ================================================================== 21 -->
+<section class="slide section">
+  <p class="kicker">Part 1b</p>
+  <h1>Drawing Coulomb's law: the friction cone</h1>
+  <hr>
+  <p>Turn the inequality into a picture. The picture turns out to be much easier to think with.</p>
+</section>
+
+<!-- ================================================================== 22 -->
+<section class="slide">
+  <h2>Plot every force the floor could make</h2>
+  <div class="cols mid">
+    <figure><svg id="f-build"></svg></figure>
+    <div>
+      <ul>
+        <li>Each possible contact force is a point $(f_t, f_n)$ in this picture.</li>
+        <li class="step" data-step="1">Rule 1, $f_n \ge 0$: only the top half.</li>
+        <li class="step" data-step="2">Rule 2, $\abs{f_t} \le \mu f_n$: between the lines $f_t = \pm\mu f_n$.</li>
+        <li class="step" data-step="3">Both rules together: a <b>wedge</b>.</li>
+      </ul>
+      <p class="step" data-step="3">That's it. That wedge is the <b>friction cone</b>.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 23 -->
+<section class="slide">
+  <h2>The friction cone</h2>
+  <div class="cols mid">
+    <figure><svg id="f-ray"></svg></figure>
+    <div>
+      $$\K_\mu = \{\, (f_t, f_n) \;:\; f_n \ge 0,\ \abs{f_t} \le \mu f_n \,\}$$
+      <ul>
+        <li>The set of all forces the contact is able to supply.</li>
+        <li>Why &ldquo;cone&rdquo;? If a force is allowed, so is every positive multiple of it. Press 3&times;
+          harder and 3&times; the friction is fine. So the set is made of rays from the origin.</li>
+        <li>In 2D it's a wedge. In 3D (Part 2) it's an ice-cream cone.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 24 -->
+<section class="slide">
+  <h2>How wide is the cone? $\ \alpha = \arctan\mu$</h2>
+  <div class="cols mid">
+    <figure><svg id="f-alpha"></svg></figure>
+    <div>
+      <ul>
+        <li>Trig: $\tan\theta = \dfrac{\text{opposite}}{\text{adjacent}}$.</li>
+        <li>On the cone's edge, $f_t / f_n = \mu$. So the edge makes an angle $\alpha$ with the normal,
+          where $\tan\alpha = \mu$:</li>
+      </ul>
+      $$\alpha = \arctan\mu \qquad \text{(the friction angle)}$$
+      <table class="small">
+        <tr><th>$\mu$</th><td>0.1</td><td>0.3</td><td>0.5</td><td>1</td><td>2</td></tr>
+        <tr><th>$\alpha$</th><td>5.7&deg;</td><td>16.7&deg;</td><td>26.6&deg;</td><td>45&deg;</td><td>63.4&deg;</td></tr>
+      </table>
+      <p class="small">The whole cone opens $2\alpha$ wide.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 25 -->
+<section class="slide">
+  <h2>Extremes</h2>
+  <div class="cols three">
+    <figure><svg id="f-ext0"></svg><figcaption>$\mu = 0$, perfectly slippery. The cone is a single ray:
+      the floor can only push straight out.</figcaption></figure>
+    <figure><svg id="f-ext1"></svg><figcaption>$\mu = 1$: $45^\circ$ each side, a right-angle wedge.</figcaption></figure>
+    <figure><svg id="f-ext2"></svg><figcaption>$\mu \to \infty$, infinitely grippy: the whole top half.
+      Any push into the surface works.</figcaption></figure>
+  </div>
+</section>
+
+<!-- ================================================================== 26 -->
+<section class="slide">
+  <h2>Inside, on the edge, outside</h2>
+  <div class="cols mid">
+    <figure><svg id="f-ioe"></svg></figure>
+    <div>
+      <ul>
+        <li><span class="good">Inside</span>: the contact can supply it. If this force is what's needed,
+          the contact <b>sticks</b>.</li>
+        <li><span class="meh">On the edge</span>: friction is maxed out. Sliding, or about to.</li>
+        <li><span class="bad">Outside</span>: impossible. If the rest of the world needs this force, the
+          contact can't deliver it, and the object slides.</li>
+      </ul>
+      <div class="box">Think of the cone as the contact's <b>menu</b>. Statics asks:
+        &ldquo;is what we need on the menu?&rdquo;</div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 27 -->
+<section class="slide">
+  <h2>The cone test, written with angles</h2>
+  <p>A force is inside the cone exactly when its angle to the normal is at most $\alpha$:</p>
+  $$\angle(\vf, \nhat) \le \alpha \quad\iff\quad \vf\cdot\nhat \;\ge\; \norm{\vf}\cos\alpha$$
+  <ul>
+    <li>Why: if $\theta$ is the angle to the normal, then $f_n = \norm{\vf}\cos\theta$ and
+      $\abs{f_t} = \norm{\vf}\sin\theta$. So
+      $$\abs{f_t} \le \mu f_n \iff \tan\theta \le \mu \iff \theta \le \alpha.$$</li>
+    <li>Grasp checks in robotics papers are usually written in this angle form.
+      Part 4 takes one apart.</li>
+  </ul>
+</section>
+
+<!-- ================================================================== 28 -->
+<section class="slide">
+  <h2>Try it: drag the force</h2>
+  <div class="cols l2 mid">
+    <figure><svg id="f-drag"></svg></figure>
+    <div>
+      <div class="controls"><label>$\mu$ = <input type="range" id="d-mu" min="0" max="2" step="0.01" value="0.5">
+        <span id="d-mu-out"></span></label></div>
+      <div class="readout" id="d-read"></div>
+      <p class="small">Drag the white handle. Things to try:</p>
+      <ul class="small">
+        <li>Find the edge of the cone. What angle is it at?</li>
+        <li>Set $\mu = 0$. What forces are left?</li>
+        <li>Point the force downward (a pull).</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 29 -->
+<section class="slide">
+  <h2>The tilting-board experiment</h2>
+  <div class="cols mid">
+    <figure><svg id="f-tilt"></svg></figure>
+    <div>
+      <ul>
+        <li>Put a block on a board and tilt the board slowly, to angle $\theta$.</li>
+        <li>Gravity splits into a part <i>along</i> the board, $mg\sin\theta$, and a part
+          <i>into</i> the board, $mg\cos\theta$.</li>
+        <li>The block sticks while $mg\sin\theta \le \mu\,mg\cos\theta$, that is, while $\tan\theta \le \mu$.</li>
+        <li>So it starts to slide when $\theta$ passes $\arctan\mu = \alpha$.</li>
+      </ul>
+      <div class="box">The friction angle is literally the tilt at which things start to slide.
+        This is how $\mu$ is measured.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 30 -->
+<section class="slide">
+  <h2>Same experiment, cone picture</h2>
+  <div class="cols l2 mid">
+    <figure><svg id="f-tilt2"></svg></figure>
+    <div>
+      <div class="controls">
+        <label>tilt $\theta$ = <input type="range" id="t-th" min="0" max="60" step="0.5" value="20">
+          <span id="t-th-out"></span>&deg;</label><br>
+        <label>$\mu$ = <input type="range" id="t-mu" min="0" max="1.5" step="0.01" value="0.5">
+          <span id="t-mu-out"></span></label>
+      </div>
+      <div class="readout" id="t-read"></div>
+      <ul class="small">
+        <li>To hold the block still, the board must push with exactly $-$(gravity):
+          <b>straight up</b>, size $mg$.</li>
+        <li>The board's cone tilts with the board.</li>
+        <li>&ldquo;Straight up&rdquo; is inside the tilted cone exactly when $\theta \le \alpha$.</li>
+        <li>The mass cancels: heavy or light, it slips at the same angle.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 31 -->
+<section class="slide">
+  <h2>Worked examples</h2>
+  <div class="example">
+    <b>A phone on a tilted book.</b> Rubbery case on cardboard, $\mu \approx 0.4$:
+    $\alpha = \arctan 0.4 \approx 21.8^\circ$. Tilted 15&deg; it stays; tilted 25&deg; it slides.
+  </div>
+  <div class="example">
+    <b>A car on an icy hill.</b> Tires on ice, $\mu \approx 0.1$: $\alpha = \arctan 0.1 \approx 5.7^\circ$.
+    That's a 10% grade (a rise of 10 m per 100 m). Any steeper and a parked car slides.
+  </div>
+  <div class="example">
+    <b>A pile of dry sand.</b> Its sides stop at about 30&ndash;35&deg; (the &ldquo;angle of repose&rdquo;).
+    The grains' friction angle sets the slope: $\mu \approx \tan 33^\circ \approx 0.65$.
+  </div>
+</section>
+
+<!-- ================================================================== 32 -->
+<section class="slide">
+  <h2>Check yourself</h2>
+  <ol>
+    <li>With $\mu = 0.25$, what is the steepest ramp a box can rest on?
+      <details><summary>answer</summary><div>$\arctan 0.25 \approx 14.0^\circ$.</div></details></li>
+    <li>Double the box's weight. Does the slip angle change?
+      <details><summary>answer</summary><div>No. Both sides of $mg\sin\theta \le \mu\,mg\cos\theta$ double.</div></details></li>
+    <li>A contact force has $f_n = 10$ N and $f_t = 6$ N, with $\mu = 0.5$. Can the contact stick?
+      <details><summary>answer</summary><div>No. The budget is $\mu f_n = 5$ N $&lt; 6$ N. Its angle,
+        $\arctan 0.6 \approx 31^\circ$, is outside $\alpha \approx 26.6^\circ$.</div></details></li>
+    <li>You push the 10 kg box ($\mu = 0.5$) with 60 N, aimed 30&deg; below horizontal. Does it slide?
+      <details><summary>answer</summary><div>Sideways: $60\cos 30^\circ = 52.0$ N. Pressing: $N = 98.1 + 60\sin 30^\circ
+        = 128.1$ N, so the budget is $64.05$ N. It does <b>not</b> slide. Pushing down makes it harder!</div></details></li>
+  </ol>
+</section>
+
+<!-- ================================================================== 33 -->
+<section class="slide">
+  <h2>Summary</h2>
+  <ul>
+    <li>Forces are vectors. A contact force splits into a normal part $f_n$ and a tangential part $f_t$
+      (dot products with $\nhat$ and $\that$).</li>
+    <li>Floors push, never pull: $f_n \ge 0$.</li>
+    <li>Coulomb: $\abs{f_t} \le \mu f_n$. When sliding, $\abs{f_t} = \mu f_n$, opposite the slip.</li>
+    <li>As a picture: a wedge (cone) of half-angle $\alpha = \arctan\mu$ around the normal.
+      Inside = stick, edge = slide, outside = impossible.</li>
+    <li>Tilt test: things start to slip at $\theta = \alpha$, whatever their weight.</li>
+  </ul>
+  <p>Next: <a href="02_the_cone.html">Part 2: the friction cone in 3D &gt;&gt;</a></p>
+</section>
+
+</main>
+<script>
+(function () {
+  const C = Fig.C, d = Fig.deg, V = Contact.V;
+  const HAT = "̂"; // combining circumflex: "n" + HAT renders as n-hat
+
+  // --- hero: box, push, floor force inside the floor's cone
+  {
+    const F = Fig("#f-hero", { w: 620, h: 250, xlim: [-3.4, 3.4], ylim: [-0.3, 2.3] });
+    F.ground(-3.3, 3.3, 0);
+    F.rect([0, 0.55], 1.8, 1.1, { fill: "#dddddd" });
+    F.wedge([0, 0], d(90), Math.atan(0.5), 2.15, { fillOpacity: 0.7 });
+    F.arrow([-2.7, 0.55], [-0.93, 0.55], { color: C.force, label: "push", upright: true, lpos: "start", loff: [-8, -20] });
+    F.arrow([0, 0], [-0.42, 1.55], { color: C.purple });
+    F.text([-1.05, 1.75], "floor force", { color: C.purple, anchor: "end" });
+    F.dot([0, 0]);
+  }
+
+  // --- vector with components
+  {
+    const F = Fig("#f-vec", { w: 460, h: 330, xlim: [-0.7, 4.2], ylim: [-0.8, 2.9] });
+    F.arrow([-0.3, 0], [4, 0], { width: 1.5, label: "x", loff: [2, 0] });
+    F.arrow([0, -0.3], [0, 2.7], { width: 1.5, label: "y", loff: [0, 2] });
+    F.line([3, 0], [3, 2], { dash: true, width: 1.2 });
+    F.line([0, 2], [3, 2], { dash: true, width: 1.2 });
+    F.arrow([0, 0], [3, 2], { color: C.force, label: "f", loff: [4, -4] });
+    F.label([1.5, -0.42], "f_x = 3");
+    F.label([3.55, 1.0], "f_y = 2");
+  }
+
+  // --- tip-to-tail addition
+  {
+    const F = Fig("#f-add", { w: 460, h: 330, xlim: [-0.5, 3.4], ylim: [-0.4, 2.5] });
+    const a = [2, 0.5], b = [0.8, 1.6], ab = V.add(a, b);
+    F.line([0, 0], b, { dash: true, color: C.gray, width: 1.2 });
+    F.line(b, ab, { dash: true, color: C.gray, width: 1.2 });
+    F.arrow([0, 0], a, { color: C.blue, label: "a", loff: [0, 16] });
+    F.arrow(a, ab, { color: C.green, label: "b", lpos: "mid", loff: [18, 4] });
+    F.arrow([0, 0], ab, { color: C.force, label: "a + b", lpos: "mid", loff: [-30, -14] });
+    F.dot([0, 0]);
+  }
+
+  // --- free-body diagram of a resting box
+  {
+    const F = Fig("#f-fbd", { w: 430, h: 400, xlim: [-2, 2], ylim: [-1.4, 2.1] });
+    F.ground(-1.9, 1.9, 0);
+    F.rect([0, 0.85], 1.8, 1.7, { fill: "#dddddd" });
+    F.dot([0, 0.85]);
+    F.arrow([0, 0.85], [0, 0.06], { color: C.force, label: "mg", lpos: "mid", loff: [26, 0] });
+    F.arrow([0, -1.25], [0, -0.03], { color: C.normal, label: "N", lpos: "mid", loff: [20, 0] });
+    F.text([0.95, 1.9], "box, 10 kg", { size: 20, anchor: "middle" });
+  }
+
+  // --- resting vs lifted
+  {
+    const F = Fig("#f-lift", { w: 540, h: 330, xlim: [-3.2, 3.2], ylim: [-1.2, 2.6] });
+    F.ground(-3.1, 3.1, 0);
+    F.rect([-1.6, 0.55], 1.3, 1.1, { fill: "#dddddd" });
+    F.arrow([-1.6, -0.75], [-1.6, -0.03], { color: C.normal, label: "N", lpos: "mid", loff: [18, 0] });
+    F.text([-1.6, -1.0], "gap = 0, N > 0", { size: 19, anchor: "middle" });
+    F.text([-1.6, 1.5], "resting", { size: 20, anchor: "middle", italic: true });
+    F.rect([1.6, 0.9], 1.3, 1.1, { fill: "#dddddd" });
+    F.arrow([1.6, 1.45], [1.6, 2.35], { color: C.force, label: "lift", upright: true, loff: [26, 6] });
+    F.line([2.45, 0.02], [2.45, 0.33], { width: 1 });
+    F.text([2.55, 0.18], "gap", { size: 18 });
+    F.text([1.6, -1.0], "gap > 0, N = 0", { size: 19, anchor: "middle" });
+  }
+
+  // --- point contact: a ball on the floor
+  {
+    const F = Fig("#f-point", { w: 430, h: 360, xlim: [-2, 2], ylim: [-0.7, 2.6] });
+    F.ground(-1.9, 1.9, 0);
+    F.circle([0, 1], 1, { fill: "#dddddd" });
+    F.arrow([0, 0], [0, 1.35], { color: C.normal, label: "n" + HAT, loff: [0, -4] });
+    F.arrow([0, 0], [1.35, 0], { color: C.friction, label: "t" + HAT, loff: [6, -14] });
+    F.dot([0, 0]);
+    F.label([-0.25, -0.35], "p", { bold: true });
+  }
+
+  // --- force split into normal and tangential parts
+  {
+    const F = Fig("#f-split", { w: 460, h: 330, xlim: [-0.8, 4.0], ylim: [-0.9, 2.6] });
+    F.ground(-0.7, 3.9, 0);
+    F.line([3, 0], [3, 2], { dash: true, color: C.normal, width: 1.2 });
+    F.line([0, 2], [3, 2], { dash: true, color: C.friction, width: 1.2 });
+    F.arrow([0, 0], [3, 2], { color: C.force, label: "f", loff: [6, -6] });
+    F.arrow([0, 0], [0, 2], { color: C.normal, label: "f_n n" + HAT, loff: [-8, -6] });
+    F.arrow([0, 0], [3, 0], { color: C.friction, label: "f_t t" + HAT, loff: [0, 22] });
+    F.dot([0, 0]);
+    F.label([-0.3, -0.35], "p", { bold: true });
+  }
+
+  // --- dot product as a shadow
+  {
+    const F = Fig("#f-dot", { w: 460, h: 330, xlim: [-0.5, 4.0], ylim: [-0.6, 2.7] });
+    const bh = Fig.dir(d(12)), a = [1.6, 2.2];
+    const s = V.dot(a, bh), foot = V.mul(bh, s);
+    F.line([0, 0], V.mul(bh, 3.8), { color: C.gray, width: 1 });
+    F.line(a, foot, { dash: true, width: 1.2 });
+    F.rightAngle(foot, V.mul(bh, -1), V.unit(V.sub(a, foot)));
+    F.line([0, 0], foot, { color: C.orange, width: 7, cap: "butt", opacity: 0.55 });
+    F.arrow([0, 0], bh, { color: C.blue, label: "b" + HAT, loff: [4, 18] });
+    F.arrow([0, 0], a, { color: C.force, label: "a", loff: [0, -4] });
+    F.arc([0, 0], 44, d(12), Math.atan2(a[1], a[0]), { label: "θ" });
+    F.text(V.add(V.mul(foot, 0.62), [0.05, -0.45]), "shadow = a·b" + HAT, { size: 20, italic: true, math: true, color: C.orange });
+    F.dot([0, 0]);
+  }
+
+  // --- pushing a box: P, friction, N, mg
+  {
+    const F = Fig("#f-push", { w: 470, h: 360, xlim: [-2.6, 2.2], ylim: [-1.4, 2.0] });
+    F.ground(-2.5, 2.1, 0);
+    F.rect([0.35, 0.65], 1.7, 1.3, { fill: "#dddddd" });
+    F.arrow([-2.1, 0.65], [-0.52, 0.65], { color: C.force, label: "P", lpos: "mid", loff: [0, -18] });
+    F.dot([0.35, 0.65], { rpx: 3 });
+    F.arrow([0.35, 0.65], [0.35, 0.08], { color: C.force, width: 2.5, label: "mg", lpos: "mid", loff: [24, 0] });
+    F.arrow([0.85, -1.25], [0.85, -0.03], { color: C.normal, label: "N", lpos: "mid", loff: [18, 0] });
+    F.arrow([0.3, -0.2], [-0.6, -0.2], { color: C.friction, label: "F", lpos: "mid", loff: [0, 18] });
+  }
+
+  // --- friction budget grows with the load
+  {
+    const F = Fig("#f-budget", { w: 520, h: 330, xlim: [-2.9, 2.9], ylim: [-0.9, 2.2] });
+    F.ground(-2.8, 2.8, 0);
+    [[-1.45, 0.6, 0.5, "light"], [1.45, 1.2, 1.0, "heavy"]].forEach(([x, h, b, name]) => {
+      F.rect([x, h / 2], 1.3, h, { fill: "#dddddd" });
+      F.text([x, h + 0.22], name, { anchor: "middle", size: 20, italic: true });
+      F.line([x - b, -0.28], [x + b, -0.28], { color: C.green, width: 9, cap: "butt", opacity: 0.8 });
+      F.line([x - b, -0.18], [x - b, -0.38], { width: 1.5 });
+      F.line([x + b, -0.18], [x + b, -0.38], { width: 1.5 });
+      F.label([x - b, -0.6], "−μN", { size: 19 });
+      F.label([x + b, -0.6], "μN", { size: 19 });
+    });
+  }
+
+  // --- friction vs push graph (interactive)
+  {
+    const F = Fig("#f-graph", { w: 600, h: 400, xlim: [-0.75, 5.5], ylim: [-0.75, 3.45] });
+    const k = 0.05; // 1 world unit = 20 N on both axes
+    const mg = 98.1, Ns = 0.5 * mg, Nk = 0.4 * mg;
+    const P = document.getElementById("g-P");
+    function draw() {
+      const p = +P.value;
+      F.clear();
+      F.arrow([0, 0], [5.3, 0], { width: 1.5 });
+      F.arrow([0, 0], [0, 3.25], { width: 1.5 });
+      F.text([5.35, -0.42], "push P (N)", { size: 19, anchor: "end" });
+      F.text([0.12, 3.25], "friction F (N)", { size: 19 });
+      [20, 40, 60, 80, 100].forEach((t) => {
+        F.line([t * k, 0], [t * k, -0.08], { width: 1 });
+        F.text([t * k, -0.25], String(t), { size: 17, anchor: "middle" });
+      });
+      [20, 40, 60].forEach((t) => {
+        F.line([0, t * k], [-0.08, t * k], { width: 1 });
+        F.text([-0.14, t * k], String(t), { size: 17, anchor: "end" });
+      });
+      F.line([0, Ns * k], [5.1, Ns * k], { dash: "3 4", color: C.gray, width: 1 });
+      F.line([0, Nk * k], [5.1, Nk * k], { dash: "3 4", color: C.gray, width: 1 });
+      F.text([5.1, Ns * k + 0.16], "μ_s N = 49 N", { size: 17, anchor: "end", math: true, italic: true });
+      F.text([5.1, Nk * k - 0.17], "μ_k N = 39 N", { size: 17, anchor: "end", math: true, italic: true });
+      F.path([[0, 0], [Ns * k, Ns * k]], { color: C.green, width: 3 });
+      F.line([Ns * k, Ns * k], [Ns * k, Nk * k], { color: C.red, width: 1.5, dash: "4 3" });
+      F.path([[Ns * k, Nk * k], [5, Nk * k]], { color: C.red, width: 3 });
+      F.text([0.35, 1.45], "sticking", { size: 19, color: C.green, italic: true, anchor: "end" });
+      F.text([3.6, 1.62], "sliding", { size: 19, color: C.red, italic: true });
+      const stick = p <= Ns;
+      const f = stick ? p : Nk;
+      F.dot([p * k, f * k], { rpx: 7, fill: stick ? C.green : C.red, stroke: "#000" });
+      document.getElementById("g-P-out").textContent = p;
+      document.getElementById("g-read").textContent = stick
+        ? "P = " + p + " N <= mu_s N = 49.05 N\nfriction F = " + p + " N\nSTICKS"
+        : "P = " + p + " N >  mu_s N = 49.05 N\nfriction F = mu_k N = 39.2 N\nnet = " + (p - Nk).toFixed(1) +
+          " N, a = " + ((p - Nk) / 10).toFixed(2) + " m/s^2\nSLIDES";
+    }
+    P.addEventListener("input", draw);
+    draw();
+  }
+
+  // --- rough surfaces and two bricks
+  {
+    const F = Fig("#f-rough", { w: 470, h: 390, xlim: [-2.6, 2.6], ylim: [-2.5, 1.8] });
+    F.ground(-2.5, 2.5, 0);
+    F.rect([-1.3, 0.3], 1.6, 0.6, { fill: "#cc9966" });
+    F.rect([1.3, 0.8], 0.6, 1.6, { fill: "#cc9966" });
+    F.arrow([-1.0, 0.3], [-2.0, 0.3], { color: C.friction, width: 2.5, label: "F", lpos: "mid", loff: [0, -20] });
+    F.arrow([1.3, 0.3], [0.3, 0.3], { color: C.friction, width: 2.5, label: "F", lpos: "mid", loff: [0, -20] });
+    F.text([0, 1.45], "same weight, same F", { size: 19, anchor: "middle", italic: true });
+    const g = F.group({ class: "step" });
+    g.poly([[-2.5, -0.7], [2.5, -0.7], [2.5, -2.4], [-2.5, -2.4]], { fill: "#ffffff", width: 1 });
+    const xs = [], lo = [], hi = [];
+    const lowY = [-1.75, -1.62, -1.72, -1.55, -1.7, -1.52, -1.66, -1.58, -1.74, -1.6, -1.52, -1.69, -1.57, -1.73, -1.6, -1.52, -1.68, -1.6, -1.72, -1.63, -1.7];
+    const touch = { 5: 1, 10: 1, 15: 1 };
+    for (let i = 0; i < lowY.length; i++) {
+      const x = -2.5 + (5 * i) / (lowY.length - 1);
+      xs.push(x);
+      lo.push([x, lowY[i]]);
+      hi.push([x, touch[i] ? lowY[i] : lowY[i] + 0.12 + 0.1 * ((i * 7) % 3)]);
+    }
+    g.poly([[-2.5, -2.4]].concat(lo, [[2.5, -2.4]]), { fill: "#bbbbbb", width: 1 });
+    g.poly([[-2.5, -0.7]].concat(hi, [[2.5, -0.7]]), { fill: "#cc9966", width: 1 });
+    Object.keys(touch).forEach((i) => g.dot(lo[i], { rpx: 5, fill: C.red }));
+    g.text([0, -2.2], "zoomed in: real contact at a few spots", { size: 18, anchor: "middle", italic: true });
+  }
+
+  // --- sliding box
+  {
+    const F = Fig("#f-slide", { w: 460, h: 330, xlim: [-2.4, 2.4], ylim: [-1.0, 2.2] });
+    F.ground(-2.3, 2.3, 0);
+    F.rect([0.2, 0.6], 1.6, 1.2, { fill: "#dddddd" });
+    [0.25, 0.55, 0.85].forEach((y) => F.line([-1.05, y], [-0.75, y], { width: 1.2, color: C.gray }));
+    F.arrow([-0.3, 1.55], [1.2, 1.55], { width: 2, label: "v", loff: [14, 0] });
+    F.arrow([0.3, -0.25], [-0.9, -0.25], { color: C.friction, label: "μ N", lpos: "mid", loff: [0, 20] });
+  }
+
+  // --- building the cone step by step
+  {
+    const F = Fig("#f-build", { w: 470, h: 380, xlim: [-2.6, 2.6], ylim: [-1.0, 3.0] });
+    const mu = 0.6, L = 2.8;
+    const s1 = F.group({ class: "step", "data-step": 1 });
+    s1.poly([[-2.5, 0], [2.5, 0], [2.5, 2.9], [-2.5, 2.9]], { fill: "#e6e6e6", stroke: "none" });
+    s1.text([-2.35, 0.3], "f_n ≥ 0", { size: 20, italic: true, math: true });
+    s1.text([-1.3, -0.55], "pulling: not allowed", { size: 17, anchor: "middle", color: C.red });
+    const s3 = F.group({ class: "step", "data-step": 3 });
+    s3.wedge([0, 0], d(90), Math.atan(mu), L, { flat: true, fillOpacity: 0.9 });
+    s3.text([0, 2.1], "friction", { size: 20, anchor: "middle", bold: true });
+    s3.text([0, 1.8], "cone", { size: 20, anchor: "middle", bold: true });
+    const s2 = F.group({ class: "step", "data-step": 2 });
+    s2.line([0, 0], [mu * L, L], { color: C.friction, width: 2, dash: "7 4" });
+    s2.line([0, 0], [-mu * L, L], { color: C.friction, width: 2, dash: "7 4" });
+    s2.text([mu * L - 0.15, L - 0.1], "f_t = μf_n", { size: 18, anchor: "end", italic: true, math: true, color: C.friction });
+    s2.text([-mu * L + 0.15, L - 0.1], "f_t = −μf_n", { size: 18, italic: true, math: true, color: C.friction });
+    F.arrow([-2.5, 0], [2.5, 0], { width: 1.5, label: "f_t", loff: [0, 16] });
+    F.arrow([0, -0.2], [0, 2.9], { width: 1.5, label: "f_n", loff: [18, 10] });
+  }
+
+  // --- a ray inside the cone
+  {
+    const F = Fig("#f-ray", { w: 430, h: 360, xlim: [-2.2, 2.2], ylim: [-0.5, 3.1] });
+    const mu = 0.6;
+    F.ground(-2.1, 2.1, 0);
+    F.wedge([0, 0], d(90), Math.atan(mu), 2.95, { flat: true });
+    const u = V.unit([0.35, 1]);
+    F.line([0, 0], V.mul(u, 2.9), { dash: true, color: C.gray, width: 1.2 });
+    F.arrow([0, 0], V.mul(u, 2.55), { color: C.force });
+    [[0.85, "f"], [1.7, "2f"], [2.55, "3f"]].forEach(([k, s]) => {
+      F.dot(V.mul(u, k), { rpx: 4, fill: C.force });
+      F.label(V.add(V.mul(u, k), [-0.32, 0]), s, { color: C.force });
+    });
+    F.dot([0, 0]);
+  }
+
+  // --- the friction angle
+  {
+    const F = Fig("#f-alpha", { w: 430, h: 360, xlim: [-2.0, 2.2], ylim: [-0.5, 3.2] });
+    const mu = 0.6, h = 2.3;
+    F.ground(-1.9, 2.1, 0);
+    F.wedge([0, 0], d(90), Math.atan(mu), 2.85, { flat: true });
+    F.line([0, 0], [0, h], { color: C.normal, width: 3 });
+    F.line([0, h], [mu * h, h], { color: C.friction, width: 3 });
+    F.line([0, 0], [mu * h, h], { color: C.ink, width: 2.5 });
+    F.label([-0.35, h / 2], "f_n", { color: C.normal });
+    F.label([mu * h / 2, h + 0.22], "f_t = μ f_n", { color: C.friction, size: 20 });
+    F.arc([0, 0], 70, d(90) - Math.atan(mu), d(90), { label: "α" });
+    F.dot([0, 0]);
+  }
+
+  // --- extremes
+  {
+    const opts = { w: 340, h: 230, xlim: [-2.1, 2.1], ylim: [-0.35, 2.4] };
+    const A = Fig("#f-ext0", opts);
+    A.ground(-2, 2, 0);
+    A.arrow([0, 0], [0, 2.1], { color: C.normal, width: 3.5 });
+    A.dot([0, 0]);
+    const B = Fig("#f-ext1", opts);
+    B.ground(-2, 2, 0);
+    B.wedge([0, 0], d(90), d(45), 2.3, { flat: true });
+    B.arc([0, 0], 50, d(45), d(90), { label: "45°" });
+    B.dot([0, 0]);
+    const D = Fig("#f-ext2", opts);
+    D.ground(-2, 2, 0);
+    D.wedge([0, 0], d(90), Math.atan(40), 2.3, { flat: false });
+    D.dot([0, 0]);
+  }
+
+  // --- inside / edge / outside
+  {
+    const F = Fig("#f-ioe", { w: 470, h: 370, xlim: [-2.4, 2.4], ylim: [-0.4, 3.2] });
+    const mu = 0.6, a = Math.atan(mu);
+    F.ground(-2.3, 2.3, 0);
+    F.wedge([0, 0], d(90), a, 3.1, { flat: true });
+    F.arrow([0, 0], [-0.45, 2.1], { color: C.green, label: "inside", upright: true, loff: [-10, -6] });
+    F.arrow([0, 0], V.mul(Fig.dir(d(90) - a), 2.5), { color: "#996600", label: "edge", upright: true, loff: [22, 0] });
+    F.arrow([0, 0], [1.9, 0.95], { color: C.red });
+    F.text([1.95, 0.62], "outside", { color: C.red, anchor: "end" });
+    F.dot([0, 0]);
+  }
+
+  // --- drag the force (interactive)
+  {
+    const F = Fig("#f-drag", { w: 600, h: 440, xlim: [-3.2, 3.2], ylim: [-1.4, 3.4] });
+    const mu = document.getElementById("d-mu");
+    let tip = [0.8, 2.0];
+    function draw() {
+      const m = +mu.value, a = Math.atan(m);
+      F.clear();
+      F.poly([[-3.2, 0], [3.2, 0], [3.2, -1.4], [-3.2, -1.4]], { fill: "#ffe6e6", stroke: "none" });
+      F.text([-3.0, -1.1], "pulling: not allowed", { size: 18, color: C.red });
+      if (a > 0.004) F.wedge([0, 0], d(90), a, 4.6, { flat: true });
+      else F.line([0, 0], [0, 3.4], { color: C.ink, width: 3 });
+      F.arrow([-3.1, 0], [2.95, 0], { width: 1.3, label: "f_t", loff: [-12, 18] });
+      F.arrow([0, -1.3], [0, 3.2], { width: 1.3, label: "f_n", loff: [18, 14] });
+      const c = Contact.classify2(tip, [0, 1], m, 0.02);
+      const col = { inside: C.green, edge: "#996600", outside: C.red, pull: C.red, zero: C.gray }[c.mode];
+      F.arrow([0, 0], tip, { color: col, width: 3.5 });
+      F.handle(tip, (p) => { tip = p; draw(); });
+      document.getElementById("d-mu-out").textContent = m.toFixed(2);
+      const verdict = { inside: "INSIDE: can stick", edge: "ON THE EDGE: sliding / about to",
+        outside: "OUTSIDE: impossible, it slides", pull: "PULLING: floors can't pull", zero: "no force" }[c.mode];
+      document.getElementById("d-read").textContent =
+        "f_n = " + c.fn.toFixed(2) + "   f_t = " + c.ft.toFixed(2) +
+        "\nangle to normal = " + (c.fn >= 0 ? Contact.deg(c.theta).toFixed(1) + " deg" : "> 90 deg") +
+        "\nalpha = arctan(mu) = " + Contact.deg(a).toFixed(1) + " deg\n" + verdict;
+    }
+    mu.addEventListener("input", draw);
+    draw();
+  }
+
+  // --- the tilting board
+  function drawTilt(F, th, mu, detail) {
+    const u = Fig.dir(th), n = [-Math.sin(th), Math.cos(th)];
+    const A = V.mul(u, -2.8), B = V.mul(u, 2.3), Cc = [B[0], A[1]];
+    F.poly([A, B, Cc], { fill: "#eeeeee", stroke: "none" });
+    F.ground(A[0] - 0.2, B[0] + 0.3, A[1]);
+    F.surface(A, B);
+    if (th > 0.01) F.arc(A, 55, 0, th, { label: "θ", lgap: 16 });
+    if (!detail) F.wedge([0, 0], th + d(90), Math.atan(mu), 2.0, { flat: true, fillOpacity: 0.75 });
+    const c = V.add([0, 0], V.mul(n, 0.42));
+    F.rect(c, 1.15, 0.84, { angle: th, fill: "#dddddd" });
+    F.dot(c, { rpx: 3 });
+    if (detail) {
+      const s = 1.2;
+      const along = V.add(c, V.mul(u, -s * Math.sin(th))), into = V.add(c, V.mul(n, -s * Math.cos(th)));
+      F.line(along, V.add(c, [0, -s]), { dash: "3 3", width: 1, color: C.gray });
+      F.line(into, V.add(c, [0, -s]), { dash: "3 3", width: 1, color: C.gray });
+      F.arrow(c, V.add(c, [0, -s]), { color: C.force, label: "mg", lpos: "mid", loff: [-22, 10] });
+      F.arrow(c, along, { color: C.friction, width: 2.5, label: "mg sin θ", anchor: "end", loff: [-6, -8], lsize: 19 });
+      F.arrow(c, into, { color: C.normal, width: 2.5, label: "mg cos θ", anchor: "start", loff: [2, 4], lsize: 19 });
+    } else {
+      F.arrow(c, V.add(c, [0, -1.4]), { color: C.force, label: "mg", loff: [22, 0] });
+      F.arrow([0, 0], [0, 1.45], { color: C.purple, width: 3 });
+      F.text([-0.12, 1.55], "needed", { color: C.purple, anchor: "end", size: 20 });
+    }
+    F.dot([0, 0]);
+  }
+  {
+    const F = Fig("#f-tilt", { w: 470, h: 400, xlim: [-2.9, 2.6], ylim: [-1.8, 2.0] });
+    drawTilt(F, d(25), 0.5, true);
+  }
+  {
+    const F = Fig("#f-tilt2", { w: 560, h: 450, xlim: [-3.0, 2.8], ylim: [-2.5, 2.3] });
+    const th = document.getElementById("t-th"), mu = document.getElementById("t-mu");
+    function draw() {
+      const t = d(+th.value), m = +mu.value, a = Math.atan(m);
+      F.clear();
+      drawTilt(F, t, m, false);
+      document.getElementById("t-th-out").textContent = (+th.value).toFixed(1);
+      document.getElementById("t-mu-out").textContent = m.toFixed(2);
+      document.getElementById("t-read").textContent =
+        "tilt theta = " + (+th.value).toFixed(1) + " deg\nalpha = arctan(mu) = " + Contact.deg(a).toFixed(1) + " deg\n" +
+        (t <= a + 1e-9 ? "theta <= alpha: straight up is inside\nthe cone. STICKS"
+                       : "theta > alpha: straight up is outside\nthe cone. SLIDES");
+    }
+    th.addEventListener("input", draw);
+    mu.addEventListener("input", draw);
+    draw();
+  }
+})();
+</script>
+</body>
+</html>

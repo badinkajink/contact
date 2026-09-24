@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Retro Slide Template</title>
+<link rel="stylesheet" href="lib/katex/katex.min.css">
+<link rel="stylesheet" href="lib/retro.css">
+<script defer src="lib/katex/katex.min.js"></script>
+<script defer src="lib/katex/contrib/auto-render.min.js"></script>
+<script src="lib/fig.js"></script>
+<script src="lib/contact.js"></script>
+<script defer src="lib/deck.js"></script>
+</head>
+<!--
+  HOW TO START A NEW DECK
+  1. Copy this file next to it (same folder, so lib/ resolves).
+  2. Set <title>, and on <body>: data-short (footer name), data-index,
+     and optionally data-prev / data-next (the neighbouring decks).
+  3. One <section class="slide"> per slide. Delete the demo slides.
+  4. Figures: an empty <svg> with an id, drawn by a script at the bottom
+     using Fig (lib/fig.js). Math: $inline$ and $$display$$ (KaTeX).
+  Open the file in any browser. Press ? for keys, R for the reading view.
+-->
+<body data-short="Template" data-index="index.html">
+<main class="deck">
+
+<!-- ============================================================ title -->
+<section class="slide title">
+  <h1>Title of the Talk Goes Here:<br>A Subtitle in the Same Font</h1>
+  <p class="authors">Your Name<sup>1</sup>, A. Collaborator<sup>1,2</sup><br>
+    <small><sup>1</sup>Some University &nbsp; <sup>2</sup>Another Place</small></p>
+  <p class="links">[<a href="index.html">index</a>] [<a href="#">code</a>] [<a href="#" data-action="print">pdf</a>]</p>
+  <hr>
+  <figure style="width:560px">
+    <svg id="t-hero"></svg>
+    <figcaption>A hero figure with an italic caption, like the video on the project page.</figcaption>
+  </figure>
+  <p class="updated">Last updated September 2026.</p>
+</section>
+
+<!-- ============================================================ usage -->
+<section class="slide">
+  <h2>How to use this template</h2>
+  <ul>
+    <li>Each slide is a <code>&lt;section class="slide"&gt;</code> on a 1280&times;720 canvas.
+      The engine scales it to fit the window.</li>
+    <li>Keys: <kbd>&rarr;</kbd> / <kbd>space</kbd> next, <kbd>&larr;</kbd> back,
+      <kbd>R</kbd> reading view, <kbd>F</kbd> fullscreen, <kbd>?</kbd> help.</li>
+    <li>Links: <code>deck.html#7</code> opens slide 7.
+      <code>?mode=read</code> gives the scrolling web-page view.</li>
+    <li>PDF: <code>uv run export.py template.html</code>, or print from Chrome
+      (the page size is already 1280&times;720).</li>
+    <li>No build step, no framework. It still opens in ten years.</li>
+  </ul>
+  <aside class="notes">Reader notes live in &lt;aside class="notes"&gt;. They are hidden while
+    presenting and appear under each slide in the reading view.</aside>
+</section>
+
+<!-- ============================================================ section -->
+<section class="slide section">
+  <p class="kicker">Part 1</p>
+  <h1>A Section Divider</h1>
+  <hr>
+  <p>One line saying what this part is about.</p>
+</section>
+
+<!-- ============================================================ bullets -->
+<section class="slide">
+  <h2>Bullets that build one step at a time</h2>
+  <ul>
+    <li>The first point is always visible.</li>
+    <li class="step">Add <code>class="step"</code> to reveal on the next key press.</li>
+    <li class="step">Steps keep their space, so nothing jumps around.</li>
+  </ul>
+  <div class="box step"><b>Key idea.</b> A yellow box holds the one sentence the audience should
+    remember from the slide.</div>
+  <div class="warn step"><b>Watch out:</b> a dashed red box flags a common mistake.</div>
+</section>
+
+<!-- ============================================================ two columns -->
+<section class="slide">
+  <h2>Figure on the left, words on the right</h2>
+  <div class="cols mid">
+    <figure>
+      <svg id="t-cols"></svg>
+      <figcaption>Figures get a 1px black border and an italic caption.</figcaption>
+    </figure>
+    <div>
+      <p>Use <code>.cols</code> for halves, <code>.cols l2</code> / <code>r2</code> for 3:2 splits.</p>
+      <p>Colors in figures stick to a web-safe set:</p>
+      <ul class="small">
+        <li><span style="color:#cc0000">red</span> for forces,</li>
+        <li><span style="color:#0000cc">blue</span> for normals,</li>
+        <li><span style="color:#008800">green</span> for friction,</li>
+        <li>pale yellow for friction cones.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ math -->
+<section class="slide">
+  <h2>Math</h2>
+  <p>Inline math such as $\abs{f_t} \le \mu f_n$ is set with KaTeX. Display math:</p>
+  $$\K_\mu = \{\, \vf = (f_n, \vf_t) \;:\; f_n \ge 0,\ \norm{\vf_t} \le \mu f_n \,\}$$
+  <p>Shared macros: <code>\vf \vw \vp \nhat \that \K \norm{} \abs{} \R</code>. Add your own with
+    <code>window.DECK_MACROS</code> before <code>deck.js</code> runs.</p>
+  <div class="example"><b>Worked example.</b> With $\mu = 0.5$, the cone's half-angle is
+    $\alpha = \arctan 0.5 \approx 26.6^\circ$.</div>
+</section>
+
+<!-- ============================================================ table -->
+<section class="slide">
+  <h2>Tables look like <code>&lt;table border=1&gt;</code></h2>
+  <table>
+    <tr><th>$\mu$</th><th class="num">$\alpha = \arctan\mu$</th><th>feels like</th></tr>
+    <tr><td>0.1</td><td class="num">5.7&deg;</td><td>ice</td></tr>
+    <tr><td>0.5</td><td class="num">26.6&deg;</td><td>wood on wood</td></tr>
+    <tr><td>1.0</td><td class="num">45.0&deg;</td><td>rubber on concrete</td></tr>
+  </table>
+  <p class="small">Use <code>class="num"</code> for right-aligned numbers and <code>table.small</code> for dense tables.</p>
+</section>
+
+<!-- ============================================================ live figure -->
+<section class="slide">
+  <h2>A live figure</h2>
+  <div class="cols l2 mid">
+    <figure><svg id="t-live"></svg></figure>
+    <div>
+      <div class="controls">
+        <label>$\mu$ = <input type="range" id="t-mu" min="0" max="2" step="0.01" value="0.5">
+          <span id="t-mu-out"></span></label>
+      </div>
+      <div class="readout" id="t-read"></div>
+      <p class="small">Controls are plain browser widgets. Arrow keys go to the slider while
+        it has focus; click the slide background to get slide navigation back.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ check yourself -->
+<section class="slide">
+  <h2>Check yourself</h2>
+  <ol>
+    <li>What is the cone's half-angle when $\mu = 1$?
+      <details><summary>answer</summary><div>$\arctan 1 = 45^\circ$.</div></details></li>
+    <li>What happens to the cone when $\mu = 0$?
+      <details><summary>answer</summary><div>It collapses to a single ray along the normal.</div></details></li>
+  </ol>
+  <p class="small">Answers are native <code>&lt;details&gt;</code> elements. They are open in the PDF.</p>
+</section>
+
+<!-- ============================================================ code -->
+<section class="slide">
+  <h2>Code</h2>
+<pre>def in_cone(f_n, f_t, mu):
+    """Coulomb: the floor can push, never pull, and drag at most mu times as hard."""
+    return f_n >= 0 and abs(f_t) <= mu * f_n</pre>
+  <p>Companion code lives in the marimo notebooks next to this folder.</p>
+</section>
+
+<!-- ============================================================ references -->
+<section class="slide">
+  <h2>References</h2>
+  <ol class="refs">
+    <li>V.-D. Nguyen. Constructing force-closure grasps. <i>IJRR</i> 7(3), 1988.</li>
+    <li>R. M. Murray, Z. Li, S. S. Sastry. <i>A Mathematical Introduction to Robotic Manipulation</i>. CRC Press, 1994.</li>
+  </ol>
+</section>
+
+</main>
+<script>
+(function () {
+  const C = Fig.C, d = Fig.deg;
+
+  // Title figure: a block on a hatched floor with its friction cone.
+  const T = Fig("#t-hero", { w: 560, h: 220, xlim: [-3, 3], ylim: [-0.3, 2.1] });
+  T.ground(-2.8, 2.8, 0);
+  T.wedge([0, 0], d(90), Math.atan(0.5), 1.9);
+  T.rect([0, 0.45], 1.6, 0.9, { fill: "#dddddd" });
+  T.arrow([0, 0], [0, 1.6], { color: C.normal, label: "n\u0302", loff: [0, -2] });
+  T.arrow([-0.1, 0], [-0.6, 1.5], { color: C.force, label: "f", loff: [-4, 0] });
+
+  // Two-column figure: a force split into parts.
+  const K = Fig("#t-cols", { w: 460, h: 300, xlim: [-0.6, 4.2], ylim: [-0.6, 3.2] });
+  K.ground(-0.5, 4.1, 0);
+  K.line([0, 0], [3, 0], { color: C.friction, dash: true });
+  K.line([3, 0], [3, 2.2], { color: C.normal, dash: true });
+  K.arrow([0, 0], [3, 2.2], { color: C.force, label: "f", loff: [8, -6] });
+  K.arrow([0, 0], [0, 2.2], { color: C.normal, label: "f_n", loff: [-22, 0] });
+  K.arrow([0, 0], [3, 0], { color: C.friction, label: "f_t", loff: [0, 18] });
+
+  // Live figure: the 2D cone for a slider-controlled mu.
+  const L = Fig("#t-live", { w: 560, h: 380, xlim: [-3, 3], ylim: [-0.3, 3.3] });
+  const mu = document.getElementById("t-mu");
+  function draw() {
+    const m = +mu.value, a = Math.atan(m);
+    L.clear();
+    L.ground(-2.9, 2.9, 0);
+    L.wedge([0, 0], d(90), a, 3, { flat: a > 1.4 });
+    L.line([0, 0], [0, 3.1], { dash: true, color: C.gray, width: 1 });
+    if (a > 0.02) L.arc([0, 0], 70, d(90), d(90) - a, { label: "α" });
+    L.dot([0, 0]);
+    document.getElementById("t-mu-out").textContent = m.toFixed(2);
+    document.getElementById("t-read").textContent =
+      "alpha = arctan(mu) = " + (a * 180 / Math.PI).toFixed(1) + " deg\nopening = 2 alpha  = " +
+      (2 * a * 180 / Math.PI).toFixed(1) + " deg";
+  }
+  mu.addEventListener("input", draw);
+  draw();
+})();
+</script>
+</body>
+</html>

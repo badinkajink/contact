@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Part 3: Many Contacts</title>
+<link rel="stylesheet" href="lib/katex/katex.min.css">
+<link rel="stylesheet" href="lib/retro.css">
+<script defer src="lib/katex/katex.min.js"></script>
+<script defer src="lib/katex/contrib/auto-render.min.js"></script>
+<script src="lib/fig.js"></script>
+<script src="lib/contact.js"></script>
+<script defer src="lib/deck.js"></script>
+</head>
+<body data-short="Part 3 &middot; Many Contacts" data-index="index.html"
+      data-prev="02_the_cone.html" data-next="04_two_fingers.html">
+<main class="deck">
+
+<!-- ================================================================== 1 -->
+<section class="slide title">
+  <h1>Friction &amp; Grasping from Scratch<br>Part 3: Many Contacts, or a Block on the Floor</h1>
+  <p class="authors">William Xie</p>
+  <p class="links">[<a href="index.html">index</a>] [<a href="../04_friction_cones.py">code</a>]
+    [<a href="#" data-action="print">pdf</a>] [<a href="02_the_cone.html">previous part</a>]
+    [<a href="04_two_fingers.html">next part</a>]</p>
+  <hr>
+  <figure style="width:600px">
+    <svg id="f-hero"></svg>
+    <figcaption>Two corners, two cones, one push. Will the box slide, tip, or stay put?</figcaption>
+  </figure>
+  <p class="updated">Last updated September 2026.</p>
+</section>
+
+<!-- ================================================================== 2 -->
+<section class="slide">
+  <h2>Real contact is a patch</h2>
+  <div class="cols mid">
+    <figure><svg id="f-patch"></svg></figure>
+    <div>
+      <ul>
+        <li>A box touches the floor over its whole bottom face, with pressure spread out in some
+          unknown way.</li>
+        <li>Model it with a few <b>points</b>: the two bottom corners in a side view, the four corners
+          in 3D.</li>
+        <li class="step">Why is that enough? Any spread of pushing (never pulling) pressure over a flat face
+          has the same total push and the same turning effect as some pushing forces at its corners.</li>
+      </ul>
+      <p class="small step">So corner contacts lose nothing for statics, as long as the face is flat.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 3 -->
+<section class="slide">
+  <h2>Tool #3: torque, the turning effect of a force</h2>
+  <div class="cols mid">
+    <figure><svg id="f-door"></svg>
+      <figcaption>A door seen from above. Same push, very different effect.</figcaption></figure>
+    <div>
+      <ul>
+        <li>Push a door near the hinge: it barely moves. Push at the handle: it swings.</li>
+        <li><b>Torque</b> measures how hard a force twists something around a pivot:
+          $$\tau = (\text{force}) \times (\text{lever arm})$$</li>
+        <li>The lever arm is the <i>perpendicular</i> distance from the pivot to the force's line.</li>
+        <li>Units: newton-meters (N&middot;m).</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 4 -->
+<section class="slide">
+  <h2>Torque from components</h2>
+  <div class="cols mid">
+    <figure><svg id="f-torque"></svg></figure>
+    <div>
+      <p>With $\vr$ the arrow from the pivot to where the force acts:</p>
+      $$\tau = r_x f_y - r_y f_x$$
+      <ul>
+        <li>Positive = counterclockwise, negative = clockwise.</li>
+        <li>Example: $\vf = (0, -10)$ N at $\vr = (2, 0)$ m gives
+          $\tau = 2 \times (-10) - 0 = -20$ N&middot;m, a clockwise twist.</li>
+        <li>A force whose line passes through the pivot has <b>zero</b> torque about it.
+          We'll use this trick a lot.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 5 -->
+<section class="slide">
+  <h2>Equilibrium, upgraded</h2>
+  <div class="cols mid">
+    <figure><svg id="f-seesaw"></svg>
+      <figcaption>30 kg at 2 m balances 40 kg at 1.5 m: $30 \times 2 = 40 \times 1.5$.</figcaption></figure>
+    <div>
+      <p>For something that can turn, sitting still needs two things:</p>
+      <ol>
+        <li>the forces add up to zero, <b>and</b></li>
+        <li>the torques add up to zero.</li>
+      </ol>
+      <p>In a flat (2D) world that's <b>three equations</b>: left-right, up-down, and spin.</p>
+      <p class="small">If the forces already add to zero, the total torque is the same about every
+        pivot, so you may pick whichever pivot makes the algebra easiest.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 6 -->
+<section class="slide">
+  <h2>A box on the floor, side view</h2>
+  <div class="cols mid">
+    <figure><svg id="f-corners"></svg></figure>
+    <div>
+      <ul>
+        <li>Unknowns: $N_A, N_B$ (pressing) and $F_A, F_B$ (friction) at corners $A$ and $B$,
+          width $w$ apart.</li>
+        <li>Torque about $A$: $N_B\,w - mg\,\tfrac{w}{2} = 0$, so $N_B = \tfrac12 mg$. Then
+          $N_A = \tfrac12 mg$ too.</li>
+        <li>Left-right: $F_A + F_B = 0$. Any equal-and-opposite pair works: the corners could be
+          quietly squeezing the floor between them.</li>
+      </ul>
+      <div class="box small">Four unknowns, three equations. The friction split is
+        <b>statically indeterminate</b>: rigid-body statics cannot decide it.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 7 -->
+<section class="slide">
+  <h2>Now push it</h2>
+  <div class="cols mid">
+    <figure><svg id="f-pushh"></svg></figure>
+    <div>
+      <p>Push with $P$ at height $h$. Torques about the front corner $B$ (the frictions pass through
+        it, so they drop out):</p>
+      $$N_A = \tfrac12 mg - \frac{P h}{w}, \qquad N_B = \tfrac12 mg + \frac{P h}{w}$$
+      <ul>
+        <li>Pushing shifts weight onto the front corner.</li>
+        <li>Up-down still gives $N_A + N_B = mg$; left-right gives $F_A + F_B = P$.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 8 -->
+<section class="slide">
+  <h2>Two ways to fail: slide or tip</h2>
+  <ul>
+    <li><b>Slide</b> when the push beats the total friction budget: $P &gt; \mu (N_A + N_B) = \mu\,mg$.</li>
+    <li><b>Tip</b> when the back corner lifts, $N_A = 0$: $\ P = mg\,\dfrac{w}{2h}$.</li>
+    <li>Whichever limit is smaller happens first. It tips first when $h &gt; \dfrac{w}{2\mu}$.</li>
+  </ul>
+  <div class="example">
+    <b>Worked example.</b> A tall cabinet, $w = 0.4$ m, $\mu = 0.5$, so the threshold is
+    $w/(2\mu) = 0.4$ m.
+    <ul>
+      <li>Push at $h = 1.0$ m: tips at $0.2\,mg$, slides at $0.5\,mg$. <span class="bad">It tips.</span></li>
+      <li>Push at $h = 0.3$ m: tips at $0.67\,mg$, slides at $0.5\,mg$. <span class="good">It slides.</span></li>
+    </ul>
+    Moral: to slide furniture, <b>push low</b>.
+  </div>
+</section>
+
+<!-- ================================================================== 9 -->
+<section class="slide">
+  <h2>Try it: slide, tip, or stay?</h2>
+  <div class="cols l2 mid">
+    <figure><svg id="f-st"></svg></figure>
+    <div>
+      <div class="controls">
+        <label>push $P/mg$ = <input type="range" id="st-P" min="0" max="0.8" step="0.005" value="0.15">
+          <span id="st-P-out"></span></label><br>
+        <label>height $h$ = <input type="range" id="st-h" min="0.05" max="1.2" step="0.01" value="0.9">
+          <span id="st-h-out"></span> m</label><br>
+        <label>$\mu$ = <input type="range" id="st-mu" min="0.1" max="1.0" step="0.01" value="0.5">
+          <span id="st-mu-out"></span></label>
+      </div>
+      <div class="readout" id="st-read"></div>
+      <p class="small">Box: $w = 0.4$ m, 1.2 m tall. The purple arrow is the floor's total force,
+        drawn where it acts. Bars under the corners are $N_A$ and $N_B$.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 10 -->
+<section class="slide">
+  <h2>Where does the floor push? The center of pressure</h2>
+  <div class="cols mid">
+    <figure><svg id="f-cop"></svg></figure>
+    <div>
+      <ul>
+        <li>Replace $N_A$ and $N_B$ by one force $N_A + N_B$ acting at the
+          <b>center of pressure</b>
+          $$x_{\text{cop}} = \frac{N_A x_A + N_B x_B}{N_A + N_B}.$$</li>
+        <li>It's a weighted average of the corners, so it always sits <b>between</b> them.</li>
+        <li>Pushing harder slides it toward the front corner. Tipping starts when it reaches the edge.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 11 -->
+<section class="slide">
+  <h2>The support polygon</h2>
+  <div class="cols mid">
+    <figure><svg id="f-support"></svg>
+      <figcaption>Top views. The gray region is the support polygon; the dot is where the weight
+        acts.</figcaption></figure>
+    <div>
+      <ul>
+        <li>In 3D the center of pressure must lie inside the <b>convex hull</b> of the contact points:
+          the smallest convex region containing them (a rubber band stretched around them).</li>
+        <li>This region is the <b>support polygon</b>.</li>
+        <li>A standing robot is balanced (statically) only if the vertical line through its center of
+          mass passes through its support polygon.</li>
+        <li>Walking robots use a moving version of this idea, the <b>zero-moment point</b> (ZMP).</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 12 -->
+<section class="slide section">
+  <p class="kicker">Part 3a</p>
+  <h1>Four corners: more unknowns than equations</h1>
+  <hr>
+  <p>Why four-legged tables wobble and three-legged stools never do.</p>
+</section>
+
+<!-- ================================================================== 13 -->
+<section class="slide">
+  <h2>Counting equations in 3D</h2>
+  <ul>
+    <li>A box resting on four corners. Unknowns: $N_1, N_2, N_3, N_4$.</li>
+    <li>Equations:
+      <ol>
+        <li>up-down forces: $N_1 + N_2 + N_3 + N_4 = mg$</li>
+        <li>no tipping left-right (torque about one horizontal axis)</li>
+        <li>no tipping forward-back (torque about the other)</li>
+      </ol></li>
+    <li>Four unknowns, three equations: <b>infinitely many answers</b>. Every one of them is
+      a perfectly good rigid-body solution.</li>
+  </ul>
+  <p class="small">Engineers call this <b>statically indeterminate</b> (or hyperstatic).
+    It is the normal situation in grasping, walking, and stacking.</p>
+</section>
+
+<!-- ================================================================== 14 -->
+<section class="slide">
+  <h2>Try it: the wobbly table</h2>
+  <div class="cols mid">
+    <figure><svg id="f-table"></svg><figcaption>Top view; circle size shows leg load.</figcaption></figure>
+    <div>
+      <div class="controls">
+        <label>$s$ = <input type="range" id="tb-s" min="-1" max="1" step="0.01" value="0">
+          <span id="tb-s-out"></span> &times; $mg/4$</label>
+      </div>
+      <div class="readout" id="tb-read"></div>
+      <p class="small">Weight in the middle. Every $s$ from $-mg/4$ to $mg/4$ satisfies all
+        three equations:</p>
+      $$\mathbf{N} = \tfrac{mg}{4}(1,1,1,1) + s\,(1,-1,1,-1)$$
+      <p class="small">Diagonal pairs trade load. At the ends, two legs carry everything and the
+        table rocks on them.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 15 -->
+<section class="slide">
+  <h2>Three legs never wobble</h2>
+  <div class="cols mid">
+    <figure><svg id="f-stool"></svg></figure>
+    <div>
+      <ul>
+        <li>Three legs: three unknowns, three equations, <b>exactly one answer</b> (as long as the legs
+          aren't in a line).</li>
+        <li>Three points always touch an uneven floor. A fourth leg has to be exactly the right
+          length, or it hangs in the air.</li>
+        <li>That's why stools, camera tripods, and surveying tripods have three legs.</li>
+      </ul>
+      <div class="box small">Which of the infinitely many four-leg answers really happens depends on
+        tiny differences in leg length and how the floor and legs squish. Rigid statics can't see
+        either.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 16 -->
+<section class="slide">
+  <h2>What do simulators do about it?</h2>
+  <ul>
+    <li>A simulator must report <i>some</i> contact forces, so it has to break the tie.</li>
+    <li><b>Hard-contact solvers</b> (LCP, projected Gauss&ndash;Seidel): they return whichever valid
+      answer the iterations happen to land on. The split can depend on contact order and on the
+      previous time step, and can jump around.</li>
+    <li><b>Soft / regularized solvers</b> (MuJoCo, Drake): a little built-in squishiness makes the
+      answer unique, typically the most even, smallest forces.</li>
+  </ul>
+  <div class="box">Lesson: when contacts are redundant, trust the <b>totals</b> (net force, net
+    torque, center of pressure), not the individual contact forces.</div>
+  <p class="small">See the tutorial's discussion of PGS and &ldquo;internal forces&rdquo;, and
+    <code>05_contact_solvers.py</code>.</p>
+</section>
+
+<!-- ================================================================== 17 -->
+<section class="slide">
+  <h2>Sliding a four-corner box: good news</h2>
+  <div class="cols mid">
+    <figure><svg id="f-slide4"></svg>
+      <figcaption>Top view. Every corner moves with the same velocity, so every corner's friction
+        points the same way.</figcaption></figure>
+    <div>
+      <ul>
+        <li>If the box slides <b>without turning</b>, all four corners have the same velocity
+          $\vv$.</li>
+        <li>Corner $i$ gets friction $-\mu N_i\,\hat{\vv}$. Adding them up:
+          $$\textstyle\sum_i -\mu N_i \hat{\vv} = -\mu\,(\sum_i N_i)\,\hat{\vv} = -\mu\,mg\,\hat{\vv}$$</li>
+        <li>The unknown split doesn't matter! The box decelerates at $\mu g$, like a single puck.</li>
+        <li>With pyramids, it inherits the puck's bent paths too, four times over.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 18 -->
+<section class="slide">
+  <h2>&hellip;but turning is different</h2>
+  <div class="cols mid">
+    <figure><svg id="f-spin"></svg>
+      <figcaption>Top view of a box turning about a point near one corner. Each corner slides in a
+        different direction, at a different speed.</figcaption></figure>
+    <div>
+      <ul>
+        <li>If the box turns while it slides, each corner moves differently, so the frictions point
+          different ways.</li>
+        <li>Now the total friction force and torque <b>do</b> depend on how the weight is split.
+          Rigid statics can't tell you that split.</li>
+        <li>Robot pushing handles this with the <b>limit surface</b> (Goyal, Ruina &amp; Papadopoulos,
+          1991), assuming a pressure distribution. See Mason, <i>Mechanics of Robotic
+          Manipulation</i> (2001).</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 19 -->
+<section class="slide section">
+  <p class="kicker">Part 3b</p>
+  <h1>Wrenches: forces and torques together</h1>
+  <hr>
+  <p>One vector that holds everything a contact can do to an object.</p>
+</section>
+
+<!-- ================================================================== 20 -->
+<section class="slide">
+  <h2>Tool #4: the wrench</h2>
+  <p>A <b>wrench</b> bundles a force and the torque it makes about a chosen reference point:</p>
+  $$\vw = (f_x,\ f_y,\ \tau) \qquad\text{with}\qquad \tau = p_x f_y - p_y f_x$$
+  <ul>
+    <li>A contact force $\vf$ at point $\vp$ produces the wrench $(\vf,\ \tau)$ on the object.</li>
+    <li>To combine several contacts, add their wrenches.</li>
+    <li>Equilibrium (both conditions at once) is just: <b>total wrench = 0</b>.</li>
+    <li>In 2D a wrench has 3 numbers. In 3D it will have 6 (Part 5).</li>
+  </ul>
+  <p class="small">The name comes from the tool: a wrench pushes and twists at the same time.</p>
+</section>
+
+<!-- ================================================================== 21 -->
+<section class="slide">
+  <h2>Every contact has a wrench menu</h2>
+  <ul>
+    <li>A contact's force must lie in its cone: all non-negative mixes of the cone's two edges
+      $\vd_1, \vd_2$.</li>
+    <li>So its wrench is a non-negative mix of two <b>edge wrenches</b>:
+      $\vw_j = (\vd_j,\ \tau(\vd_j))$.</li>
+    <li>Several contacts together can make any non-negative mix of <i>all</i> their edge wrenches:
+      $$\text{CWC} = \{\, \beta_1 \vw_1 + \beta_2 \vw_2 + \dots,\ \ \beta_j \ge 0 \,\}$$</li>
+    <li>This set is the <b>contact wrench cone</b>: every wrench the contacts, together, are able
+      to apply.</li>
+  </ul>
+</section>
+
+<!-- ================================================================== 22 -->
+<section class="slide">
+  <h2>The floor's wrench menu</h2>
+  <div class="cols mid">
+    <figure><svg id="f-menu"></svg></figure>
+    <div>
+      <p>Corners at $x = \mp w/2$, torque about the bottom middle. The four edge wrenches are
+        $$(\pm\mu,\ 1,\ \pm w/2).$$</p>
+      <p>Their non-negative mixes are exactly the wrenches with</p>
+      $$f_y \ge 0,\qquad \abs{f_x} \le \mu f_y,\qquad \abs{\tau} \le \tfrac{w}{2} f_y$$
+      <ul class="small">
+        <li><b>friction walls</b>: how much sideways;</li>
+        <li><b>tipping walls</b>: how far off-center it can push.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 23 -->
+<section class="slide">
+  <h2>Slide-or-tip in one line</h2>
+  <ul>
+    <li>What must the floor supply? Minus everything else. The push $(P, 0)$ at $(-w/2, h)$ makes
+      the wrench $(P, 0, -hP)$; gravity makes $(0, -mg, 0)$. So the floor must supply
+      $$\vw_{\text{needed}} = (-P,\ mg,\ hP).$$</li>
+    <li>Is it on the menu?
+      <ul>
+        <li>friction wall: $P \le \mu\, mg$ &nbsp;&rarr; otherwise it <b>slides</b>;</li>
+        <li>tipping wall: $hP \le \tfrac{w}{2}\, mg$ &nbsp;&rarr; otherwise it <b>tips</b>.</li>
+      </ul></li>
+  </ul>
+  <div class="box"><b>Key idea.</b> Statics with any number of contacts is one question:
+    is the needed wrench inside the contact wrench cone?</div>
+</section>
+
+<!-- ================================================================== 24 -->
+<section class="slide">
+  <h2>Why this sets up grasping</h2>
+  <div class="cols mid">
+    <figure><svg id="f-grasp"></svg></figure>
+    <div>
+      <ul>
+        <li>The floor's menu only has $f_y \ge 0$. It can't stop you lifting the box, and it can't
+          hold the box upside down.</li>
+        <li>Fingers can touch from several sides. Then the menu can include <b>every</b> direction.</li>
+        <li>When the contact wrench cone is everything, the contacts can resist any disturbance.
+          That property is called <b>force closure</b>. It's Part 4.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 25 -->
+<section class="slide">
+  <h2>Check yourself</h2>
+  <ol>
+    <li>A bookshelf, $w = 0.3$ m, pushed at $h = 1.5$ m, $\mu = 0.4$. Slide or tip?
+      <details><summary>answer</summary><div>Tip: it tips at $0.3/(2 \times 1.5) = 0.1\,mg$, long
+        before sliding at $0.4\,mg$.</div></details></li>
+    <li>Below what height must you push to slide it instead?
+      <details><summary>answer</summary><div>$h &lt; w/(2\mu) = 0.3/0.8 = 0.375$ m.</div></details></li>
+    <li>A box slides straight on four corners. Does the unknown load split change how far it slides?
+      <details><summary>answer</summary><div>No. Total friction is $\mu\,mg$ whatever the split,
+        as long as it doesn't turn.</div></details></li>
+    <li>Why can a simulator report different corner forces for the same resting box on two runs?
+      <details><summary>answer</summary><div>The problem is statically indeterminate: many splits
+        are valid, and a hard-contact solver may land on any of them.</div></details></li>
+  </ol>
+</section>
+
+<!-- ================================================================== 26 -->
+<section class="slide">
+  <h2>Summary</h2>
+  <ul>
+    <li>Torque $\tau = r_x f_y - r_y f_x$. Equilibrium needs zero net force <i>and</i> zero net torque.</li>
+    <li>A pushed box shifts weight to its front corner. It slides if $P &gt; \mu mg$, and tips if
+      $P &gt; mg\,w/(2h)$.</li>
+    <li>The floor pushes at a center of pressure, always inside the support polygon.</li>
+    <li>More contacts than equations: the force split is undetermined. Trust totals.</li>
+    <li>A wrench is (force, torque). Every contact set has a contact wrench cone; statics asks if the
+      needed wrench is inside it.</li>
+  </ul>
+  <p>Next: <a href="04_two_fingers.html">Part 4: holding things with two fingers &gt;&gt;</a></p>
+</section>
+
+</main>
+<script>
+(function () {
+  const C = Fig.C, d = Fig.deg, V = Contact.V;
+  const mu0 = 0.5, a0 = Math.atan(mu0);
+
+  // A box on the floor with corner cones; returns nothing. Units: meters.
+  function boxScene(F, o) {
+    const w = o.w, H = o.H;
+    F.ground(-w / 2 - 1.2, w / 2 + 1.2, 0);
+    F.rect([0, H / 2], w, H, { fill: "#dddddd" });
+    if (o.cones) {
+      F.wedge([-w / 2, 0], d(90), Math.atan(o.mu || mu0), o.cone || 0.35, { flat: true, fillOpacity: 0.75 });
+      F.wedge([w / 2, 0], d(90), Math.atan(o.mu || mu0), o.cone || 0.35, { flat: true, fillOpacity: 0.75 });
+    }
+  }
+
+  // --- hero
+  {
+    const F = Fig("#f-hero", { w: 600, h: 260, xlim: [-1.5, 1.5], ylim: [-0.15, 1.15] });
+    boxScene(F, { w: 0.8, H: 0.9, cones: true, cone: 0.45 });
+    F.arrow([-1.2, 0.65], [-0.41, 0.65], { color: C.force, label: "P", lpos: "mid", loff: [0, -16] });
+    F.line([-1.3, 0.02], [-1.3, 0.65], { width: 1 });
+    F.line([-1.36, 0.65], [-1.24, 0.65], { width: 1 });
+    F.label([-1.38, 0.33], "h", { anchor: "end" });
+    F.dot([-0.4, 0]); F.dot([0.4, 0]);
+    F.label([-0.4, -0.08], "A"); F.label([0.4, -0.08], "B");
+  }
+
+  // --- pressure patch = corner forces
+  {
+    const F = Fig("#f-patch", { w: 520, h: 330, xlim: [-2.5, 2.5], ylim: [-1.75, 1.35] });
+    F.ground(-2.45, -0.15, 0);
+    F.rect([-1.3, 0.55], 1.8, 1.1, { fill: "#dddddd" });
+    let tot = 0, mom = 0;
+    for (let i = 0; i <= 8; i++) {
+      const x = -2.2 + 0.225 * i, L = 0.2 + 0.4 * (i / 8);
+      tot += L; mom += L * (x + 2.2);
+      F.arrow([x, -L - 0.03], [x, -0.03], { color: C.normal, width: 1.5, headpx: 7 });
+    }
+    F.text([-1.3, -1.45], "spread-out pressure", { anchor: "middle", size: 18, italic: true });
+    const g = F.group({ class: "step", "data-step": 1 });
+    g.text([0, 0.55], "=", { anchor: "middle", size: 34 });
+    g.ground(0.15, 2.45, 0);
+    g.rect([1.3, 0.55], 1.8, 1.1, { fill: "#dddddd" });
+    const NR = mom / 1.8, NL = tot - NR, k = 0.24;
+    g.arrow([0.4, -NL * k - 0.03], [0.4, -0.03], { color: C.normal, width: 3 });
+    g.arrow([2.2, -NR * k - 0.03], [2.2, -0.03], { color: C.normal, width: 3 });
+    g.text([1.3, -1.45], "two corner forces", { anchor: "middle", size: 18, italic: true });
+  }
+
+  // --- door from above
+  {
+    const F = Fig("#f-door", { w: 520, h: 330, xlim: [-0.3, 3.3], ylim: [-1.3, 1.0] });
+    F.rect([1.5, 0], 3, 0.12, { fill: "#cc9966" });
+    F.circle([0, 0], 0.09, { fill: "#ffffff", width: 2 });
+    F.label([0, 0.3], "hinge", { size: 18, italic: false });
+    F.arrow([0.5, -1.0], [0.5, -0.1], { color: C.force, label: "barely moves", upright: true, lpos: "start", loff: [0, 12], lsize: 18 });
+    F.arrow([2.7, -1.0], [2.7, -0.1], { color: C.force, label: "swings", upright: true, lpos: "start", loff: [0, 12], lsize: 18 });
+    F.line([0, 0.55], [2.7, 0.55], { width: 1 });
+    F.line([0, 0.47], [0, 0.63], { width: 1 }); F.line([2.7, 0.47], [2.7, 0.63], { width: 1 });
+    F.text([1.35, 0.75], "lever arm", { anchor: "middle", size: 18, italic: true });
+  }
+
+  // --- torque from components
+  {
+    const F = Fig("#f-torque", { w: 520, h: 370, xlim: [-0.6, 3.2], ylim: [-1.35, 1.35] });
+    const piv = [0, 0], p = [2.2, 0.6], f = [-0.4, -1.3];
+    const fu = V.unit(f), foot = V.add(p, V.mul(fu, V.dot(V.sub(piv, p), fu)));
+    F.line(V.add(p, V.mul(fu, -1.2)), V.add(p, V.mul(fu, 1.9)), { dash: "5 4", color: C.gray, width: 1 });
+    F.line(piv, foot, { dash: "3 3", width: 1.2, color: C.orange });
+    F.rightAngle(foot, V.unit(V.sub(piv, foot)), fu, { px: 9 });
+    F.text(V.add(V.mul(V.add(piv, foot), 0.5), [-0.05, -0.2]), "lever arm", { size: 17, color: C.orange, italic: true, anchor: "middle" });
+    F.arrow(piv, p, { color: C.ink, width: 2, label: "r", lpos: "mid", loff: [0, -16] });
+    F.arrow(p, V.add(p, f), { color: C.force, label: "f", loff: [14, 0] });
+    F.circle(piv, 0.07, { fill: "#ffffff", width: 2 });
+    F.label([-0.25, -0.2], "pivot", { size: 17 });
+  }
+
+  // --- seesaw
+  {
+    const F = Fig("#f-seesaw", { w: 520, h: 280, xlim: [-2.6, 2.6], ylim: [-0.75, 1.1] });
+    F.ground(-2.5, 2.5, -0.55);
+    F.poly([[-0.25, -0.55], [0.25, -0.55], [0, 0]], { fill: "#999999" });
+    F.rect([0, 0.04], 4.6, 0.08, { fill: "#cc9966" });
+    F.rect([-2.0, 0.33], 0.4, 0.5, { fill: "#99ccff" });
+    F.rect([1.5, 0.38], 0.5, 0.6, { fill: "#ff9999" });
+    F.text([-2.0, 0.33], "30", { anchor: "middle", size: 18 });
+    F.text([1.5, 0.38], "40", { anchor: "middle", size: 18 });
+    F.line([-2.0, 0.85], [0, 0.85], { width: 1 }); F.text([-1.0, 0.98], "2 m", { anchor: "middle", size: 17 });
+    F.line([0, 0.85], [1.5, 0.85], { width: 1 }); F.text([0.75, 0.98], "1.5 m", { anchor: "middle", size: 17 });
+  }
+
+  // --- corner unknowns
+  {
+    const F = Fig("#f-corners", { w: 520, h: 370, xlim: [-1.4, 1.4], ylim: [-0.85, 1.15] });
+    boxScene(F, { w: 1.6, H: 0.9 });
+    F.dot([0, 0.45], { rpx: 3 });
+    F.arrow([0, 0.45], [0, 0.05], { color: C.force, width: 2.5, label: "mg", lpos: "mid", loff: [22, 0] });
+    [[-0.8, "A"], [0.8, "B"]].forEach(([x, s]) => {
+      F.arrow([x, -0.6], [x, -0.02], { color: C.normal, label: "N_" + s, lpos: "start", loff: [0, 8] });
+      F.dot([x, 0]);
+      F.label([x + (x < 0 ? -0.12 : 0.12), 0.1], s);
+    });
+    F.arrow([-0.55, -0.12], [-0.25, -0.12], { color: C.friction, width: 2.5, label: "F_A", lpos: "mid", loff: [0, 16] });
+    F.arrow([0.55, -0.12], [0.25, -0.12], { color: C.friction, width: 2.5, label: "F_B", lpos: "mid", loff: [0, 16] });
+    F.line([-0.8, 1.02], [0.8, 1.02], { width: 1 }); F.label([0, 1.1], "w", { size: 20 });
+  }
+
+  // --- push at height h, weight shifts
+  {
+    const F = Fig("#f-pushh", { w: 520, h: 370, xlim: [-1.5, 1.4], ylim: [-0.95, 1.2] });
+    boxScene(F, { w: 1.2, H: 1.1 });
+    F.arrow([-1.4, 0.8], [-0.62, 0.8], { color: C.force, label: "P", lpos: "mid", loff: [0, -16] });
+    F.line([-0.68, 0.02], [-0.68, 0.78], { width: 1, dash: "3 3" }); F.label([-0.76, 0.4], "h", { anchor: "end" });
+    F.arrow([-0.6, -0.3], [-0.6, -0.02], { color: C.normal, width: 2.5, label: "N_A", lpos: "mid", loff: [-24, 0] });
+    F.arrow([0.6, -0.8], [0.6, -0.02], { color: C.normal, width: 3.5, label: "N_B", lpos: "mid", loff: [26, 0] });
+    F.dot([-0.6, 0]); F.dot([0.6, 0]);
+    F.label([-0.6, 0.12], "A"); F.label([0.6, 0.12], "B");
+    F.text([0.1, -0.88], "weight shifts forward →", { anchor: "middle", size: 18, italic: true });
+  }
+
+  // --- slide / tip / stay (interactive)
+  {
+    const F = Fig("#f-st", { w: 560, h: 440, xlim: [-0.95, 0.95], ylim: [-0.45, 1.35] });
+    const w = 0.4, H = 1.2;
+    const sP = document.getElementById("st-P"), sh = document.getElementById("st-h"), sm = document.getElementById("st-mu");
+    function draw() {
+      const Pm = +sP.value, h = +sh.value, mu = +sm.value;
+      const NA = 0.5 - Pm * h / w, NB = 0.5 + Pm * h / w;
+      const slide = Pm > mu + 1e-12, tip = NA < -1e-12;
+      F.clear();
+      F.ground(-0.9, 0.9, 0);
+      F.rect([0, H / 2], w, H, { fill: "#dddddd" });
+      F.wedge([-w / 2, 0], d(90), Math.atan(mu), 0.28, { flat: true, fillOpacity: 0.7 });
+      F.wedge([w / 2, 0], d(90), Math.atan(mu), 0.28, { flat: true, fillOpacity: 0.7 });
+      const sc = 0.5;
+      if (Pm > 0) F.arrow([-w / 2 - Pm * sc - 0.02, h], [-w / 2 - 0.01, h], { color: C.force, width: 3, label: "P", lpos: "start", loff: [-4, 0] });
+      // corner load bars
+      [[-w / 2, NA, "N_A"], [w / 2, NB, "N_B"]].forEach(([x, N, s]) => {
+        const L = Math.max(0, Math.min(1, N)) * 0.36;
+        F.line([x, -0.05], [x, -0.05 - L], { color: C.normal, width: 12, cap: "butt", opacity: 0.8 });
+        F.label([x, -0.07 - L - 0.05], s, { size: 18, color: C.normal });
+      });
+      // total floor force at the center of pressure
+      if (!slide && !tip) {
+        const xc = (NA * (-w / 2) + NB * (w / 2)) / (NA + NB);
+        F.arrow([xc, 0], [xc - Pm * sc, 1 * sc], { color: C.purple, width: 3 });
+        F.dot([xc, 0], { fill: C.purple, rpx: 5 });
+      }
+      const Ptip = w / (2 * h);
+      let verdict;
+      if (!slide && !tip) verdict = "STAYS PUT";
+      else if (Ptip < mu) verdict = "TIPS (tipping limit is lower)";
+      else verdict = "SLIDES (friction limit is lower)";
+      document.getElementById("st-P-out").textContent = Pm.toFixed(3);
+      document.getElementById("st-h-out").textContent = h.toFixed(2);
+      document.getElementById("st-mu-out").textContent = mu.toFixed(2);
+      document.getElementById("st-read").textContent =
+        "N_A = " + NA.toFixed(3) + " mg   N_B = " + NB.toFixed(3) + " mg" +
+        "\nslide limit  P = mu mg     = " + mu.toFixed(3) + " mg" +
+        "\ntip limit    P = w/(2h) mg = " + Ptip.toFixed(3) + " mg" + "\n" + verdict;
+    }
+    [sP, sh, sm].forEach((e) => e.addEventListener("input", draw));
+    draw();
+  }
+
+  // --- center of pressure
+  {
+    const F = Fig("#f-cop", { w: 520, h: 370, xlim: [-1.5, 1.4], ylim: [-0.95, 1.2] });
+    boxScene(F, { w: 1.2, H: 1.1, cones: false });
+    const NA = 0.25, NB = 0.75, xc = (NA * -0.6 + NB * 0.6) / (NA + NB);
+    F.arrow([-1.4, 0.8], [-0.62, 0.8], { color: C.force, label: "P", lpos: "mid", loff: [0, -16] });
+    F.wedge([xc, 0], d(90), a0, 0.9, { flat: true, fillOpacity: 0.7 });
+    F.arrow([xc, 0], [xc - 0.3, 0.85], { color: C.purple, width: 3.5, label: "total", upright: true, loff: [-24, -4] });
+    F.dot([xc, 0], { fill: C.purple, rpx: 6 });
+    F.label([xc, -0.2], "x_{cop}", { color: C.purple, size: 20 });
+    F.dot([-0.6, 0]); F.dot([0.6, 0]);
+    F.label([-0.6, -0.2], "A"); F.label([0.6, -0.2], "B");
+    F.line([-0.6, -0.55], [0.6, -0.55], { color: C.purple, width: 6, cap: "butt", opacity: 0.35 });
+    F.text([0, -0.75], "the CoP can be anywhere in here", { anchor: "middle", size: 17, italic: true, color: C.purple });
+  }
+
+  // --- support polygons, top view
+  {
+    const F = Fig("#f-support", { w: 520, h: 330, xlim: [-2.7, 2.7], ylim: [-1.4, 1.5] });
+    const box = [[-2.3, -0.8], [-0.7, -0.8], [-0.7, 0.8], [-2.3, 0.8]];
+    F.poly(box, { fill: "#cccccc", width: 1.5 });
+    box.forEach((p) => F.dot(p, { rpx: 6 }));
+    F.dot([-1.4, 0.2], { rpx: 7, fill: C.green });
+    F.text([-1.5, 1.2], "4 corners: stable", { anchor: "middle", size: 18, color: C.green });
+    const tri = [[0.7, -0.8], [2.4, -0.6], [1.3, 0.9]];
+    F.poly(tri, { fill: "#cccccc", width: 1.5 });
+    tri.forEach((p) => F.dot(p, { rpx: 6 }));
+    F.dot([2.2, 0.55], { rpx: 7, fill: C.red });
+    F.text([1.55, 1.2], "weight outside: tips over", { anchor: "middle", size: 18, color: C.red });
+  }
+
+  // --- the wobbly table (interactive)
+  {
+    const F = Fig("#f-table", { w: 520, h: 420, xlim: [-1.65, 1.65], ylim: [-1.5, 1.5] });
+    const sl = document.getElementById("tb-s");
+    const legs = [[1, 1], [-1, 1], [-1, -1], [1, -1]], sign = [1, -1, 1, -1];
+    function draw() {
+      const s = +sl.value;
+      F.clear();
+      F.poly([[-1.1, -1.1], [1.1, -1.1], [1.1, 1.1], [-1.1, 1.1]], { fill: "#cc9966", fillOpacity: 0.4, width: 1.5 });
+      F.dot([0, 0], { rpx: 5 });
+      const N = legs.map((_, i) => 0.25 + 0.25 * s * sign[i]);
+      legs.forEach((p, i) => {
+        const r = 0.08 + 0.55 * N[i];
+        F.circle(V.mul(p, 0.9), r, { fill: C.normal, fillOpacity: 0.6, color: C.normal, width: 1.5 });
+        F.text(V.add(V.mul(p, 0.9), [0, p[1] > 0 ? 0.52 : -0.52]), "leg " + (i + 1) + ": " + N[i].toFixed(2) + " mg", { anchor: "middle", size: 18 });
+      });
+      document.getElementById("tb-s-out").textContent = s.toFixed(2);
+      document.getElementById("tb-read").textContent =
+        "sum N = " + N.reduce((a, b) => a + b, 0).toFixed(2) + " mg, torques = 0" +
+        (Math.abs(s) > 0.995 ? "\nonly two legs touch: it rocks" : "\nall four legs pushing");
+    }
+    sl.addEventListener("input", draw);
+    draw();
+  }
+
+  // --- three legs, top view
+  {
+    const F = Fig("#f-stool", { w: 480, h: 360, xlim: [-1.6, 1.6], ylim: [-1.25, 1.45] });
+    const legs = [0, 1, 2].map((j) => Fig.dir(d(90 + 120 * j)));
+    F.circle([0, 0], 1.05, { fill: "#cc9966", fillOpacity: 0.4, width: 1.5 });
+    F.poly(legs.map((p) => V.mul(p, 0.9)), { fill: "#cccccc", fillOpacity: 0.7, width: 1 });
+    legs.forEach((p, i) => {
+      F.circle(V.mul(p, 0.9), 0.14, { fill: C.normal, fillOpacity: 0.6, color: C.normal, width: 1.5 });
+      F.text(V.mul(p, 1.28), "N = mg/3", { anchor: "middle", size: 17, italic: true });
+    });
+    F.dot([0, 0], { rpx: 5 });
+  }
+
+  // --- sliding without turning (top view)
+  {
+    const F = Fig("#f-slide4", { w: 520, h: 360, xlim: [-2.0, 2.0], ylim: [-1.4, 1.4] });
+    F.poly([[-1.0, -0.8], [1.0, -0.8], [1.0, 0.8], [-1.0, 0.8]], { fill: "#dddddd", width: 1.5 });
+    const v = V.mul(V.unit([1, 0.35]), 0.55);
+    [[-1, -0.8], [1, -0.8], [1, 0.8], [-1, 0.8]].forEach((p) => {
+      F.arrow(p, V.add(p, v), { width: 2 });
+      F.arrow(p, V.sub(p, V.mul(v, 0.8)), { color: C.friction, width: 2.5 });
+      F.dot(p, { rpx: 4 });
+    });
+    F.label([1.62, 1.08], "v", { size: 20 });
+    F.text([-1.2, -1.2], "friction", { size: 18, color: C.friction, anchor: "middle" });
+  }
+
+  // --- turning while sliding (top view)
+  {
+    const F = Fig("#f-spin", { w: 520, h: 380, xlim: [-2.0, 2.0], ylim: [-1.45, 1.4] });
+    const corners = [[-1.0, -0.8], [1.0, -0.8], [1.0, 0.8], [-1.0, 0.8]];
+    F.poly(corners, { fill: "#dddddd", width: 1.5 });
+    const c = [-1.4, -1.1];
+    F.dot(c, { rpx: 6, fill: C.purple });
+    F.text([c[0] + 0.15, c[1] - 0.05], "turning point", { size: 17, color: C.purple });
+    corners.forEach((p) => {
+      const r = V.sub(p, c), vel = V.mul(V.perp(r), 0.17);
+      F.line(c, p, { dash: "2 4", color: C.gray, width: 1 });
+      F.arrow(p, V.add(p, vel), { width: 2 });
+      F.dot(p, { rpx: 4 });
+    });
+  }
+
+  // --- the floor's wrench menu, drawn in the (f_x/f_y, tau/f_y) plane
+  {
+    const F = Fig("#f-menu", { w: 520, h: 380, xlim: [-1.5, 1.5], ylim: [-1.2, 1.3] });
+    const mu = 0.5, hw = 0.8;
+    F.arrow([-1.4, 0], [1.4, 0], { width: 1.2, label: "f_x / f_y", loff: [-20, 20], lsize: 19 });
+    F.arrow([0, -1.1], [0, 1.2], { width: 1.2, label: "τ / f_y", loff: [34, 8], lsize: 19 });
+    F.poly([[-mu, -hw], [mu, -hw], [mu, hw], [-mu, hw]], { fill: C.cone, width: 2 });
+    F.line([-mu, -hw], [-mu, hw], { color: C.friction, width: 4 });
+    F.line([mu, -hw], [mu, hw], { color: C.friction, width: 4 });
+    F.line([-mu, hw], [mu, hw], { color: C.orange, width: 4 });
+    F.line([-mu, -hw], [mu, -hw], { color: C.orange, width: 4 });
+    F.text([mu + 0.08, 0.45], "slide", { size: 18, color: C.friction });
+    F.text([-mu - 0.08, 0.45], "slide", { size: 18, color: C.friction, anchor: "end" });
+    F.text([mu + 0.08, hw], "tip", { size: 18, color: C.orange });
+    F.text([mu + 0.08, -hw], "tip", { size: 18, color: C.orange });
+    F.label([mu + 0.12, -0.13], "μ", { size: 18 }); F.label([-mu - 0.08, hw], "w/2", { size: 17, anchor: "end" });
+    F.text([0, -1.13], "slice of the floor's wrench cone at f_y = 1", { anchor: "middle", size: 16, italic: true });
+  }
+
+  // --- a pinched box: contacts on both sides
+  {
+    const F = Fig("#f-grasp", { w: 520, h: 330, xlim: [-2.2, 2.2], ylim: [-1.25, 1.35] });
+    F.rect([0, 0], 1.6, 1.2, { fill: "#dddddd" });
+    F.wedge([-0.8, 0], 0, a0, 0.7, { flat: true, fillOpacity: 0.75 });
+    F.wedge([0.8, 0], Math.PI, a0, 0.7, { flat: true, fillOpacity: 0.75 });
+    F.poly([[-1.9, 0.12], [-0.8, 0.12], [-0.8, -0.12], [-1.9, -0.12]], { fill: "#ffcc99", width: 1.2 });
+    F.poly([[1.9, 0.12], [0.8, 0.12], [0.8, -0.12], [1.9, -0.12]], { fill: "#ffcc99", width: 1.2 });
+    F.text([0, 0.95], "cones point in from both sides", { anchor: "middle", size: 18, italic: true });
+    F.arrow([0, -0.65], [0, -1.15], { color: C.force, width: 2.5, label: "mg", loff: [22, -4] });
+  }
+})();
+</script>
+</body>
+</html>

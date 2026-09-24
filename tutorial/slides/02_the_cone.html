@@ -1,0 +1,1005 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Part 2: The Friction Cone in 3D</title>
+<link rel="stylesheet" href="lib/katex/katex.min.css">
+<link rel="stylesheet" href="lib/retro.css">
+<script defer src="lib/katex/katex.min.js"></script>
+<script defer src="lib/katex/contrib/auto-render.min.js"></script>
+<script src="lib/fig.js"></script>
+<script src="lib/contact.js"></script>
+<script defer src="lib/deck.js"></script>
+</head>
+<body data-short="Part 2 &middot; The Friction Cone in 3D" data-index="index.html"
+      data-prev="01_pushing.html" data-next="03_many_contacts.html">
+<main class="deck">
+
+<!-- ================================================================== 1 -->
+<section class="slide title">
+  <h1>Friction &amp; Grasping from Scratch<br>Part 2: The Friction Cone in 3D</h1>
+  <p class="authors">William Xie</p>
+  <p class="links">[<a href="index.html">index</a>] [<a href="../04_friction_cones.py">code</a>]
+    [<a href="#" data-action="print">pdf</a>] [<a href="01_pushing.html">previous part</a>]
+    [<a href="03_many_contacts.html">next part</a>]</p>
+  <hr>
+  <figure style="width:560px">
+    <svg id="f-hero"></svg>
+    <figcaption>The Coulomb cone (yellow) and the four-sided pyramid that many simulators
+      use in its place (red). This deck is about what that swap costs.</figcaption>
+  </figure>
+  <p class="updated">Last updated September 2026.</p>
+</section>
+
+<!-- ================================================================== 2 -->
+<section class="slide">
+  <h2>Where we left off</h2>
+  <div class="cols mid">
+    <figure><svg id="f-recap"></svg></figure>
+    <div>
+      <ul>
+        <li>A contact force splits into a pressing part $f_n$ and a sideways part $f_t$.</li>
+        <li>Coulomb: $\abs{f_t} \le \mu f_n$, with $f_n \ge 0$.</li>
+        <li>In the $(f_t, f_n)$ plane: a wedge of half-angle $\alpha = \arctan\mu$.</li>
+        <li>Inside = can stick. Edge = sliding. Outside = impossible.</li>
+      </ul>
+      <p>That was a side view. A real floor has <b>two</b> sideways directions.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 3 -->
+<section class="slide">
+  <h2>Two sideways directions</h2>
+  <div class="cols mid">
+    <figure><svg id="f-frame"></svg></figure>
+    <div>
+      <ul>
+        <li>At a contact point on a floor we need three unit arrows: the normal $\nhat$ and two
+          tangents $\that_1, \that_2$, all at right angles. This is the <b>contact frame</b>.</li>
+        <li>A contact force is $\vf = f_n\,\nhat + f_{t1}\,\that_1 + f_{t2}\,\that_2$.</li>
+        <li>The sideways part $\vf_t = (f_{t1}, f_{t2})$ is itself a little 2D vector lying flat
+          in the floor. Friction can point anywhere in that plane.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 4 -->
+<section class="slide">
+  <h2>Coulomb's law in 3D</h2>
+  <p>Same rule as before, but &ldquo;how much sideways&rdquo; is now the <b>length</b> of $\vf_t$:</p>
+  $$\norm{\vf_t} = \sqrt{f_{t1}^2 + f_{t2}^2} \;\le\; \mu\, f_n$$
+  <div class="example"><b>Example.</b> $f_n = 10$ N, $\vf_t = (3, 4)$ N, $\mu = 0.6$.
+    The sideways length is $\sqrt{9 + 16} = 5$ N. The budget is $0.6 \times 10 = 6$ N.
+    $5 \le 6$, so the contact <span class="good">can stick</span>.</div>
+  <ul>
+    <li>Notice: each component alone is small ($3 \le 6$ and $4 \le 6$). What counts is their
+      <i>combined</i> length. Keep that in mind; it matters for pyramids later.</li>
+  </ul>
+</section>
+
+<!-- ================================================================== 5 -->
+<section class="slide">
+  <h2>What shape is that? Slice it.</h2>
+  <div class="cols mid">
+    <figure><svg id="f-stack"></svg></figure>
+    <div>
+      <ul>
+        <li>Fix the pressing force $f_n$. The allowed sideways forces are all $\vf_t$ with
+          $\norm{\vf_t} \le \mu f_n$: a <b>disk</b> of radius $\mu f_n$.</li>
+        <li class="step" data-step="1">$f_n = 1$: disk of radius $\mu$.</li>
+        <li class="step" data-step="2">$f_n = 2$: radius $2\mu$.</li>
+        <li class="step" data-step="3">$f_n = 3$: radius $3\mu$.</li>
+        <li class="step" data-step="4">Stack all the disks: an <b>ice-cream cone</b>, tip at zero force.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 6 -->
+<section class="slide">
+  <h2>The Coulomb friction cone</h2>
+  $$\K_\mu = \{\, \vf = (f_n, \vf_t) \;:\; f_n \ge 0,\ \norm{\vf_t} \le \mu f_n \,\}$$
+  <div class="cols mid">
+    <figure><svg id="f-cut"></svg></figure>
+    <ul>
+      <li>Half-angle $\alpha = \arctan\mu$ around the normal, as before.</li>
+      <li>Cut it through its axis (the gray plane) and you get Part 1's wedge. Every such cut
+        gives the same wedge.</li>
+      <li>Other names: <b>second-order cone</b>, <b>Lorentz cone</b>. Optimization people say
+        &ldquo;SOC&rdquo;.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ================================================================== 7 -->
+<section class="slide">
+  <h2>Why a circle?</h2>
+  <div class="cols mid">
+    <figure><svg id="f-iso"></svg>
+      <figcaption>Looking straight down the normal. Every arrow is the largest friction the floor
+        can supply in that direction: all the same length.</figcaption></figure>
+    <div>
+      <ul>
+        <li>The circle says the floor doesn't care which way you drag: the budget is the same
+          in every sideways direction.</li>
+        <li>That property is called <b>isotropy</b> (Greek: &ldquo;same in every direction&rdquo;).</li>
+        <li>Most everyday surfaces are close to isotropic. Some are not; we'll get to those.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 8 -->
+<section class="slide">
+  <h2>One slice tells the whole story</h2>
+  <div class="cols mid">
+    <figure><svg id="f-slice"></svg></figure>
+    <div>
+      <ul>
+        <li>A cone is made of rays from the tip. So the cone is completely described by its slice at
+          $f_n = 1$, the <b>unit slice</b>.</li>
+        <li>A force $(f_n, \vf_t)$ with $f_n &gt; 0$ is in the cone exactly when $\vf_t / f_n$ is in
+          the unit slice.</li>
+        <li>From here on we mostly draw unit slices: flat 2D pictures of 3D cones.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 9 -->
+<section class="slide section">
+  <p class="kicker">Part 2a</p>
+  <h1>Sliding in 3D: which way does friction point?</h1>
+  <hr>
+  <p>In 1D the answer was &ldquo;backwards&rdquo;. In 3D there's a neat rule that also explains
+    everything that follows.</p>
+</section>
+
+<!-- ================================================================== 10 -->
+<section class="slide">
+  <h2>Power: the dot product again</h2>
+  <ul>
+    <li>A force $\vf$ acting on something moving with velocity $\vv$ does work at a rate
+      $$P = \vf \cdot \vv \qquad \text{(power, in watts)}$$</li>
+    <li>$P &gt; 0$: the force speeds it up (adds energy). $P &lt; 0$: the force slows it down
+      (removes energy, turning it into heat).</li>
+    <li>Friction always has $P \le 0$. The question is: of all the forces in the slice, which one
+      does friction pick?</li>
+  </ul>
+  <div class="example"><b>Example.</b> $\vv = (2, 0)$ m/s. The force $(-3, 0)$ N gives $P = -6$ W.
+    The force $(0, 3)$ N gives $P = 0$: sideways forces do no work.</div>
+</section>
+
+<!-- ================================================================== 11 -->
+<section class="slide">
+  <h2>Maximum dissipation</h2>
+  <div class="cols mid">
+    <figure><svg id="f-mdp"></svg></figure>
+    <div>
+      <p>Sliding friction picks the force in the slice that removes energy <b>fastest</b>:
+        the most negative $\vf_t \cdot \vv$.</p>
+      <ul>
+        <li>Picture: slide a line perpendicular to $\vv$ backwards across the slice. The
+          <b>last point it touches</b> is the friction force.</li>
+        <li>For a disk that point is straight behind:
+          $$\vf_t = -\mu f_n \frac{\vv}{\norm{\vv}}$$</li>
+      </ul>
+      <p class="small">This is the <b>maximum dissipation principle</b> (Moreau). It gives back
+        Part 1's rule for a circle, and the right answer for every other shape too.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 12 -->
+<section class="slide section">
+  <p class="kicker">Part 2b</p>
+  <h1>Elliptic cones: when direction matters</h1>
+  <hr>
+  <p>Some surfaces grip harder one way than the other.</p>
+</section>
+
+<!-- ================================================================== 13 -->
+<section class="slide">
+  <h2>Anisotropic friction</h2>
+  <div class="cols mid">
+    <figure><svg id="f-skate"></svg>
+      <figcaption>An ice-skate blade from above: easy to slide along, hard to slide across.</figcaption></figure>
+    <div>
+      <p><b>Anisotropic</b>: different grip in different directions.</p>
+      <ul>
+        <li>ice skates and sled runners;</li>
+        <li>grooved surfaces: tire treads, knurled handles, ridged robot fingertips;</li>
+        <li>wood along vs. across the grain, brushed metal, corduroy.</li>
+      </ul>
+      <p class="small">Even stranger: fish-scale ski bases and snake scales grip <i>backward</i> but
+        glide <i>forward</i>. No symmetric shape can model that; we won't try.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 14 -->
+<section class="slide">
+  <h2>The elliptic cone</h2>
+  <div class="cols mid">
+    <figure><svg id="f-ellipse"></svg></figure>
+    <div>
+      <p>Give each tangent direction its own coefficient:</p>
+      $$\left(\frac{f_{t1}}{\mu_1}\right)^2 + \left(\frac{f_{t2}}{\mu_2}\right)^2 \le f_n^2$$
+      <ul>
+        <li>The unit slice is an <b>ellipse</b> with half-widths $\mu_1$ and $\mu_2$.</li>
+        <li>$\mu_1 = \mu_2$ gives back the circle.</li>
+        <li>This is exactly MuJoCo's <code>cone="elliptic"</code>. The two tangential coefficients
+          may differ; MuJoCo's docs suggest skating as a use.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 15 -->
+<section class="slide">
+  <h2>An ellipse is a stretched circle</h2>
+  <figure><svg id="f-stretch"></svg></figure>
+  <ul>
+    <li>Rescale the sideways axes: $g_1 = f_{t1}/\mu_1$ and $g_2 = f_{t2}/\mu_2$. The rule becomes
+      $g_1^2 + g_2^2 \le f_n^2$: an ordinary circular cone with $\mu = 1$.</li>
+    <li>So every fact about the circular cone carries over to the elliptic one, after a stretch.</li>
+  </ul>
+</section>
+
+<!-- ================================================================== 16 -->
+<section class="slide">
+  <h2>Sliding on an elliptic surface</h2>
+  <div class="cols mid">
+    <figure><svg id="f-emdp"></svg></figure>
+    <div>
+      <p>Same rule: the last point touched by a line perpendicular to $\vv$. On an ellipse that point
+        is generally <b>not</b> straight behind:</p>
+      $$\vf_t = -f_n\,\frac{(\mu_1^2 v_1,\ \mu_2^2 v_2)}{\sqrt{\mu_1^2 v_1^2 + \mu_2^2 v_2^2}}$$
+      <div class="example small"><b>Example.</b> $\mu_1 = 0.9$ (across the blade),
+        $\mu_2 = 0.3$ (along it), sliding at 45&deg;. Friction points only 6.3&deg; off the
+        $-\that_1$ axis, 39&deg; away from $-\vv$. It mostly kills the sideways motion, so the skate
+        keeps gliding along its blade.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 17 -->
+<section class="slide">
+  <h2>Try it: which way does friction point?</h2>
+  <div class="cols l2 mid">
+    <figure><svg id="f-explore"></svg></figure>
+    <div>
+      <div class="controls">
+        <label>slice shape <select id="x-shape">
+          <option value="circle">circle</option>
+          <option value="ellipse">ellipse (1 : 0.4)</option>
+          <option value="diamond">diamond pyramid</option>
+          <option value="box">box pyramid</option>
+          <option value="octagon">octagon pyramid</option>
+        </select></label>
+      </div>
+      <div class="readout" id="x-read"></div>
+      <p class="small">Drag the white handle to set the sliding direction $\vv$. The green arrow is
+        the friction force; the dashed line is the &ldquo;last touch&rdquo; line.</p>
+      <p class="small">Only the circle always pushes straight back.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 18 -->
+<section class="slide section">
+  <p class="kicker">Part 2c</p>
+  <h1>Pyramids: cones with flat faces</h1>
+  <hr>
+  <p>Many simulators and planners replace the round cone with a pyramid. What does that cost?</p>
+</section>
+
+<!-- ================================================================== 19 -->
+<section class="slide">
+  <h2>Why would anyone approximate a circle?</h2>
+  <ul>
+    <li>The circle rule has squares in it: $f_{t1}^2 + f_{t2}^2 \le \mu^2 f_n^2$. It is
+      <b>nonlinear</b>.</li>
+    <li>Many classic solvers only handle <b>linear</b> inequalities (things like $a x + b y \le c$):
+      linear programs (LP) and linear complementarity problems (LCP), solved by Lemke's method or
+      projected Gauss&ndash;Seidel. Engines like ODE and Bullet are built on them.</li>
+    <li>Replace the round cone by a pyramid with flat faces, and every constraint becomes linear.
+      This is the classic LCP contact model (Stewart &amp; Trinkle, 1996).</li>
+    <li>Modern solvers handle the round cone directly (MuJoCo's elliptic mode, Drake, conic
+      optimizers). But pyramids are everywhere: <b>MuJoCo's default is still pyramidal</b>.</li>
+  </ul>
+</section>
+
+<!-- ================================================================== 20 -->
+<section class="slide">
+  <h2>Tool: linear inequalities are flat walls</h2>
+  <div class="cols mid">
+    <figure><svg id="f-halfplanes"></svg></figure>
+    <div>
+      <ul>
+        <li>One linear inequality, like $x + 2y \le 2$, keeps one side of a straight line:
+          a <b>half-plane</b>.</li>
+        <li>Several at once keep the region inside all the walls: a <b>polygon</b>.</li>
+        <li>On a cone's unit slice, $k$ walls give a $k$-sided polygon. Back in 3D, that's a
+          <b>pyramid</b> with $k$ flat faces.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 21 -->
+<section class="slide">
+  <h2>Two ways to build a pyramid</h2>
+  <div class="cols mid">
+    <figure><svg id="f-inout"></svg></figure>
+    <div>
+      <ul>
+        <li><span style="color:#cc0000"><b>Inside out</b></span>: pick $k$ edge directions $\vd_j$ on
+          the cone. Allowed forces are the non-negative mixes
+          $$\vf = \beta_1 \vd_1 + \dots + \beta_k \vd_k,\quad \beta_j \ge 0.$$
+          The corners sit <i>on</i> the circle: <b>inscribed</b>, a bit too small.</li>
+        <li><span style="color:#0000cc"><b>Outside in</b></span>: put $k$ flat walls touching the cone.
+          The sides touch the circle: <b>circumscribed</b>, a bit too big.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 22 -->
+<section class="slide">
+  <h2>The two famous four-sided pyramids</h2>
+  <div class="cols mid">
+    <figure><svg id="f-two4"></svg></figure>
+    <div>
+      <p><span style="color:#cc0000"><b>Diamond</b></span> (inscribed). Edges
+        $\nhat \pm \mu\that_1$, $\nhat \pm \mu\that_2$, so
+        $\ \abs{f_{t1}} + \abs{f_{t2}} \le \mu f_n$.<br>
+        <span class="small">Used by the 4-direction LCP and by MuJoCo's pyramidal cones.</span></p>
+      <p><span style="color:#0000cc"><b>Box</b></span> (circumscribed). Clamp each direction on its own:
+        $\ \abs{f_{t1}} \le \mu f_n$ and $\abs{f_{t2}} \le \mu f_n$.<br>
+        <span class="small">ODE's &ldquo;friction pyramid&rdquo;; the usual trick in per-constraint
+          solvers.</span></p>
+      <div class="warn"><b>Watch out:</b> both get called &ldquo;the friction pyramid&rdquo;.
+        Always check which one a paper or engine means.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 23 -->
+<section class="slide">
+  <h2>How wrong is a pyramid?</h2>
+  <div class="cols mid">
+    <figure><svg id="f-sector"></svg>
+      <figcaption>One wedge of a regular $k$-gon. The corner is at radius $\mu$; the middle of the
+        side is at $\mu\cos(\pi/k)$.</figcaption></figure>
+    <div>
+      <table class="small">
+        <tr><th>$k$</th><th class="num">inscribed: worst shortfall<br>$1 - \cos(\pi/k)$</th>
+          <th class="num">circumscribed: worst excess<br>$1/\cos(\pi/k) - 1$</th></tr>
+        <tr><td>4</td><td class="num">29.3%</td><td class="num">41.4%</td></tr>
+        <tr><td>6</td><td class="num">13.4%</td><td class="num">15.5%</td></tr>
+        <tr><td>8</td><td class="num">7.6%</td><td class="num">8.2%</td></tr>
+        <tr><td>12</td><td class="num">3.4%</td><td class="num">3.5%</td></tr>
+        <tr><td>16</td><td class="num">1.9%</td><td class="num">2.0%</td></tr>
+        <tr><td>32</td><td class="num">0.48%</td><td class="num">0.48%</td></tr>
+      </table>
+      <p class="small">Rule of thumb: error $\approx \tfrac12(\pi/k)^2$. Doubling $k$ cuts the
+        error by 4.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 24 -->
+<section class="slide">
+  <h2>Try it: build your own pyramid</h2>
+  <div class="cols l2 mid">
+    <figure><svg id="f-build"></svg></figure>
+    <div>
+      <div class="controls">
+        <label>sides $k$ = <input type="range" id="b-k" min="3" max="32" step="1" value="4">
+          <span id="b-k-out"></span></label><br>
+        <label>twist <input type="range" id="b-ph" min="0" max="1" step="0.01" value="0">
+          </label><br>
+        <label><input type="checkbox" id="b-in" checked> inscribed</label>
+        <label><input type="checkbox" id="b-out" checked> circumscribed</label>
+      </div>
+      <div class="readout" id="b-read"></div>
+      <p class="small">&ldquo;Twist&rdquo; rotates the pyramid about the normal. The error doesn't
+        go away; it just moves to other directions.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 25 -->
+<section class="slide">
+  <h2>Cost 1: the budget depends on direction</h2>
+  <div class="cols mid">
+    <figure><svg id="f-dir"></svg></figure>
+    <div>
+      <p>Along the axes, all three agree. At 45&deg; they don't:</p>
+      <table class="small">
+        <tr><th>model</th><th class="num">max friction at 45&deg;</th></tr>
+        <tr><td>circle (true)</td><td class="num">$1.00\,\mu f_n$</td></tr>
+        <tr><td style="color:#cc0000">diamond</td><td class="num">$0.71\,\mu f_n$</td></tr>
+        <tr><td style="color:#0000cc">box</td><td class="num">$1.41\,\mu f_n$</td></tr>
+      </table>
+      <div class="example small"><b>Example.</b> Push the 10 kg box ($\mu = 0.5$) sideways at 45&deg;
+        to the $\that_1$ axis. True breakaway force: 49.1 N. The diamond model says 34.7 N; the box
+        model says 69.4 N.</div>
+      <p class="small">A pyramid turns an isotropic floor into an anisotropic one.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 26 -->
+<section class="slide">
+  <h2>Cost 2: sliding friction points the wrong way</h2>
+  <div class="cols mid">
+    <figure><svg id="f-dmdp"></svg></figure>
+    <div>
+      <ul>
+        <li>Maximum dissipation on a polygon: the last point touched is (almost always) a
+          <b>corner</b>.</li>
+        <li>Diamond, sliding at 30&deg;: friction points straight along $-\that_1$, a full 30&deg;
+          away from $-\vv$.</li>
+        <li>Friction snaps to a handful of directions. It only points exactly backwards when you
+          slide along a corner direction or exactly across a side.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 27 -->
+<section class="slide">
+  <h2>Cost 3: sliding paths bend</h2>
+  <div class="cols l2 mid">
+    <figure><svg id="f-burst"></svg></figure>
+    <div>
+      <div class="controls">
+        <label>friction model <select id="s-model">
+          <option value="circle">circle (true)</option>
+          <option value="diamond" selected>diamond</option>
+          <option value="box">box</option>
+          <option value="octagon">octagon</option>
+          <option value="ellipse">ellipse (1 : 1/3)</option>
+        </select></label>
+      </div>
+      <div class="readout" id="s-read"></div>
+      <p class="small">Pucks launched at 2 m/s in 16 directions on a floor with $\mu = 0.3$, until
+        friction stops them. Top view, 1 m grid.</p>
+      <p class="small">True Coulomb friction: straight spokes. Pyramids: spokes that curve toward
+        a few favorite directions.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 28 -->
+<section class="slide">
+  <h2>Why the paths bend, in slow motion</h2>
+  <div class="cols mid">
+    <figure><svg id="f-vspace"></svg>
+      <figcaption>The puck's velocity over time (diamond model, launched at 30&deg;).</figcaption></figure>
+    <div>
+      <ol>
+        <li>Sliding at 30&deg;, friction is the corner $(-\mu m g, 0)$. Only $v_1$ shrinks; $v_2$
+          keeps going. The direction swings toward 45&deg;.</li>
+        <li>At 45&deg; the last-touch line lies along a whole side. Friction sits in the middle of it,
+          exactly opposite $\vv$, with size $\mu m g/\sqrt2$.</li>
+        <li>The puck then slides straight along the diagonal until it stops.</li>
+      </ol>
+      <div class="box small">Paths are pulled toward the directions <b>across the sides</b>: the
+        diagonals for the diamond, the axes for the box.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 29 -->
+<section class="slide">
+  <h2>Do more sides fix it?</h2>
+  <ul>
+    <li>For hard (rigid) contact, yes, gradually: with $k = 8$ the budget error is below 8% and
+      the bending is milder. But paths still bend toward $k$ favorite directions.</li>
+    <li>It costs: a $k$-sided pyramid has $k$ unknowns per contact instead of 3.</li>
+    <li>MuJoCo uses $2(\text{condim} - 1)$ edges, 4 for an ordinary frictional contact. Its docs say
+      more edges would be pointless: the solver would get slower than the elliptic one.</li>
+    <li>Subtle: in soft-contact simulators like MuJoCo, pyramidal and elliptic models give slightly
+      different motion <i>even when they describe the same set of forces</i>, because the softness
+      is measured differently. MuJoCo's docs call the elliptic model &ldquo;more principled and more
+      consistent with physical intuition&rdquo;.</li>
+  </ul>
+</section>
+
+<!-- ================================================================== 30 -->
+<section class="slide">
+  <h2>Which one should I use?</h2>
+  <table>
+    <tr><th>situation</th><th>use</th></tr>
+    <tr><td>your solver handles cones (MuJoCo elliptic, Drake, conic solvers)</td>
+      <td>the true round (or elliptic) cone</td></tr>
+    <tr><td>LP / LCP only</td><td>a pyramid with enough sides (<span class="nowrap">$k \ge 8$</span>)</td></tr>
+    <tr><td>must never overestimate grip (&ldquo;will this grasp hold?&rdquo;)</td>
+      <td><span style="color:#cc0000">inscribed</span>: conservative</td></tr>
+    <tr><td>want an optimistic bound (&ldquo;could anything possibly work?&rdquo;)</td>
+      <td><span style="color:#0000cc">circumscribed</span>: generous</td></tr>
+  </table>
+  <div class="warn"><b>Watch out:</b> a circumscribed pyramid can certify a grasp that
+    actually slips. Part 6 shows one.</div>
+</section>
+
+<!-- ================================================================== 31 -->
+<section class="slide section">
+  <p class="kicker">Part 2d</p>
+  <h1>Twisting: soft fingers</h1>
+  <hr>
+  <p>A point can't resist a twist. A fingertip pad can.</p>
+</section>
+
+<!-- ================================================================== 32 -->
+<section class="slide">
+  <h2>Torsional friction</h2>
+  <div class="cols mid">
+    <figure><svg id="f-twist"></svg></figure>
+    <div>
+      <ul>
+        <li>A rubbery fingertip touches over a small <b>patch</b>, not a point.</li>
+        <li>Twisting the object about the normal drags the patch in a circle; friction over the
+          patch resists with a torque: $\abs{\tau_n} \le \gamma\, f_n$.</li>
+        <li>$\gamma$ has units of <b>length</b>, roughly the patch size.</li>
+        <li>Together: a cone in four numbers,
+          $$\frac{f_{t1}^2}{\mu^2} + \frac{f_{t2}^2}{\mu^2} + \frac{\tau_n^2}{\gamma^2} \le f_n^2.$$</li>
+      </ul>
+      <p class="small">MuJoCo: <code>condim="4"</code> adds exactly this, and its docs say it
+        &ldquo;can substantially improve the stability of simulated grasping&rdquo;. The default torsional
+        coefficient is 0.005 m. Part 5 shows why grasps need it.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 33 -->
+<section class="slide">
+  <h2>Extra credit: the dual cone</h2>
+  <div class="cols mid">
+    <figure><svg id="f-dual"></svg></figure>
+    <div>
+      <p>The <b>dual cone</b> collects every direction that makes an angle of at most 90&deg; with
+        <i>every</i> force in the cone:</p>
+      $$\K^* = \{\, \vv : \vv \cdot \vf \ge 0 \text{ for all } \vf \in \K \,\}$$
+      <ul>
+        <li>For the Coulomb cone, $\K_\mu^* = \K_{1/\mu}$. Narrow cone, wide dual; $\mu = 1$ is its
+          own dual.</li>
+        <li>Why care: in the convex contact models inside MuJoCo and Drake, contact
+          <i>velocities</i> live in the dual cone. See <code>05_contact_solvers.py</code>.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 34 -->
+<section class="slide">
+  <h2>Check yourself</h2>
+  <ol>
+    <li>$f_n = 10$ N, $\vf_t = (5, 5)$ N, $\mu = 0.6$. Inside the Coulomb cone?
+      <details><summary>answer</summary><div>No: $\norm{\vf_t} = 7.07 &gt; 6$.</div></details></li>
+    <li>Same force. Does the diamond pyramid allow it? The box?
+      <details><summary>answer</summary><div>Diamond: $5 + 5 = 10 &gt; 6$, no. Box: $5 \le 6$ and
+        $5 \le 6$, <b>yes</b>. The box wrongly allows a force the real floor can't supply.</div></details></li>
+    <li>How many sides must an inscribed pyramid have for less than 1% error?
+      <details><summary>answer</summary><div>$1 - \cos(\pi/k) &lt; 0.01$ first holds at $k = 23$
+        (0.93%). With $k = 22$ it's 1.02%.</div></details></li>
+    <li>On the skate surface ($\mu_1 = 0.9$, $\mu_2 = 0.3$), a puck slides along $\that_2$ exactly.
+      Which way does friction point?
+      <details><summary>answer</summary><div>Straight back, $-\that_2$, with size $0.3 f_n$. Along a
+        principal axis the ellipse's last-touch point is directly behind.</div></details></li>
+  </ol>
+</section>
+
+<!-- ================================================================== 35 -->
+<section class="slide">
+  <h2>Summary</h2>
+  <ul>
+    <li>In 3D, Coulomb's rule bounds the <i>length</i> of the sideways force: a round cone with unit
+      slice a disk of radius $\mu$.</li>
+    <li>Sliding friction is the slice's last-touch point against the velocity (maximum dissipation).
+      For a disk, straight back.</li>
+    <li>Elliptic cones model direction-dependent grip; they are stretched circles, and their
+      friction is not straight back.</li>
+    <li>Pyramids make the math linear but make the floor anisotropic: wrong budgets (up to 29% short
+      or 41% over for $k = 4$), wrong friction directions, bent sliding paths.</li>
+    <li>Fingertip pads add torsional friction: a fourth number in the cone.</li>
+  </ul>
+  <p>Next: <a href="03_many_contacts.html">Part 3: many contacts, a block on the floor &gt;&gt;</a></p>
+</section>
+
+</main>
+<script>
+(function () {
+  const C = Fig.C, d = Fig.deg, V = Contact.V, CT = Contact;
+  const HAT = "̂";
+  const view = Fig.view3(d(-60), d(22));
+
+  // --- hero: cone, inscribed diamond pyramid, floor
+  {
+    const F = Fig("#f-hero", { w: 560, h: 280, xlim: [-2.2, 2.2], ylim: [-0.75, 2.5] });
+    const T = F.in3(view);
+    T.poly([[-1.8, -1.8, 0], [1.8, -1.8, 0], [1.8, 1.8, 0], [-1.8, 1.8, 0]], { fill: "#eeeeee", width: 1 });
+    T.cone([0, 0, 0], [0, 0, 1], 2, 1.2, { fillOpacity: 0.85 });
+    const dv = [[1.2, 0, 2], [0, 1.2, 2], [-1.2, 0, 2], [0, -1.2, 2]];
+    T.path(dv, { close: true, color: C.red, width: 2 });
+    dv.forEach((q) => T.line([0, 0, 0], q, { color: C.red, width: 2, dash: "6 4" }));
+    T.arrow([0, 0, 0], [0, 0, 2.35], { color: C.normal, width: 2.5, label: "n" + HAT, loff: [0, -2] });
+    T.dot([0, 0, 0]);
+  }
+
+  // --- recap wedge
+  {
+    const F = Fig("#f-recap", { w: 520, h: 360, xlim: [-2.5, 2.5], ylim: [-0.4, 3.0] });
+    const mu = 0.6, a = Math.atan(mu);
+    F.ground(-2.4, 2.4, 0);
+    F.wedge([0, 0], d(90), a, 2.9, { flat: true });
+    F.arc([0, 0], 70, d(90) - a, d(90), { label: "α" });
+    F.arrow([0, 0], [-0.4, 2.0], { color: C.green });
+    F.arrow([0, 0], [1.9, 1.0], { color: C.red });
+    F.text([-0.6, 2.25], "stick", { color: C.green, anchor: "end" });
+    F.text([1.95, 0.7], "impossible", { color: C.red, anchor: "end" });
+    F.dot([0, 0]);
+  }
+
+  // --- the contact frame in 3D
+  {
+    const F = Fig("#f-frame", { w: 520, h: 400, xlim: [-2.1, 2.1], ylim: [-1.1, 2.1] });
+    const T = F.in3(view);
+    T.poly([[-1.6, -1.6, 0], [1.6, -1.6, 0], [1.6, 1.6, 0], [-1.6, 1.6, 0]], { fill: "#eeeeee", width: 1 });
+    const f = [0.9, 0.7, 1.5], ft = [0.9, 0.7, 0];
+    T.line(f, ft, { dash: true, color: C.gray, width: 1.2 });
+    T.arrow([0, 0, 0], ft, { color: C.friction, width: 2.5, dash: "6 4", label: "f_t", loff: [16, 8] });
+    T.arrow([0, 0, 0], [1.4, 0, 0], { color: C.ink, width: 2, label: "t" + HAT + "_1", loff: [4, 14] });
+    T.arrow([0, 0, 0], [0, 1.4, 0], { color: C.ink, width: 2, label: "t" + HAT + "_2", loff: [10, 6] });
+    T.arrow([0, 0, 0], [0, 0, 1.55], { color: C.normal, width: 2.5, label: "n" + HAT, loff: [0, -2] });
+    T.arrow([0, 0, 0], f, { color: C.force, label: "f", loff: [8, -4] });
+    T.dot([0, 0, 0]);
+    T.label([-0.15, -0.35, 0], "p", { bold: true });
+  }
+
+  // --- stacking disks into a cone
+  {
+    const F = Fig("#f-stack", { w: 520, h: 420, xlim: [-2.3, 2.3], ylim: [-0.45, 3.65] });
+    const T = F.in3(view), mu = 0.6;
+    const g4 = F.group({ class: "step", "data-step": 4 }), T4 = g4.in3(view);
+    T4.cone([0, 0, 0], [0, 0, 1], 3, 3 * mu, { fillOpacity: 0.55 });
+    T.line([0, 0, 0], [0, 0, 3.25], { dash: true, color: C.gray, width: 1.2 });
+    [1, 2, 3].forEach((h) => {
+      const g = F.group({ class: "step", "data-step": h }), Tg = g.in3(view);
+      Tg.poly(Fig.ring3([0, 0, h], [0, 0, 1], mu * h), { fill: C.cone, fillOpacity: 0.8, width: 1.5 });
+      Tg.dot([0, 0, h], { rpx: 3 });
+      Tg.text([mu * h + 0.15, 0, h], "f_n = " + h, { size: 19, math: true, italic: true });
+    });
+    T.dot([0, 0, 0]);
+  }
+
+  // --- cutting the cone through its axis
+  {
+    const F = Fig("#f-cut", { w: 520, h: 360, xlim: [-2.2, 2.2], ylim: [-0.5, 2.6] });
+    const T = F.in3(view), mu = 0.6, h = 2.2;
+    T.cone([0, 0, 0], [0, 0, 1], h, mu * h, { fillOpacity: 0.8 });
+    const w = mu * h + 0.3;
+    T.poly([[-w, 0, 0], [w, 0, 0], [w, 0, h + 0.2], [-w, 0, h + 0.2]], { fill: "#999999", fillOpacity: 0.28, width: 1, color: C.gray });
+    T.path([[-mu * h, 0, h], [0, 0, 0], [mu * h, 0, h]], { color: C.ink, width: 3 });
+    T.line([0, 0, 0], [0, 0, h + 0.2], { dash: true, width: 1.2 });
+    T.dot([0, 0, 0]);
+  }
+
+  // --- isotropy: equal-length arrows around the disk
+  {
+    const F = Fig("#f-iso", { w: 480, h: 380, xlim: [-1.6, 1.6], ylim: [-1.25, 1.25] });
+    F.circle([0, 0], 1, { fill: C.cone, fillOpacity: 0.8, width: 1.5 });
+    for (let j = 0; j < 8; j++) F.arrow([0, 0], Fig.dir(d(22.5 + 45 * j)), { color: C.friction, width: 2.5 });
+    F.dot([0, 0]);
+    F.text([1.55, -1.12], "radius μ f_n", { size: 20, italic: true, math: true, anchor: "end" });
+  }
+
+  // --- the unit slice
+  {
+    const F = Fig("#f-slice", { w: 560, h: 380, xlim: [-2.55, 4.05], ylim: [-0.6, 2.75] });
+    const vw = Fig.view3(d(-60), d(22));
+    const off = (p) => { const q = vw(p); return [q[0] - 1.1, q[1]]; };
+    off.depth = vw.depth;
+    const T = F.in3(off), mu = 0.6;
+    T.cone([0, 0, 0], [0, 0, 1], 2.4, 2.4 * mu, { fillOpacity: 0.6 });
+    T.poly([[-1.1, -1.1, 1], [1.1, -1.1, 1], [1.1, 1.1, 1], [-1.1, 1.1, 1]], { fill: "#999999", fillOpacity: 0.3, width: 1, color: C.gray });
+    T.path(Fig.ring3([0, 0, 1], [0, 0, 1], mu), { close: true, color: C.red, width: 3 });
+    T.text([1.15, 0, 1.08], "f_n = 1", { size: 19, math: true, italic: true });
+    T.dot([0, 0, 0]);
+    // the flat slice on the right
+    const c = [2.55, 1.15];
+    F.circle(c, 0.85, { fill: C.cone, color: C.red, width: 3 });
+    F.arrow([c[0] - 1.15, c[1]], [c[0] + 1.15, c[1]], { width: 1.2, label: "f_{t1}/f_n", loff: [-22, 22], lsize: 17 });
+    F.arrow([c[0], c[1] - 1.1], [c[0], c[1] + 1.15], { width: 1.2, label: "f_{t2}/f_n", loff: [34, 12], lsize: 17 });
+    F.text([c[0], c[1] - 1.4], "unit slice: disk of radius μ", { size: 18, anchor: "middle", italic: true, math: true });
+    F.arrow([0.9, 1.6], [1.35, 1.6], { width: 1.5 });
+  }
+
+  // --- maximum dissipation on a disk
+  function lastTouch(F, model, v, o) {
+    o = o || {};
+    const f = CT.mdp(model, v), vh = V.unit(v), perp = V.perp(vh);
+    if (o.sweep) {
+      [0.9, 0.45, 0].forEach((s, i) => {
+        const base = V.mul(vh, s);
+        F.line(V.add(base, V.mul(perp, -1.6)), V.add(base, V.mul(perp, 1.6)), { dash: "3 5", color: C.gray, width: 1 });
+      });
+    }
+    const q = V.mul(vh, V.dot(f, vh));
+    F.line(V.add(q, V.mul(perp, -1.6)), V.add(q, V.mul(perp, 1.6)), { dash: "7 4", width: 1.5 });
+    F.line([0, 0], V.mul(vh, -1.55), { dash: "2 4", color: C.gray, width: 1.5 });
+    F.arrow([0, 0], V.mul(vh, 1.25), { width: 2.5, label: "v", loff: [6, -4] });
+    F.arrow([0, 0], f, { color: C.friction, width: 3.5, label: o.flabel || "f_t", loff: o.floff || [-10, 12] });
+    F.dot([0, 0]);
+    return f;
+  }
+  {
+    const F = Fig("#f-mdp", { w: 480, h: 400, xlim: [-1.7, 1.7], ylim: [-1.45, 1.45] });
+    const m = CT.MODELS.circle(1);
+    F.circle([0, 0], 1, { fill: C.cone, fillOpacity: 0.8, width: 1.5 });
+    lastTouch(F, m, Fig.dir(d(30)), { sweep: true, floff: [-14, 14] });
+    F.text([-1.6, 1.3], "unit slice, radius μ = 1", { size: 18, italic: true, math: true });
+  }
+
+  // --- ice skate from above
+  {
+    const F = Fig("#f-skate", { w: 480, h: 330, xlim: [-2.5, 2.5], ylim: [-1.7, 1.7] });
+    F.poly([[-2.0, -0.12], [1.8, -0.12], [2.1, 0.0], [1.8, 0.12], [-2.0, 0.12]], { fill: "#999999", width: 1.5 });
+    F.arrow([-0.2, 0.45], [1.3, 0.45], { color: C.friction, width: 2.5 });
+    F.arrow([-0.2, 0.45], [-1.7, 0.45], { color: C.friction, width: 2.5 });
+    F.text([0.0, 0.8], "along: μ small", { anchor: "middle", size: 21, color: C.friction, math: true, italic: true });
+    F.arrow([0, -0.25], [0, -1.35], { color: C.red, width: 4 });
+    F.text([0.25, -1.1], "across: μ big", { size: 21, color: C.red, math: true, italic: true });
+  }
+
+  // --- the elliptic slice
+  {
+    const F = Fig("#f-ellipse", { w: 480, h: 380, xlim: [-1.5, 1.5], ylim: [-1.15, 1.25] });
+    const a = 1.1, b = 0.45;
+    F.arrow([-1.4, 0], [1.4, 0], { width: 1.2, label: "f_{t1}", loff: [-4, 18] });
+    F.arrow([0, -1.05], [0, 1.1], { width: 1.2, label: "f_{t2}", loff: [20, 6] });
+    F.ellipse([0, 0], a, b, { fill: C.cone, fillOpacity: 0.85, width: 2 });
+    F.line([0, -0.02], [a, -0.02], { color: C.red, width: 3 });
+    F.line([0.02, 0], [0.02, b], { color: C.blue, width: 3 });
+    F.label([a / 2, -0.2], "μ_1", { color: C.red });
+    F.label([-0.22, b / 2], "μ_2", { color: C.blue });
+  }
+
+  // --- a circle stretched into an ellipse
+  {
+    const F = Fig("#f-stretch", { w: 1000, h: 260, xlim: [-5, 5], ylim: [-1.45, 1.15] });
+    F.circle([-2.6, 0], 0.95, { fill: C.cone, width: 2 });
+    F.text([-2.6, -1.22], "g_1² + g_2² ≤ 1", { anchor: "middle", size: 21, italic: true, math: true });
+    F.arrow([-1.2, 0.1], [0.4, 0.1], { width: 2.5, label: "stretch by μ_1, μ_2", loff: [-60, -22], lsize: 20 });
+    F.ellipse([2.6, 0], 1.6, 0.6, { fill: C.cone, width: 2 });
+    F.text([2.6, -1.22], "(f_{t1}/μ_1)² + (f_{t2}/μ_2)² ≤ 1", { anchor: "middle", size: 21, italic: true, math: true });
+  }
+
+  // --- MDP on an ellipse
+  {
+    const F = Fig("#f-emdp", { w: 480, h: 380, xlim: [-1.75, 1.75], ylim: [-1.4, 1.4] });
+    const m = CT.MODELS.ellipse(0.9, 0.3);
+    F.ellipse([0, 0], 0.9, 0.3, { fill: C.cone, fillOpacity: 0.85, width: 1.5 });
+    const f = lastTouch(F, m, Fig.dir(d(45)), { floff: [-8, 16] });
+    F.arc([0, 0], 58, d(180 + 6.34), d(225), { label: "39°", lgap: 18, color: C.gray });
+    F.text([-1.7, 1.25], "μ_1 = 0.9, μ_2 = 0.3", { size: 18, italic: true, math: true });
+  }
+
+  // --- friction direction explorer (interactive)
+  {
+    const F = Fig("#f-explore", { w: 560, h: 440, xlim: [-1.75, 1.75], ylim: [-1.4, 1.4] });
+    const sel = document.getElementById("x-shape");
+    let vdir = d(30);
+    const models = {
+      circle: CT.MODELS.circle(1), ellipse: CT.MODELS.ellipse(1, 0.4),
+      diamond: CT.MODELS.diamond(1), box: CT.MODELS.box(1), octagon: CT.MODELS.octagon(1),
+    };
+    function shape(m) {
+      if (m.kind === "circle") F.circle([0, 0], m.mu, { fill: C.cone, fillOpacity: 0.85, width: 1.5 });
+      else if (m.kind === "ellipse") F.ellipse([0, 0], m.mu, m.mu2, { fill: C.cone, fillOpacity: 0.85, width: 1.5 });
+      else F.poly(m.verts, { fill: C.cone, fillOpacity: 0.85, width: 1.5 });
+    }
+    function draw() {
+      const m = models[sel.value];
+      F.clear();
+      F.circle([0, 0], 1, { dash: "2 4", color: C.gray, width: 1 });
+      shape(m);
+      const v = Fig.dir(vdir);
+      const f = lastTouch(F, m, v, {});
+      F.handle(V.mul(v, 1.25), (p) => { vdir = Math.atan2(p[1], p[0]); draw(); });
+      const off = Contact.deg(V.angle(f, V.mul(v, -1)));
+      document.getElementById("x-read").textContent =
+        "sliding direction  = " + Contact.deg(((vdir % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI)).toFixed(0) + " deg" +
+        "\n|friction| / mu f_n = " + V.norm(f).toFixed(3) +
+        "\nangle from straight back = " + off.toFixed(1) + " deg";
+    }
+    sel.addEventListener("change", draw);
+    draw();
+  }
+
+  // --- half-planes make a polygon
+  {
+    const F = Fig("#f-halfplanes", { w: 480, h: 380, xlim: [-0.8, 3.2], ylim: [-0.8, 2.35] });
+    F.arrow([-0.7, 0], [2.9, 0], { width: 1.2, label: "x", loff: [-8, 18] });
+    F.arrow([0, -0.7], [0, 2.1], { width: 1.2, label: "y", loff: [16, 10] });
+    const tri = [[0, 0], [2, 0], [0, 1]];
+    F.poly(tri, { fill: C.cone, width: 2 });
+    F.line([-0.6, 1.3], [2.8, -0.4], { color: C.red, width: 1.5, dash: "6 4" });
+    F.text([1.35, 0.75], "x + 2y ≤ 2", { size: 19, color: C.red, italic: true, math: true });
+    F.text([0.1, -0.35], "y ≥ 0", { size: 19, italic: true, math: true });
+    F.text([-0.1, 1.55], "x ≥ 0", { size: 19, italic: true, math: true, anchor: "end" });
+  }
+
+  // --- inscribed vs circumscribed hexagons
+  {
+    const F = Fig("#f-inout", { w: 480, h: 400, xlim: [-1.4, 1.4], ylim: [-1.2, 1.2] });
+    const inn = CT.pyramid(6, 1, "inscribed", 0), out = CT.pyramid(6, 1, "circumscribed", 0);
+    F.poly(out.verts, { fill: "none", color: C.blue, width: 2.5 });
+    F.circle([0, 0], 1, { fill: C.cone, fillOpacity: 0.85, width: 1.5 });
+    F.poly(inn.verts, { fill: "none", color: C.red, width: 2.5 });
+    inn.verts.forEach((p) => F.dot(p, { fill: C.red, rpx: 4 }));
+    F.dot([0, 0]);
+  }
+
+  // --- diamond vs box on the unit slice
+  function slice4(F) {
+    F.arrow([-1.75, 0], [1.75, 0], { width: 1.2, label: "f_{t1}", loff: [-10, 20] });
+    F.arrow([0, -1.6], [0, 1.65], { width: 1.2, label: "f_{t2}", loff: [24, 10] });
+    F.poly([[1, 1], [-1, 1], [-1, -1], [1, -1]], { fill: "none", color: C.blue, width: 2.5 });
+    F.circle([0, 0], 1, { fill: C.cone, fillOpacity: 0.8, width: 1.5 });
+    F.poly([[1, 0], [0, 1], [-1, 0], [0, -1]], { fill: "none", color: C.red, width: 2.5 });
+  }
+  {
+    const F = Fig("#f-two4", { w: 480, h: 420, xlim: [-1.9, 1.9], ylim: [-1.75, 1.9] });
+    slice4(F);
+    F.text([1.05, 1.18], "box", { color: C.blue, size: 21, bold: true });
+    F.text([0, -0.28], "diamond", { color: C.red, size: 21, bold: true, anchor: "middle" });
+  }
+
+  // --- one sector of a k-gon
+  {
+    const F = Fig("#f-sector", { w: 480, h: 360, xlim: [-0.2, 1.25], ylim: [-0.62, 0.66] });
+    const k = 6, h = Math.PI / k;
+    const A = Fig.dir(-h), B = Fig.dir(h), M = [Math.cos(h), 0];
+    F.poly([[0, 0], A, B], { fill: C.cone, width: 1.2 });
+    const pts = []; for (let i = 0; i <= 30; i++) pts.push(Fig.dir(-h + (2 * h * i) / 30));
+    F.path(pts, { color: C.ink, width: 1.2, dash: "4 3" });
+    F.line([0, 0], M, { color: C.red, width: 3 });
+    F.line([0, 0], B, { color: C.ink, width: 2 });
+    F.arc([0, 0], 55, 0, h, { label: "π/k", lgap: 22 });
+    F.label([0.47, -0.1], "μ cos(π/k)", { color: C.red, size: 20 });
+    F.label([0.36, 0.33], "μ", { size: 22 });
+    F.rightAngle(M, [-1, 0], [0, 1], { px: 10 });
+    F.dot([0, 0]);
+  }
+
+  // --- pyramid builder (interactive)
+  {
+    const F = Fig("#f-build", { w: 560, h: 440, xlim: [-1.5, 1.5], ylim: [-1.2, 1.2] });
+    const K = document.getElementById("b-k"), ph = document.getElementById("b-ph");
+    const cin = document.getElementById("b-in"), cout = document.getElementById("b-out");
+    function draw() {
+      const k = +K.value, phase = (+ph.value * 2 * Math.PI) / k;
+      F.clear();
+      if (cout.checked) F.poly(CT.pyramid(k, 1, "circumscribed", phase + Math.PI / k).verts, { fill: "#ccccff", fillOpacity: 0.6, color: C.blue, width: 2 });
+      F.circle([0, 0], 1, { fill: C.cone, fillOpacity: cout.checked ? 0.85 : 0.85, width: 1.5 });
+      if (cin.checked) F.poly(CT.pyramid(k, 1, "inscribed", phase).verts, { fill: "#ffcccc", fillOpacity: 0.7, color: C.red, width: 2 });
+      F.dot([0, 0]);
+      const c = Math.cos(Math.PI / k);
+      document.getElementById("b-k-out").textContent = k;
+      document.getElementById("b-read").textContent =
+        "inscribed:     worst " + (100 * (1 - c)).toFixed(2) + "% short" +
+        "\ncircumscribed: worst " + (100 * (1 / c - 1)).toFixed(2) + "% over" +
+        "\nunknowns/contact: " + k + " (cone: 3)";
+    }
+    [K, ph, cin, cout].forEach((e) => e.addEventListener("input", draw));
+    draw();
+  }
+
+  // --- direction-dependent budget
+  {
+    const F = Fig("#f-dir", { w: 480, h: 420, xlim: [-1.9, 1.9], ylim: [-1.75, 1.9] });
+    slice4(F);
+    const u = Fig.dir(d(45));
+    F.line([0, 0], V.mul(u, 1.62), { dash: "5 4", width: 1.2 });
+    [[0.7071, C.red, "0.71"], [1, C.ink, "1.00"], [1.4142, C.blue, "1.41"]].forEach(([r, col, s]) => {
+      F.dot(V.mul(u, r), { rpx: 6, fill: col });
+      F.text(V.add(V.mul(u, r), [0.1, -0.12]), s, { color: col, size: 19, bold: true });
+    });
+  }
+
+  // --- polygon MDP: the diamond at 30 degrees
+  {
+    const F = Fig("#f-dmdp", { w: 480, h: 400, xlim: [-1.7, 1.7], ylim: [-1.45, 1.45] });
+    const m = CT.MODELS.diamond(1);
+    F.circle([0, 0], 1, { dash: "2 4", color: C.gray, width: 1 });
+    F.poly(m.verts, { fill: C.cone, fillOpacity: 0.85, width: 1.5 });
+    lastTouch(F, m, Fig.dir(d(30)), { sweep: true, floff: [0, -16] });
+    F.arc([0, 0], 70, d(180), d(210), { label: "30°", lgap: 20, color: C.gray });
+  }
+
+  // --- starburst of sliding pucks (interactive)
+  {
+    const F = Fig("#f-burst", { w: 560, h: 450, xlim: [-1.2, 1.2], ylim: [-1.0, 1.0] });
+    const sel = document.getElementById("s-model");
+    function draw() {
+      const mu = 0.3;
+      const m = CT.MODELS[sel.value](mu);
+      F.clear();
+      for (let g = -1; g <= 1; g += 0.5) {
+        F.line([g, -1.0], [g, 1.0], { color: "#dddddd", width: 1 });
+        F.line([-1.2, g], [1.2, g], { color: "#dddddd", width: 1 });
+      }
+      let dAxis = 0, dDiag = 0;
+      for (let j = 0; j < 16; j++) {
+        const dir = Fig.dir((2 * Math.PI * j) / 16);
+        const path = CT.slidePuck(m, V.mul(dir, 2), { h: 0.002 });
+        F.path(path, { color: C.red, width: 2 });
+        const end = path[path.length - 1];
+        F.dot(end, { rpx: 3.5, fill: C.ink });
+        if (j === 0) dAxis = V.norm(end);
+        if (j === 2) dDiag = V.norm(end);
+      }
+      F.dot([0, 0], { rpx: 5 });
+      document.getElementById("s-read").textContent =
+        "stopping distance\n  along t1:  " + dAxis.toFixed(2) + " m\n  along 45:  " + dDiag.toFixed(2) +
+        " m\ntrue Coulomb: 0.68 m everywhere";
+    }
+    sel.addEventListener("change", draw);
+    draw();
+  }
+
+  // --- velocity space, diamond model
+  {
+    const F = Fig("#f-vspace", { w: 480, h: 380, xlim: [-0.4, 2.3], ylim: [-0.35, 1.8] });
+    F.arrow([-0.3, 0], [2.2, 0], { width: 1.2, label: "v_1", loff: [-6, 18] });
+    F.arrow([0, -0.3], [0, 1.7], { width: 1.2, label: "v_2", loff: [18, 6] });
+    F.line([0, 0], [1.6, 1.6], { dash: "5 4", color: C.gray, width: 1.2 });
+    F.text([1.62, 1.66], "45°", { size: 18, color: C.gray });
+    const v0 = [2 * Math.cos(d(30)), 2 * Math.sin(d(30))];
+    F.arrow(v0, [1.02, 1.0], { color: C.red, width: 3 });
+    F.arrow([1, 1], [0.08, 0.08], { color: C.red, width: 3 });
+    F.dot(v0, { rpx: 5, fill: C.red });
+    F.text([v0[0] + 0.05, v0[1] - 0.18], "launch", { size: 18, color: C.red });
+    F.label([1.35, 1.2], "1", { size: 20 });
+    F.label([0.4, 0.62], "2–3", { size: 20 });
+  }
+
+  // --- torsional friction on a fingertip pad
+  {
+    const F = Fig("#f-twist", { w: 480, h: 400, xlim: [-2, 2], ylim: [-1.0, 2.4] });
+    const T = F.in3(view);
+    T.poly([[-1.7, -1.7, 0], [1.7, -1.7, 0], [1.7, 1.7, 0], [-1.7, 1.7, 0]], { fill: "#eeeeee", width: 1 });
+    T.poly(Fig.ring3([0, 0, 0], [0, 0, 1], 0.55), { fill: "#ffcc99", width: 1.5 });
+    const ring = Fig.ring3([0, 0, 0.02], [0, 0, 1], 0.9, 60).slice(8, 50);
+    T.path(ring, { color: C.purple, width: 3 });
+    T.arrow(ring[ring.length - 2], ring[ring.length - 1], { color: C.purple, width: 3 });
+    T.label([1.1, -0.9, 0], "τ_n", { color: C.purple });
+    T.arrow([0, 0, 0], [0, 0, 1.9], { color: C.normal, width: 2.5, label: "n" + HAT, loff: [0, -2] });
+    T.text([-0.2, -1.2, 0], "patch", { size: 19 });
+    T.line([-0.2, -1.15, 0], [-0.1, -0.5, 0], { width: 1 });
+  }
+
+  // --- a cone and its dual (2D picture)
+  {
+    const F = Fig("#f-dual", { w: 480, h: 380, xlim: [-2.3, 2.3], ylim: [-0.4, 2.8] });
+    const mu = 0.5;
+    F.wedge([0, 0], d(90), Math.atan(1 / mu), 2.7, { fill: "#ccccff", fillOpacity: 0.7 });
+    F.wedge([0, 0], d(90), Math.atan(mu), 2.7, { flat: true, fillOpacity: 0.95 });
+    F.ground(-2.2, 2.2, 0);
+    const e = Fig.dir(d(90) - Math.atan(mu)), e2 = Fig.dir(d(90) + Math.atan(1 / mu));
+    F.rightAngle([0, 0], e, e2, { px: 16 });
+    F.text([0.05, 2.05], "K_μ", { anchor: "middle", size: 22, italic: true, math: true, bold: true });
+    F.text([-1.2, 1.45], "K*_μ = K_{1/μ}", { anchor: "middle", size: 20, italic: true, math: true, color: C.blue });
+    F.dot([0, 0]);
+  }
+})();
+</script>
+</body>
+</html>

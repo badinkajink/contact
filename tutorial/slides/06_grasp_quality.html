@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Part 6: How Good Is a Grasp?</title>
+<link rel="stylesheet" href="lib/katex/katex.min.css">
+<link rel="stylesheet" href="lib/retro.css">
+<script defer src="lib/katex/katex.min.js"></script>
+<script defer src="lib/katex/contrib/auto-render.min.js"></script>
+<script src="lib/fig.js"></script>
+<script src="lib/contact.js"></script>
+<script defer src="lib/deck.js"></script>
+</head>
+<body data-short="Part 6 &middot; How Good Is a Grasp?" data-index="index.html"
+      data-prev="05_grasps_in_3d.html">
+<main class="deck">
+
+<!-- ================================================================== 1 -->
+<section class="slide title">
+  <h1>Friction &amp; Grasping from Scratch<br>Part 6: How Good Is a Grasp?</h1>
+  <p class="authors">William Xie</p>
+  <p class="links">[<a href="index.html">index</a>] [<a href="../06_force_closure.py">code</a>]
+    [<a href="#" data-action="print">pdf</a>] [<a href="05_grasps_in_3d.html">previous part</a>]</p>
+  <hr>
+  <figure style="width:520px">
+    <svg id="f-hero"></svg>
+    <figcaption>Everything three fingers can push with, if their total effort is 1 (yellow), and the
+      largest circle that fits inside. Its radius is the grasp's quality.</figcaption>
+  </figure>
+  <p class="updated">Last updated September 2026.</p>
+</section>
+
+<!-- ================================================================== 2 -->
+<section class="slide">
+  <h2>From yes/no to how much</h2>
+  <ul>
+    <li>Force closure says: the grasp can resist <i>any</i> disturbance, if the fingers squeeze hard
+      enough.</li>
+    <li>Real fingers have limited strength. A grasp whose segment barely fits inside the cones needs an
+      enormous squeeze to resist a small nudge.</li>
+    <li>So we want a number: <b>how big a disturbance can the grasp resist, per unit of finger
+      effort?</b></li>
+  </ul>
+  <p>The recipe has three steps: make the cones finite, build the set of reachable wrenches, and
+    measure how far its boundary is from the origin.</p>
+</section>
+
+<!-- ================================================================== 3 -->
+<section class="slide">
+  <h2>Step 1: make the cones finite (again)</h2>
+  <div class="cols mid">
+    <figure><svg id="f-prims"></svg></figure>
+    <div>
+      <ul>
+        <li>Computers like finite lists. Replace each cone by $k$ edge directions $\vd_{ij}$, each with
+          normal part 1 (an inscribed pyramid, Part 2).</li>
+        <li>Each edge gives a <b>primitive wrench</b>
+          $$\vw_{ij} = (\vd_{ij},\ \vp_i \times \vd_{ij}).$$</li>
+        <li>A grasp is now just a cloud of points: $k$ per finger, in $\R^3$ (flat) or $\R^6$ (solid).</li>
+      </ul>
+      <p class="small">In the plane the cone has exactly 2 edges, so nothing is lost. In 3D, the choice of
+        $k$ matters. We'll see how much.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 4 -->
+<section class="slide">
+  <h2>Step 2: force closure = origin inside the hull</h2>
+  <div class="cols mid">
+    <figure><svg id="f-hull"></svg></figure>
+    <div>
+      <ul>
+        <li>Tool #7: the <b>convex hull</b> of some points is the smallest convex shape containing them:
+          a rubber band around them in 2D, shrink-wrap in 3D and up.</li>
+        <li>The primitive wrenches positively span everything <b>iff</b> the origin is strictly inside
+          their convex hull.</li>
+        <li>If it isn't, the hull has a face with the origin on the wrong side, and that face's direction is
+          the escape direction from Part 4.</li>
+      </ul>
+      <p class="small">Convex hulls in any dimension: the Qhull library (<code>scipy.spatial.ConvexHull</code>).</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 5 -->
+<section class="slide">
+  <h2>Or: force closure as a linear program</h2>
+  <p>Part 4's recipe, in code: full rank, plus a strictly positive squeeze.</p>
+<pre>import numpy as np
+from scipy.optimize import linprog
+
+def force_closure(W):
+    """W: one primitive wrench per column (3 x m in 2D, 6 x m in 3D)."""
+    d, m = W.shape
+    if np.linalg.matrix_rank(W) &lt; d:
+        return False                     # some wrench direction is unreachable
+    # Look for weights lambda_j >= 1 with W @ lambda = 0: a strict squeeze.
+    res = linprog(np.zeros(m), A_eq=W, b_eq=np.zeros(d), bounds=[(1, None)] * m)
+    return res.status == 0               # feasible means force closure</pre>
+  <p class="small">Why $\ge 1$ and not $&gt; 0$? Any strictly positive solution can be scaled up until every weight
+    is at least 1. The same function, with tests, is in <code>06_force_closure.py</code>.</p>
+</section>
+
+<!-- ================================================================== 6 -->
+<section class="slide">
+  <h2>Step 3: what can the grasp do with limited effort?</h2>
+  <div class="cols mid">
+    <figure><svg id="f-l1inf"></svg>
+      <figcaption>Forces only, two fingers pushing in from left and right, $\mu = 0.5$. Dots: the four cone edges.</figcaption></figure>
+    <div>
+      <ul>
+        <li><b>Total</b> finger force at most 1 (&ldquo;$L_1$&rdquo;): the reachable wrenches are the
+          <span style="color:#996600"><b>convex hull of the primitive wrenches</b></span>.</li>
+        <li><b>Each</b> finger at most 1 (&ldquo;$L_\infty$&rdquo;): every finger contributes its own
+          fan, and the fans add up, giving a <span style="color:#0000cc"><b>bigger</b></span> set.</li>
+        <li>Either set is called the <b>grasp wrench space</b> (GWS).</li>
+      </ul>
+      <p class="small">C. Ferrari and J. Canny, &ldquo;Planning optimal grasps&rdquo;, ICRA 1992.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 7 -->
+<section class="slide">
+  <h2>The Ferrari&ndash;Canny quality $\varepsilon$</h2>
+  <div class="cols mid">
+    <figure><svg id="f-eps"></svg></figure>
+    <div>
+      <p>$\varepsilon$ = radius of the largest ball, centered at the origin, that fits inside the
+        grasp wrench space. Equivalently: the distance from the origin to the nearest face of the hull.</p>
+      <ul>
+        <li>Meaning: <b>every</b> disturbance of size up to $\varepsilon$ can be resisted with total
+          finger force at most 1.</li>
+        <li>The nearest face points at the grasp's <b>weakest direction</b>.</li>
+        <li>$\varepsilon &gt; 0 \iff$ force closure. Bigger is better.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 8 -->
+<section class="slide">
+  <h2>A catch: forces and torques have different units</h2>
+  <ul>
+    <li>A wrench is (newtons, newton-meters). Its &ldquo;size&rdquo; adds apples to oranges.</li>
+    <li>Usual fix: divide torques by a length $\lambda$, such as the object's radius:
+      $$\vw = \big(\vf,\ \vtau / \lambda\big).$$</li>
+    <li>Then $\varepsilon$ depends on $\lambda$. Double the object and keep $\lambda$ fixed, and the ranking of
+      grasps can change. It is a modeling choice, not physics.</li>
+    <li>Mirtich &amp; Canny avoid the issue by scoring forces and torques separately (Part 5).</li>
+  </ul>
+</section>
+
+<!-- ================================================================== 9 -->
+<section class="slide">
+  <h2>Try it: quality of an off-center pinch</h2>
+  <div class="cols l2 mid">
+    <figure><svg id="f-epsbox"></svg></figure>
+    <div>
+      <div class="controls">
+        <label>offset $d$ = <input type="range" id="eb-d" min="0" max="1.6" step="0.01" value="0.3">
+          <span id="eb-d-out"></span></label><br>
+        <label>$\mu$ = <input type="range" id="eb-mu" min="0.05" max="1.0" step="0.01" value="0.5">
+          <span id="eb-mu-out"></span></label>
+      </div>
+      <div class="readout" id="eb-read"></div>
+      <p class="small">Box of width $w = 2$, torques divided by $\lambda = 1$. Quality falls smoothly to zero
+        exactly where Part 4 said force closure ends: $d = \mu w$.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 10 -->
+<section class="slide">
+  <h2>Pyramids strike back: $\varepsilon$ depends on $k$</h2>
+  <p>Three fingers 120&deg; apart on a ball's equator, $\mu = 0.5$, $\lambda$ = radius:</p>
+  <table>
+    <tr><th>cone model</th><th class="num">$\varepsilon$</th><th class="num">error</th></tr>
+    <tr><td>true cone (limit of many sides)</td><td class="num">0.288</td><td class="num">&mdash;</td></tr>
+    <tr><td style="color:#cc0000">inscribed, $k = 3$</td><td class="num">0.137</td><td class="num">&minus;52%</td></tr>
+    <tr><td style="color:#cc0000">inscribed, $k = 4$</td><td class="num">0.258</td><td class="num">&minus;10%</td></tr>
+    <tr><td style="color:#cc0000">inscribed, $k = 8$</td><td class="num">0.276</td><td class="num">&minus;4%</td></tr>
+    <tr><td style="color:#cc0000">inscribed, $k = 16$</td><td class="num">0.285</td><td class="num">&minus;1%</td></tr>
+    <tr><td style="color:#0000cc">circumscribed, $k = 4$</td><td class="num">0.304</td><td class="num">+6%</td></tr>
+  </table>
+  <p class="small">Inscribed pyramids under-report quality; circumscribed ones over-report it. Computed in
+    <code>06_force_closure.py</code> with Qhull.</p>
+</section>
+
+<!-- ================================================================== 11 -->
+<section class="slide">
+  <h2>False positives are the dangerous kind</h2>
+  <div class="cols mid">
+    <div>
+      <p>Part 5's ball: three fingers at latitude $\varphi$, $\mu = 0.5$. True answer: force closure iff
+        $\varphi &lt; 26.6^\circ$. What do 4-sided pyramids say?</p>
+      <table class="small">
+        <tr><th>pyramid, turned so that&hellip;</th><th class="num">certifies up to</th></tr>
+        <tr><td>diamond, corner toward the grip plane</td><td class="num">26.6&deg;</td></tr>
+        <tr><td style="color:#cc0000">diamond, side toward the grip plane</td><td class="num">19.5&deg;</td></tr>
+        <tr><td>box, side toward the grip plane</td><td class="num">26.6&deg;</td></tr>
+        <tr><td style="color:#0000cc">box, corner toward the grip plane</td><td class="num"><b>35.3&deg;</b></td></tr>
+      </table>
+    </div>
+    <div>
+      <ul>
+        <li>The inscribed diamond can reject good grasps (19.5&deg;&ndash;26.6&deg;): a <b>false negative</b>,
+          safe but wasteful.</li>
+        <li>The circumscribed box can accept a grasp at 30&deg;, which really slips: a <b>false
+          positive</b>. In planning, that's a dropped object.</li>
+        <li>Even the pyramid's rotation about the normal changes the answer.</li>
+      </ul>
+      <div class="box small">For safety checks, use the true cone, or an inscribed pyramid with many sides.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 12 -->
+<section class="slide section">
+  <p class="kicker">Part 6a</p>
+  <h1>Case study: the pinch filter</h1>
+  <hr>
+  <p>Putting Parts 2&ndash;6 together on one real test.</p>
+</section>
+
+<!-- ================================================================== 13 -->
+<section class="slide">
+  <h2>Reading the pinch filter with everything we know</h2>
+  <div class="quote">For friction coefficient $\mu$, feasibility requires
+    $\cos(\angle(-\nhat_0, \nhat_1)) \ge \cos(2\arctan\mu)$.</div>
+  <ol>
+    <li><b>For a sphere, it is exactly Nguyen's condition</b> (Part 4): normals through the center make the
+      angle test and the segment test the same.</li>
+    <li><b>With hard point contacts in 3D, no two-finger pinch is force closure</b> (Part 5): the
+      thumb&ndash;index axis twist is free. For a ball that twist only spins it in place, but it matters
+      when reorienting it. With soft fingertips (MuJoCo <code>condim</code> $\ge 4$) the test is exact.</li>
+    <li><b>&ldquo;$\ge$&rdquo; admits zero margin.</b> At equality the contact is on the edge of slipping.</li>
+  </ol>
+  <p class="small">A fair one-line description: <i>a necessary condition for antipodal force closure that is
+    exact for spheres under a soft-finger contact model</i>. Add a margin, e.g. use $0.8\mu$, and rank the
+    survivors with $\varepsilon$.</p>
+</section>
+
+<!-- ================================================================== 14 -->
+<section class="slide">
+  <h2>Other ways to score a grasp</h2>
+  <ul>
+    <li><b>Task-oriented</b> (Li &amp; Sastry, 1988): only resist the disturbances you expect, such as
+      gravity plus small bumps, not the worst direction.</li>
+    <li><b>Grasp-map measures</b>: e.g. the smallest singular value of the matrix that maps finger forces
+      to wrenches, or the volume of the grasp wrench space.</li>
+    <li><b>Position tolerance</b>: how far each finger can slide and keep force closure. Nguyen (1988)
+      constructs <i>independent contact regions</i> for exactly this.</li>
+    <li><b>Hand-dependent</b>: can the joints actually produce the needed forces?</li>
+  </ul>
+  <p class="small">Survey: M. Roa and R. Su&aacute;rez, &ldquo;Grasp quality measures: review and
+    performance&rdquo;, Autonomous Robots 38, 2015.</p>
+</section>
+
+<!-- ================================================================== 15 -->
+<section class="slide">
+  <h2>What this series skipped</h2>
+  <ul>
+    <li><b>Motion</b>: sliding and rolling on purpose (pushing, in-hand manipulation), and the contact
+      solvers that simulate it: <code>05_contact_solvers.py</code>.</li>
+    <li><b>Patches and soft materials</b>: pressure distributions, the limit surface, rubbery fingertips.</li>
+    <li><b>Uncertainty</b>: you never know $\mu$ or the object's shape exactly. Margins are not optional.</li>
+    <li><b>Curvature</b>: with curved surfaces, fewer frictionless fingers can immobilize an object than
+      the counting argument says (Rimon &amp; Burdick, 1998).</li>
+  </ul>
+</section>
+
+<!-- ================================================================== 16 -->
+<section class="slide">
+  <h2>Check yourself</h2>
+  <ol>
+    <li>Why does $\varepsilon$ need a length scale $\lambda$?
+      <details><summary>answer</summary><div>Wrenches mix newtons and newton-meters; a distance in wrench
+        space only makes sense after putting torques in force units.</div></details></li>
+    <li>A circumscribed 4-sided pyramid says &ldquo;force closure&rdquo;; an inscribed one says
+      &ldquo;not&rdquo;. What do you conclude?
+      <details><summary>answer</summary><div>Nothing yet: the truth is in between. Use more sides or the true
+        cone.</div></details></li>
+    <li>The LP finds a strictly positive squeeze, but the primitive wrenches have rank 5 in 3D. Force
+      closure?
+      <details><summary>answer</summary><div>No. Some wrench direction is unreachable, like the twist
+        about a two-finger grasp axis.</div></details></li>
+  </ol>
+</section>
+
+<!-- ================================================================== 17 -->
+<section class="slide">
+  <h2>Cheat sheet</h2>
+  <table class="small">
+    <tr><td>Coulomb cone</td><td>$\norm{\vf_t} \le \mu f_n$, half-angle $\alpha = \arctan\mu$</td></tr>
+    <tr><td>Elliptic cone</td><td>$(f_{t1}/\mu_1)^2 + (f_{t2}/\mu_2)^2 \le f_n^2$</td></tr>
+    <tr><td>Sliding friction</td><td>last-touch point of the slice against $\vv$; circle: $-\mu f_n \vv/\norm{\vv}$</td></tr>
+    <tr><td>$k$-sided pyramid</td><td>inscribed: $1 - \cos(\pi/k)$ short; circumscribed: $1/\cos(\pi/k) - 1$ over</td></tr>
+    <tr><td>Box on a floor</td><td>slides at $P = \mu mg$, tips at $P = mg\,w/(2h)$</td></tr>
+    <tr><td>Force closure</td><td>full rank + a squeeze strictly inside all cones</td></tr>
+    <tr><td>Two fingers (Nguyen)</td><td>segment strictly inside both cones; 3D needs soft fingers</td></tr>
+    <tr><td>Box / disk / wedge pinch</td><td>$d &lt; \mu w$ / misplacement $&lt; 2\alpha$ / half-angle $&lt; \alpha$</td></tr>
+    <tr><td>Normal-angle test</td><td>$\angle(-\nhat_0, \nhat_1) \le 2\alpha$: necessary; exact for spheres</td></tr>
+    <tr><td>Three fingers</td><td>squeeze is coplanar + concurrent; ball at latitude $\varphi$: $\tan\varphi &lt; \mu$</td></tr>
+    <tr><td>Quality $\varepsilon$</td><td>distance from origin to the hull of primitive wrenches ($\vtau/\lambda$)</td></tr>
+  </table>
+</section>
+
+<!-- ================================================================== 18 -->
+<section class="slide">
+  <h2>Further reading</h2>
+  <ol class="refs">
+    <li>M. T. Mason. <i>Mechanics of Robotic Manipulation</i>. MIT Press, 2001.</li>
+    <li>R. M. Murray, Z. Li, S. S. Sastry. <i>A Mathematical Introduction to Robotic Manipulation</i>, Ch. 5. CRC Press, 1994.</li>
+    <li>K. M. Lynch, F. C. Park. <i>Modern Robotics</i>, Ch. 12 (Grasping and Manipulation). Cambridge, 2017.</li>
+    <li>V.-D. Nguyen. Constructing force-closure grasps. <i>IJRR</i> 7(3), 1988.</li>
+    <li>I.-M. Chen, J. W. Burdick. Finding antipodal point grasps on irregularly shaped objects. <i>IEEE T-RA</i> 9(4), 1993.</li>
+    <li>C. Ferrari, J. Canny. Planning optimal grasps. <i>ICRA</i>, 1992.</li>
+    <li>B. Mirtich, J. Canny. Easily computable optimum grasps in 2-D and 3-D. <i>ICRA</i>, 1994.</li>
+    <li>X. Markenscoff, L. Ni, C. H. Papadimitriou. The geometry of grasping. <i>IJRR</i> 9(1), 1990.</li>
+    <li>E. Rimon, J. W. Burdick. Mobility of bodies in contact, parts I and II. <i>IEEE T-RA</i> 14(5), 1998.</li>
+    <li>D. E. Stewart, J. C. Trinkle. An implicit time-stepping scheme for rigid body dynamics with inelastic
+      collisions and Coulomb friction. <i>IJNME</i> 39(15), 1996.</li>
+    <li>S. Goyal, A. Ruina, J. Papadopoulos. Planar sliding with dry friction. <i>Wear</i> 143, 1991.</li>
+    <li>M. Roa, R. Su&aacute;rez. Grasp quality measures: review and performance. <i>Autonomous Robots</i> 38, 2015.</li>
+    <li>MuJoCo documentation, &ldquo;Computation: friction cones&rdquo; and the XML reference.</li>
+  </ol>
+</section>
+
+<!-- ================================================================== 19 -->
+<section class="slide">
+  <h2>Where to go next</h2>
+  <ul>
+    <li><code>tutorial/04_friction_cones.py</code>: every number from Parts 1&ndash;3, plus a puck
+      simulator you can break.</li>
+    <li><code>tutorial/06_force_closure.py</code>: Nguyen's theorem tested on random grasps, the 3D
+      finger results, and $\varepsilon$ with Qhull.</li>
+    <li><code>tutorial/05_contact_solvers.py</code>: how simulators find contact forces inside these
+      cones, step after step.</li>
+    <li>The tutorial text (<code>trajopt_contact_tutorial_v5.tex</code>): chapters on Coulomb friction,
+      contact solvers, and grasping.</li>
+  </ul>
+  <p>[<a href="index.html">back to the index</a>] [<a href="01_pushing.html">start again at Part 1</a>]</p>
+</section>
+
+</main>
+<script>
+(function () {
+  const C = Fig.C, d = Fig.deg, V = Contact.V, CT = Contact;
+  const mu0 = 0.5;
+
+  // Edge vectors (unit normal part) of fingers whose inward normals point at angles thetas.
+  function fanEdges(thetas, mu) {
+    const out = [];
+    thetas.forEach((t) => { const n = Fig.dir(t), tt = V.perp(n); [-1, 1].forEach((s) => out.push(V.add(n, V.mul(tt, s * mu)))); });
+    return out;
+  }
+  function axes(F, L) {
+    F.arrow([-L, 0], [L, 0], { width: 1, color: C.gray, label: "f_x", loff: [-4, 16], lsize: 18 });
+    F.arrow([0, -L], [0, L], { width: 1, color: C.gray, label: "f_y", loff: [18, 6], lsize: 18 });
+  }
+
+  // --- hero: three-finger force-space hull and inscribed circle
+  {
+    const F = Fig("#f-hero", { w: 520, h: 300, xlim: [-1.75, 1.75], ylim: [-1.3, 1.45] });
+    axes(F, 1.4);
+    const E = fanEdges([d(-90), d(30), d(150)], 0.4), H = CT.hull2(E);
+    F.poly(H, { fill: C.cone, fillOpacity: 0.85, width: 2 });
+    E.forEach((p) => F.dot(p, { rpx: 4 }));
+    const r = CT.inradius2(H);
+    F.circle([0, 0], r, { color: C.red, width: 2.5 });
+    F.arrow([0, 0], V.mul(Fig.dir(d(200)), r), { color: C.red, width: 2, label: "ε", loff: [-4, -12] });
+    F.dot([0, 0], { rpx: 3 });
+  }
+
+  // --- primitive wrenches of a planar two-finger grasp, drawn in the (f_x, f_y) plane
+  {
+    const F = Fig("#f-prims", { w: 520, h: 360, xlim: [-2.3, 2.3], ylim: [-1.3, 1.5] });
+    F.rect([-1.2, 0], 1.3, 1.4, { fill: "#dddddd" });
+    const cs = [[[-1.85, 0], [1, 0]], [[-0.55, 0.2], [-1, 0]]];
+    cs.forEach(([p, n]) => {
+      F.wedge(p, Math.atan2(n[1], n[0]), Math.atan(mu0), 0.6, { flat: true, fillOpacity: 0.75 });
+      fanEdges([Math.atan2(n[1], n[0])], mu0).forEach((e) => F.arrow(p, V.add(p, V.mul(e, 0.55)), { color: C.red, width: 2 }));
+      F.dot(p);
+    });
+    F.arrow([0.1, 0], [0.7, 0], { width: 2.5 });
+    const W = CT.edgeWrenches2(cs.map(([p, n]) => ({ p, n })), mu0);
+    F.text([1.5, 1.25], "4 primitive wrenches", { anchor: "middle", size: 18 });
+    W.forEach((w, i) => {
+      const y = 0.75 - i * 0.45;
+      F.text([1.5, y], "(" + w.map((x) => x.toFixed(2)).join(", ") + ")", { anchor: "middle", size: 17, color: C.red });
+    });
+    F.text([1.5, -1.15], "(f_x, f_y, τ)", { anchor: "middle", size: 17, italic: true, math: true });
+  }
+
+  // --- origin inside / outside the hull (2D analogy)
+  {
+    const F = Fig("#f-hull", { w: 520, h: 330, xlim: [-2.7, 2.7], ylim: [-1.35, 1.35] });
+    const A = [[-2.2, -0.6], [-0.6, -0.9], [-0.3, 0.3], [-1.2, 1.0], [-2.3, 0.5], [-1.5, 0.0]];
+    const cA = [-1.35, 0.05];
+    const B = [[0.6, 0.1], [2.3, -0.5], [2.1, 0.9], [1.1, 1.0], [1.6, 0.3]];
+    const cB = [0.4, -0.7];
+    [[A, cA, C.green, "inside: force closure"], [B, cB, C.red, "outside: escapes"]].forEach(([P, o, col, lab]) => {
+      F.poly(CT.hull2(P), { fill: col, fillOpacity: 0.15, color: col, width: 2 });
+      P.forEach((p) => F.dot(p, { rpx: 4 }));
+      F.dot(o, { rpx: 6, fill: col, stroke: "#000" });
+      F.text([o[0], o[1] - 0.25], "origin", { anchor: "middle", size: 16 });
+    });
+    F.text([-1.35, -1.2], "inside: force closure", { anchor: "middle", size: 17, color: C.green });
+    F.text([1.4, -1.2], "outside: it escapes", { anchor: "middle", size: 17, color: C.red });
+  }
+
+  // --- L1 vs Linf grasp wrench space (forces only)
+  {
+    const F = Fig("#f-l1inf", { w: 520, h: 360, xlim: [-2.3, 2.3], ylim: [-1.3, 1.3] });
+    axes(F, 2.1);
+    const E1 = fanEdges([0], mu0), E2 = fanEdges([Math.PI], mu0);
+    // L_inf: Minkowski sum of each finger's fan conv(0, e1, e2)
+    const fan1 = [[0, 0]].concat(E1), fan2 = [[0, 0]].concat(E2), sum = [];
+    fan1.forEach((a) => fan2.forEach((b) => sum.push(V.add(a, b))));
+    F.poly(CT.hull2(sum), { fill: "#ccccff", fillOpacity: 0.6, color: C.blue, width: 2 });
+    F.poly(CT.hull2(E1.concat(E2)), { fill: C.cone, fillOpacity: 0.9, color: "#996600", width: 2 });
+    E1.concat(E2).forEach((p) => F.dot(p, { rpx: 5 }));
+    F.text([1.2, 0.95], "L∞", { size: 20, color: C.blue, bold: true });
+    F.text([0.3, 0.3], "L₁", { size: 20, color: "#996600", bold: true });
+  }
+
+  // --- epsilon: hull with inscribed circle and weakest direction
+  {
+    const F = Fig("#f-eps", { w: 520, h: 380, xlim: [-1.7, 1.7], ylim: [-1.25, 1.25] });
+    axes(F, 1.55);
+    const E = fanEdges([d(-100), d(20), d(135)], 0.45), H = CT.hull2(E);
+    F.poly(H, { fill: C.cone, fillOpacity: 0.85, width: 2 });
+    E.forEach((p) => F.dot(p, { rpx: 4 }));
+    let best = null, bd = Infinity;
+    for (let i = 0; i < H.length; i++) {
+      const a = H[i], b = H[(i + 1) % H.length], e = V.sub(b, a);
+      const t = V.dot(V.mul(a, -1), e) / V.dot(e, e), q = V.add(a, V.mul(e, t));
+      if (V.norm(q) < bd) { bd = V.norm(q); best = q; }
+    }
+    F.circle([0, 0], bd, { color: C.red, width: 2.5 });
+    F.arrow([0, 0], best, { color: C.red, width: 2.5 });
+    F.text(V.add(best, [0.35, -0.4]), "weakest direction", { size: 17, color: C.red });
+    F.dot([0, 0], { rpx: 3 });
+  }
+
+  // --- epsilon of an off-center box pinch (interactive)
+  {
+    const F = Fig("#f-epsbox", { w: 560, h: 440, xlim: [-2.2, 2.2], ylim: [-2.45, 1.45] });
+    const sd = document.getElementById("eb-d"), sm = document.getElementById("eb-mu");
+    const w = 2, H = 1.8;
+    const eps = (off, mu) => CT.epsilon3(CT.edgeWrenches2([
+      { p: [-w / 2, -off / 2], n: [1, 0] }, { p: [w / 2, off / 2], n: [-1, 0] }], mu, 1));
+    function draw() {
+      const off = +sd.value, mu = +sm.value;
+      F.clear();
+      // the grasp
+      F.rect([0, 0.45], w * 0.55, H * 0.55, { fill: "#dddddd" });
+      const s = 0.55, p1 = [-w / 2 * s, 0.45 - off / 2 * s], p2 = [w / 2 * s, 0.45 + off / 2 * s];
+      if (Math.abs(off / 2) <= H / 2) {
+        F.wedge(p1, 0, Math.atan(mu), 0.55, { flat: true, fillOpacity: 0.75 });
+        F.wedge(p2, Math.PI, Math.atan(mu), 0.55, { flat: true, fillOpacity: 0.75 });
+        const ok = off < mu * w;
+        F.line(p1, p2, { color: ok ? C.green : C.red, width: 3 });
+        F.dot(p1); F.dot(p2);
+      }
+      // the curve eps(d)
+      const X0 = -1.9, Y0 = -2.2, SX = 3.6 / 1.6, SY = 1.3 / 0.6;
+      F.arrow([X0, Y0], [X0 + 3.75, Y0], { width: 1.2, label: "d", loff: [-4, 14], lsize: 18 });
+      F.arrow([X0, Y0], [X0, Y0 + 1.45], { width: 1.2, label: "ε", loff: [12, 6], lsize: 18 });
+      const pts = [];
+      for (let i = 0; i <= 80; i++) { const dd = (1.6 * i) / 80; pts.push([X0 + dd * SX, Y0 + Math.min(0.6, eps(dd, mu)) * SY]); }
+      F.path(pts, { color: C.blue, width: 2.5 });
+      const lim = mu * w;
+      if (lim <= 1.6) { F.line([X0 + lim * SX, Y0], [X0 + lim * SX, Y0 + 1.3], { dash: "4 3", width: 1, color: C.gray }); F.text([X0 + lim * SX, Y0 - 0.14], "μw", { anchor: "middle", size: 16, math: true, italic: true }); }
+      const e = eps(off, mu);
+      F.dot([X0 + off * SX, Y0 + Math.min(0.6, e) * SY], { rpx: 6, fill: e > 0 ? C.green : C.red, stroke: "#000" });
+      document.getElementById("eb-d-out").textContent = off.toFixed(2);
+      document.getElementById("eb-mu-out").textContent = mu.toFixed(2);
+      document.getElementById("eb-read").textContent =
+        "d = " + off.toFixed(2) + ",  mu w = " + (mu * w).toFixed(2) + "\nepsilon = " + e.toFixed(4) +
+        "\n" + (e > 0 ? "force closure" : "NOT force closure");
+    }
+    [sd, sm].forEach((x) => x.addEventListener("input", draw));
+    draw();
+  }
+})();
+</script>
+</body>
+</html>

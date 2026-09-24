@@ -10,8 +10,9 @@ separate), the sliding-block-with-friction simulation against the analytic
 -mu*g deceleration, and the 1D complementarity-free (ComFree) closed-form
 contact force from the tutorial's worked example (beta = 10, lambda_N = mg).
 
-Run locally:        marimo edit 04_contact_solvers.py
-Export for web:     marimo export html-wasm 04_contact_solvers.py -o site/
+Run locally:        marimo edit 05_contact_solvers.py
+Export for web:     marimo export html-wasm 05_contact_solvers.py -o site/
+Background:         04_friction_cones.py (friction cones and pyramids from scratch)
 """
 
 import marimo
@@ -279,6 +280,9 @@ def _(mo):
           add `rho*I` proximal regularization and watch uniqueness return.
         - Implement the ADMM loop using `project_soc` from §3 — the tutorial's
           Algorithm box maps line-by-line onto ~15 lines of numpy.
+
+        **Next:** `06_force_closure.py` — the same friction cones, used to
+        decide whether a grasp can hold an object at all.
         """
     )
     return
