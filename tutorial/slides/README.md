@@ -1,16 +1,19 @@
 # Slides
 
-Six HTML slide decks, *Friction & Grasping from Scratch*, plus the retro
-theme they're built on. Open `index.html` in any browser.
+The slide decks of *Optimization, Contact, and Control from Scratch*: 22 decks in six parts,
+from vectors to hybrid force-velocity control, plus the retro theme and the libraries they are
+built on. Open `index.html` in any browser. Decks 11-16 are written; the other sixteen are
+planned (scope in `../PLAN.md`; conventions and status in `../../AGENTS.md`).
 
-| deck | topic | companion code |
+| decks | part | companion notebook |
 |---|---|---|
-| `11_coulomb_friction.html` | forces, Coulomb's law, the 2D friction cone | `../04_friction_cones.py` |
-| `12_friction_cone_3d.html` | 3D cones, maximum dissipation, elliptic cones, pyramids | `../04_friction_cones.py` |
-| `13_contact_wrench_cone.html` | torque, slide-or-tip, indeterminacy, wrench cones | `../04_friction_cones.py` |
-| `14_planar_force_closure.html` | force closure, Nguyen's theorem, the normal-angle test | `../06_force_closure.py` |
-| `15_grasps_in_3d.html` | 6D wrenches, soft fingers, three-finger grasps | `../06_force_closure.py` |
-| `16_grasp_quality.html` | LP / convex-hull tests, Ferrari–Canny epsilon | `../06_force_closure.py` |
+| 01-04 | mathematical toolkit | `../00_math_toolkit.py` |
+| 05-07 | optimization | `../01_optimization_fundamentals.py` |
+| 08-10 | trajectory optimization and control | `../02_lqr_ilqr_sliding_block.py`, `../03_sampling_mpc.py` |
+| 11-13 | Coulomb friction, friction cones, contact wrench cones (written) | `../04_friction_cones.py` |
+| 14-16 | force closure, 3D grasps, grasp quality (written) | `../06_force_closure.py` |
+| 17-20 | rigid-body motion, contact dynamics, contact solvers, complementarity-free contact | `../05_contact_solvers.py` |
+| 21-22 | hybrid force-velocity control, trajectory optimization through contact | `../07_hybrid_servoing.py`, `../08_contact_trajopt.py` |
 
 ## Why HTML
 
@@ -60,3 +63,14 @@ Copy `template.html`; it demonstrates every layout. The pieces:
 - `lib/contact.js`: the mechanics behind the live figures (cone tests, maximum
   dissipation, puck simulation, Nguyen, exact planar force-closure and
   epsilon). Each function has a Python twin in the companion notebooks.
+- `lib/plot.js`, `lib/num.js`, `lib/mj.js`: plotting (axes, contours, heat maps,
+  regions, strip charts), small dense numerics (SVD, null spaces, LP, QP), and
+  real MuJoCo 3.14.0 in the slide (WebAssembly in `lib/mujoco/`). Each file's
+  header comment is its manual.
+- `data-code="NOTEBOOK.py:function"` on a slide links it to the notebook
+  function that computes its numbers (key `C`, or the `[code]` footer link);
+  `tools/sync.py` regenerates `lib/codemap.js` and `lib/models.js`.
+- Checking: `uv run tools/check.py NN [--shots DIR]` (layout, math, links,
+  figures), `uv run tools/shoot.py` (screenshots after interactions),
+  `uv run tools/twins.py NN` (JavaScript vs the notebook's Python). See
+  `AGENTS.md` section 8 for the definition of a finished deck.
