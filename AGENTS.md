@@ -116,8 +116,10 @@ MuJoCo demos) is planned work.
 The tex states results without building them (KKT, Riccati, the Q-function expansion, Cholesky,
 the Schur complement, matrix calculus). The decks build them. At least one tex table is wrong:
 in the gradient-descent table at $z_0 = 2$, $\alpha = 0.05$ (lines 294-297) every row after
-$k = 0$ is off. The tex gives $J(1.15) = 0.948$, $J'(1.15) = -2.908$, $z_2 = 1.295$; the correct
-values are $1.609$, $-2.117$, $1.256$, and the iterates continue $1.312$, $1.335$. Treat every tex
+$k = 0$ was off (the tex gave $J(1.15) = 0.948$, $J'(1.15) = -2.908$, $z_2 = 1.295$; the correct
+values are $1.609$, $-2.117$, $1.256$, then $1.312$, $1.335$). That table is now corrected; the
+rest of the tex is unchecked. The tex does not build on the owner's workstation as installed:
+`algorithm2e.sty` is missing (Ubuntu package `texlive-science`). Treat every tex
 number as unverified until a notebook recomputes it, and record tex errors you find in the deck's
 notebook section and in the tex itself.
 
@@ -361,10 +363,12 @@ before building decks on them. Known problems:
   pivot tolerance.
 * `tutorial/mjview.py` (mjviser in marimo) and `tools/twins/mujoco.json` do not exist yet.
 
+Also done: the gradient-descent table in the tex (section 3), corrected but not rebuilt, since
+the tex needs `algorithm2e.sty`.
+
 Not started, in order: decks 01-10 and 17-22, the lab, and the integration of decks 11-16 (scope
 of each in [`tutorial/PLAN.md`](tutorial/PLAN.md), which also holds the concept-ownership table
-and the assignment of MuJoCo demos to decks); corrections to the tex (starting with the
-gradient-descent table in section 3) and cross-references from it to the decks; a rewritten
+and the assignment of MuJoCo demos to decks); corrections to the rest of the tex and cross-references from it to the decks; a rewritten
 `index.html` and `slides/README.md` with the 22-deck series and the Hou & Mason reading path.
 
 Update this section and the status columns above whenever a piece lands.
