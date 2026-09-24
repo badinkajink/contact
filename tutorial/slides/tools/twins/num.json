@@ -363,7 +363,7 @@
   },
   {
    "name": "rref step text: scale, add, swap, and a negative scale",
-   "py": "[['R1 ← (1/2) R1', 'R2 ← R2 − R1', 'R1 ← R1 − 2 R2'], ['R1 ↔ R2', 'R1 ← (1/3) R1', 'R1 ← R1 − R2'], ['R1 ← −(1/2) R1']]",
+   "py": "[['R1 \u2190 (1/2) R1', 'R2 \u2190 R2 \u2212 R1', 'R1 \u2190 R1 \u2212 2 R2'], ['R1 \u2194 R2', 'R1 \u2190 (1/3) R1', 'R1 \u2190 R1 \u2212 R2'], ['R1 \u2190 \u2212(1/2) R1']]",
    "js": "[[[2, 4], [1, 3]], [[0, 1], [3, 3]], [[-2, 1], [0, 0]]].map((A) => Num.rref(A).steps.map((s) => s.text))"
   },
   {
@@ -373,7 +373,7 @@
   },
   {
    "name": "rref rank equals rank() on the integer matrices",
-   "py": "[3, 2, 3, 2]",
+   "py": "[int(np.linalg.matrix_rank(np.array(D[k], float))) for k in ['RREF1', 'RREF2', 'RREF3', 'RREF4']]",
    "js": "['RREF1', 'RREF2', 'RREF3', 'RREF4'].map((k) => Num.rref(D[k]).rank)"
   },
   {
@@ -429,14 +429,14 @@
    "js": "Num.lp(D.LP1).duals"
   },
   {
-   "name": "lp with an equality row and mixed bounds: status, x, fun, and duals equal linprog's",
-   "py": "linprog(D['LP2'])",
-   "js": "Num.lp(D.LP2)"
+   "name": "lp with an equality row and mixed bounds: status and objective equal linprog's (the optimum x is not unique)",
+   "py": "{k: linprog(D['LP2'])[k] for k in ('status', 'fun')}",
+   "js": "(r => ({status: r.status, fun: r.fun}))(Num.lp(D.LP2))"
   },
   {
-   "name": "lp with a >= row written as a negative <= row",
-   "py": "linprog(D['LP3'])",
-   "js": "Num.lp(D.LP3)"
+   "name": "lp with a >= row written as a negative <= row: status and objective equal linprog's (the optimum x is not unique)",
+   "py": "{k: linprog(D['LP3'])[k] for k in ('status', 'fun')}",
+   "js": "(r => ({status: r.status, fun: r.fun}))(Num.lp(D.LP3))"
   },
   {
    "name": "lp infeasible: status 'infeasible', fun = Infinity, x = null",

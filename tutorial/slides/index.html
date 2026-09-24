@@ -3,101 +3,182 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Friction &amp; Grasping from Scratch</title>
+<title>Optimization, Contact, and Control from Scratch</title>
 <style>
 body { font-family: "Times New Roman", Times, serif; font-size: 17px; color: #000; background: #fff;
-    max-width: 700px; margin: 30px auto; padding: 0 16px; }
+    max-width: 760px; margin: 30px auto; padding: 0 16px; }
   h1 { font-size: 24px; margin-bottom: 4px; }
   h2 { font-size: 19px; border-bottom: 1px solid #000; margin-top: 40px; }
-  dt { font-weight: bold; margin-top: 14px; }
+  h3 { font-size: 17px; margin: 22px 0 4px; }
+  dt { font-weight: bold; margin-top: 12px; }
   dd { margin-left: 24px; }
+  .planned { color: #666; }
+  .planned dt { font-weight: normal; }
   pre, code { font-family: "Courier New", Courier, monospace; }
   pre { background: #f2f2f2; padding: 10px; overflow-x: auto; font-size: 14px; }
   kbd { border: 1px solid #000; padding: 0 3px; font-size: 14px; }
   table { border-collapse: collapse; }
-  td { padding: 1px 12px 1px 0; vertical-align: top; }
+  td, th { padding: 2px 12px 2px 0; vertical-align: top; text-align: left; }
+  table.grid td, table.grid th { border: 1px solid #000; padding: 2px 8px; }
+  table.grid th { background: #f2f2f2; }
 </style>
 </head>
 <body>
 
-<h1>Friction &amp; Grasping from Scratch</h1>
+<h1>Optimization, Contact, and Control from Scratch</h1>
 
 <p>
-Six short slide decks on Coulomb friction, friction cones, and force closure, starting from
-&ldquo;what is a vector?&rdquo; and ending at grasp quality metrics. Written for a strong high
-schooler or a first-year undergraduate; everything else is built along the way.
+Twenty-two slide decks that start at &ldquo;what is a vector?&rdquo; and end at reading
+contact-rich robotics papers, such as Hou &amp; Mason's hybrid force-velocity control
+(<a href="https://arxiv.org/abs/1903.02715">ICRA 2019</a>,
+<a href="https://arxiv.org/abs/2011.04872">ICRA 2021</a>), without a walkthrough. Written for a
+strong high-school senior or a first-year undergraduate. Every tool is built before it is used,
+every number on a slide is recomputed in a companion notebook, and several slides run the real
+MuJoCo physics engine in the browser.
 </p>
 
 <p>
-[<a href="11_coulomb_friction.html">start</a>]
-[<a href="../04_friction_cones.py">code, parts 1&ndash;3</a>]
-[<a href="../06_force_closure.py">code, parts 4&ndash;6</a>]
+Status, September 2026: decks 11&ndash;16 are written; the other sixteen and the lab are planned
+(<a href="../PLAN.md">plan</a>, <a href="../../AGENTS.md">contributor guide</a>). Planned decks are
+listed in gray without links.
+</p>
+
+<p>
+[<a href="11_coulomb_friction.html">start with deck 11</a>]
 [<a href="template.html">slide template</a>]
+[<a href="https://github.com/badinkajink/contact">source</a>]
 </p>
 
 <hr>
 
 <h2>The decks</h2>
-<dl>
-  <dt>1. Pushing on Things</dt>
-  <dd>Vectors, forces, the normal force, Coulomb's law, and the 2D friction cone. The tilting-board
-    experiment. [<a href="11_coulomb_friction.html">slides</a>] [<a href="11_coulomb_friction.html?mode=read">read</a>]</dd>
 
-  <dt>2. The Friction Cone in 3D</dt>
-  <dd>The round cone and its slices, maximum dissipation, elliptic (anisotropic) cones, pyramid
-    approximations and exactly what they cost, torsional friction, the dual cone.
-    [<a href="12_friction_cone_3d.html">slides</a>] [<a href="12_friction_cone_3d.html?mode=read">read</a>]</dd>
-
-  <dt>3. Many Contacts</dt>
-  <dd>Torque, slide-or-tip, center of pressure, the wobbly four-legged table, and the contact wrench
-    cone. [<a href="13_contact_wrench_cone.html">slides</a>] [<a href="13_contact_wrench_cone.html?mode=read">read</a>]</dd>
-
-  <dt>4. Holding Things with Two Fingers</dt>
-  <dd>Force closure, positive spans, squeezing, Nguyen's theorem with a proof, three worked examples,
-    and when the normal-angle shortcut is exact.
-    [<a href="14_planar_force_closure.html">slides</a>] [<a href="14_planar_force_closure.html?mode=read">read</a>]</dd>
-
-  <dt>5. Grasping in 3D</dt>
-  <dd>Cross products and 6D wrenches, why two hard fingers never suffice, soft fingers, antipodal pairs
-    (Chen &amp; Burdick), three-finger grasps and the three-force theorem, Mirtich &amp; Canny's optimum
-    grasps. [<a href="15_grasps_in_3d.html">slides</a>] [<a href="15_grasps_in_3d.html?mode=read">read</a>]</dd>
-
-  <dt>6. How Good Is a Grasp?</dt>
-  <dd>Force closure as a convex hull or a linear program, the Ferrari&ndash;Canny quality, and how
-    pyramid approximations create false positives.
-    [<a href="16_grasp_quality.html">slides</a>] [<a href="16_grasp_quality.html?mode=read">read</a>]</dd>
+<h3>Part I. Mathematical toolkit</h3>
+<dl class="planned">
+  <dt>01. Vectors, matrices, and linear maps</dt>
+  <dd>Span, basis, matrices as maps, row reduction, rank, null space, solution sets. (planned)</dd>
+  <dt>02. Eigenvalues, singular values, and least squares</dt>
+  <dd>Projection, orthonormal bases, quadratic forms, SVD, condition number, least squares, minimum-norm solutions, the Schur complement. (planned)</dd>
+  <dt>03. Derivatives, gradients, and Jacobians</dt>
+  <dd>Taylor models, gradients and level sets, the Hessian, Jacobians, the chain rule, linearized dynamics, finite differences. (planned)</dd>
+  <dt>04. Probability, Gaussians, and sampling</dt>
+  <dd>Mean and variance, Gaussians and covariance, Monte Carlo, softmax weights, fitting elite samples. (planned)</dd>
 </dl>
+
+<h3>Part II. Optimization</h3>
+<dl class="planned">
+  <dt>05. Unconstrained optimization: gradient descent and Newton's method</dt>
+  <dd>Optimality conditions, line search, convergence rates, conditioning, Newton, Gauss-Newton, projected gradient descent on the unit sphere. (planned)</dd>
+  <dt>06. Constrained optimization: Lagrange multipliers and the KKT conditions</dt>
+  <dd>Multipliers as prices, complementary slackness, KKT systems, penalty, augmented Lagrangian, barrier and projection methods. (planned)</dd>
+  <dt>07. Convexity, duality, and complementarity</dt>
+  <dd>Convex sets and functions, LP geometry and feasibility, cones, duality, LCP and NCP. (planned)</dd>
+</dl>
+
+<h3>Part III. Trajectory optimization and control</h3>
+<dl class="planned">
+  <dt>08. Optimal control, dynamic programming, and LQR</dt>
+  <dd>Discrete-time optimal control, shooting and collocation, the Bellman equation, the Riccati recursion, MPC. (planned)</dd>
+  <dt>09. Differential dynamic programming and iLQR</dt>
+  <dd>The Q-function, backward and forward passes, regularization, control limits. (planned)</dd>
+  <dt>10. Sampling-based model predictive control and MuJoCo MPC</dt>
+  <dd>Predictive sampling, MPPI, CEM, splines, MuJoCo MPC's residuals and planners. (planned)</dd>
+</dl>
+
+<h3>Part IV. Contact statics and grasping</h3>
+<dl>
+  <dt>11. Forces and Coulomb friction</dt>
+  <dd>Vectors, forces, the normal force, Coulomb's law, the 2D friction cone, the tilting-board
+    experiment. [<a href="11_coulomb_friction.html">slides</a>] [<a href="11_coulomb_friction.html?mode=read">read</a>]</dd>
+  <dt>12. The friction cone in 3D</dt>
+  <dd>The round cone and its slices, maximum dissipation, elliptic cones, pyramid approximations
+    and what they cost, torsional friction, the dual cone.
+    [<a href="12_friction_cone_3d.html">slides</a>] [<a href="12_friction_cone_3d.html?mode=read">read</a>]</dd>
+  <dt>13. Multiple contacts and the contact wrench cone</dt>
+  <dd>Torque, slide-or-tip, center of pressure, the four-legged table, the contact wrench cone.
+    [<a href="13_contact_wrench_cone.html">slides</a>] [<a href="13_contact_wrench_cone.html?mode=read">read</a>]</dd>
+  <dt>14. Planar force closure with two fingers</dt>
+  <dd>Force closure, positive spans, Nguyen's theorem with a proof, when the normal-angle test is exact.
+    [<a href="14_planar_force_closure.html">slides</a>] [<a href="14_planar_force_closure.html?mode=read">read</a>]</dd>
+  <dt>15. Grasps in 3D</dt>
+  <dd>6D wrenches, soft fingers, antipodal pairs, three-finger grasps, the three-force theorem.
+    [<a href="15_grasps_in_3d.html">slides</a>] [<a href="15_grasps_in_3d.html?mode=read">read</a>]</dd>
+  <dt>16. Grasp quality metrics</dt>
+  <dd>Force closure as a convex hull or a linear program, the Ferrari&ndash;Canny quality, false
+    positives from pyramids. [<a href="16_grasp_quality.html">slides</a>] [<a href="16_grasp_quality.html?mode=read">read</a>]</dd>
+</dl>
+
+<h3>Part V. Contact dynamics and simulation</h3>
+<dl class="planned">
+  <dt>17. Rigid-body motion: rotations, quaternions, twists, and wrenches</dt>
+  <dd>Configuration space, SO(3), gimbal lock, quaternions, why q-dot is not a velocity, twists, the adjoint, virtual work. (planned)</dd>
+  <dt>18. Rigid-body dynamics with contact</dt>
+  <dd>The manipulator equation, holonomic constraints, contact Jacobians, Signorini, impulses, time stepping, the quasi-static limit. (planned)</dd>
+  <dt>19. Contact solvers: LCP, CCP, and MuJoCo's soft contact</dt>
+  <dd>Pyramid LCPs and PGS, the Anitescu relaxation, solref and solimp in real MuJoCo, Drake, ADMM. (planned)</dd>
+  <dt>20. Complementarity-free contact</dt>
+  <dd>Closed-form forces as a spring in the dual cone, automatic Coulomb satisfaction, smoothing. (planned)</dd>
+</dl>
+
+<h3>Part VI. Synthesis</h3>
+<dl class="planned">
+  <dt>21. Hybrid force-velocity control</dt>
+  <dd>Natural and artificial constraints, selection matrices, Hou &amp; Mason 2019 and 2021, block tilting in MuJoCo. (planned)</dd>
+  <dt>22. Trajectory optimization through contact</dt>
+  <dd>Contact-implicit optimization, smoothing, sampling MPC through contact, reading a contact-rich paper. (planned)</dd>
+</dl>
+
+<h2>Reading path for Hou &amp; Mason</h2>
+<p>A six-week path to the two hybrid force-velocity control papers, one week per row, then the lab
+in <code>tutorial/labs/hybrid_servoing/</code> (planned), which reimplements both papers' algorithms.</p>
+<table class="grid">
+  <tr><th>week</th><th>topic</th><th>decks</th></tr>
+  <tr><td>1</td><td>vectors, span, rank, null space, non-square matrices</td><td>01</td></tr>
+  <tr><td>2</td><td>projection, conditioning, fragility vs infeasibility</td><td>02</td></tr>
+  <tr><td>3</td><td>statics, contact modes, Coulomb friction, friction cones, the four-legged table</td><td><a href="11_coulomb_friction.html">11</a>, <a href="12_friction_cone_3d.html">12</a>, <a href="13_contact_wrench_cone.html">13</a></td></tr>
+  <tr><td>4</td><td>rigid-body motion, the Jacobian, the chain rule</td><td>03, 17</td></tr>
+  <tr><td>5</td><td>gradient descent, least squares, linear programming, KKT systems</td><td>05, 06, 07</td></tr>
+  <tr><td>6</td><td>rotations and quaternions, then the papers themselves</td><td>17, 21</td></tr>
+</table>
 
 <h2>Using the slides</h2>
 <table>
   <tr><td><kbd>&rarr;</kbd> <kbd>space</kbd> / <kbd>&larr;</kbd></td><td>next / previous (steps first, then slides)</td></tr>
   <tr><td><kbd>R</kbd></td><td>reading view: every slide on one page, with notes</td></tr>
+  <tr><td><kbd>C</kbd></td><td>the notebook code behind the current slide</td></tr>
+  <tr><td><kbd>M</kbd></td><td>series menu</td></tr>
   <tr><td><kbd>F</kbd></td><td>fullscreen</td></tr>
-  <tr><td>12 <kbd>Enter</kbd></td><td>jump to slide 12 (or link to <code>deck.html#12</code>)</td></tr>
+  <tr><td>12 <kbd>Enter</kbd></td><td>jump to slide 12 (or link to <code>deck.html#12</code> or <code>deck.html#slide-id</code>)</td></tr>
   <tr><td><kbd>?</kbd></td><td>key help</td></tr>
 </table>
-<p>
-Slides with sliders are live: drag things. They work offline; KaTeX is bundled in <code>lib/</code>.
-</p>
+<p>Slides with sliders are live: drag things. Everything works offline from the file system;
+KaTeX and MuJoCo 3.14.0 (WebAssembly) are bundled in <code>lib/</code>.</p>
+
+<h2>Companion code</h2>
+<p>Every number on the slides is recomputed in a <a href="https://marimo.io">marimo</a> notebook:</p>
+<table class="grid">
+  <tr><th>notebook</th><th>decks</th></tr>
+  <tr><td><code>00_math_toolkit.py</code></td><td>01&ndash;04</td></tr>
+  <tr><td><code>01_optimization_fundamentals.py</code></td><td>05&ndash;07</td></tr>
+  <tr><td><code>02_lqr_ilqr_sliding_block.py</code></td><td>08&ndash;09</td></tr>
+  <tr><td><code>03_sampling_mpc.py</code></td><td>10</td></tr>
+  <tr><td><code>04_friction_cones.py</code></td><td>11&ndash;13</td></tr>
+  <tr><td><code>05_contact_solvers.py</code></td><td>17&ndash;20</td></tr>
+  <tr><td><code>06_force_closure.py</code></td><td>14&ndash;16</td></tr>
+  <tr><td><code>07_hybrid_servoing.py</code></td><td>21 and the lab</td></tr>
+  <tr><td><code>08_contact_trajopt.py</code></td><td>22</td></tr>
+</table>
+<pre>uvx marimo edit --sandbox tutorial/04_friction_cones.py</pre>
 
 <h2>PDF, PNG, PowerPoint</h2>
 <pre>cd tutorial/slides
 uv run export.py                 # every deck -> out/pdf/
 uv run export.py --png --pptx    # also per-slide PNGs and an image-only .pptx</pre>
-<p>
-Or open a deck in Chrome and print it; the page size is already 1280&times;720.
-The HTML files are the source; the exports are throwaway copies.
-</p>
-
-<h2>Companion code</h2>
-<p>
-Every number on the slides is recomputed in two <a href="https://marimo.io">marimo</a> notebooks:
-</p>
-<pre>uvx marimo edit --sandbox tutorial/04_friction_cones.py   # parts 1-3
-uvx marimo edit --sandbox tutorial/06_force_closure.py    # parts 4-6</pre>
+<p>Or open a deck in Chrome and print it; the page size is already 1280&times;720. The HTML files
+are the source; the exports are throwaway copies.</p>
 
 <hr>
-<p><small>Last updated September 2026.</small></p>
+<p><small>Last updated 24 September 2026.</small></p>
 
 </body>
 </html>
