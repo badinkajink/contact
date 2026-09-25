@@ -401,6 +401,11 @@ pass after three cases were corrected (a hand-written rank, and two LPs with non
 now compared by objective); the gradient-descent table in the tex (section 3), corrected but not rebuilt, since
 the tex needs `algorithm2e.sty`.
 
+In progress (checkpoint 6959c20, 2026-09-25): notebook cells for decks 01-02 in
+`00_math_toolkit.py`, `lib/algo/01_linear_maps.js`, `lib/algo/02_eigen_ls.js`, their twin files,
+and `labs/hybrid_servoing/hfvc.py`. The deck HTML files do not exist yet; a writer resumes from
+these files rather than starting over.
+
 Not started, in order: decks 01-10 and 17-22, the lab, and the integration of decks 11-16 (scope
 of each in [`tutorial/PLAN.md`](tutorial/PLAN.md), which also holds the concept-ownership table
 and the assignment of MuJoCo demos to decks); corrections to the rest of the tex and cross-references from it to the decks. (`slides/README.md` and `slides/index.html` already list the 22-deck series and link the six
