@@ -294,6 +294,63 @@ def _(mo):
 
 @app.cell
 def _(mo):
+    mjview_start = mo.ui.switch(label="start an mjviser 3D view of models/box_on_plane.xml", value=False)
+    mo.vstack([
+        mo.md(
+            r"""
+            **3D viewer.** `mjview.show(model, data)` (in `tutorial/mjview.py`) serves a MuJoCo
+            model through mjviser, a viser server on a free local port, and returns a view that
+            displays as an iframe; `view.run(seconds=3)` steps `data` with `mj_step` in a
+            background thread and `view.stop()` ends it. The switch starts it for the 1 kg box
+            drop. It needs `mujoco` and `mjviser`
+            (`uv run --with mujoco==3.14.0 --with mjviser marimo edit 05_contact_solvers.py`);
+            scripted runs leave the switch off and start no server.
+            """
+        ),
+        mjview_start,
+    ])
+    return (mjview_start,)
+
+
+@app.cell
+def _(mjview_start, mo):
+    try:
+        import mjview
+    except ImportError:  # the browser build serves the notebook without tutorial/mjview.py
+        mjview = None
+
+    def box_drop_viewer(seconds=3.0):
+        """mjview.show on models/box_on_plane.xml, then `seconds` of the drop in the background."""
+        from pathlib import Path
+
+        try:
+            import mujoco
+        except ImportError:
+            return mjview.Unavailable("mujoco is not installed (the browser build has none)", 420)
+        xml = Path(mo.notebook_dir() or ".") / "models" / "box_on_plane.xml"
+        model = mujoco.MjModel.from_xml_path(str(xml))
+        data = mujoco.MjData(model)
+        mujoco.mj_forward(model, data)
+        view = mjview.show(model, data, height=420, key="deck18-box-drop")
+        view.run(seconds=seconds)
+        return view
+
+    if mjview is None:
+        box_viewer = None
+        _out = mo.md("`mjview.py` is not available here, so the 3D viewer is off.")
+    elif mjview_start.value:
+        box_viewer = box_drop_viewer()
+        _out = mo.Html(box_viewer.iframe)
+    else:
+        mjview.stop("deck18-box-drop")
+        box_viewer = None
+        _out = mo.md("The 3D viewer is off (switch above).")
+    _out
+    return box_drop_viewer, box_viewer, mjview
+
+
+@app.cell
+def _(mo):
     mo.md(
         r"""
         # Deck 19 · Contact solvers: LCP, CCP, and MuJoCo's soft contact

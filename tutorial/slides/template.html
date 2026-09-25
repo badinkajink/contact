@@ -200,11 +200,11 @@
 
 <!-- ============================================================ MuJoCo figure (placeholder)
   A slide that runs the real engine. lib/mj.js wraps the vendored MuJoCo 3.14.0 WebAssembly
-  build; see lib/mj.js for the final API. Uncomment, and add to <head>:
-    <script src="lib/mujoco/mujoco.js"></script>
-    <script src="lib/mujoco/mujoco.wasm.js"></script>
-    <script src="lib/mj.js"></script>
+  build and inserts lib/mujoco/*.js itself; its header comment is the API, and
+  tools/demos/mj_demo.html has three working examples. Uncomment, and add to <head>
+  (fig.js is already there):
     <script src="lib/models.js"></script>
+    <script src="lib/mj.js"></script>
 
 <section class="slide" id="mujoco-drop" data-code="NOTEBOOK.py:function_name">
   <h2>A box dropped on a plane in MuJoCo</h2>
@@ -221,15 +221,18 @@
 
   and in the script at the bottom:
 
-  const ready = (async () => {
-    const sim = await MJ.sim(MODELS.box_on_plane);       // tutorial/models/box_on_plane.xml
-    const F = Fig("#t-mj", { w: 560, h: 380, xlim: [-0.3, 0.3], ylim: [-0.05, 0.35] });
-    MJ.player(document.getElementById("mujoco-drop"), {   // runs only while the slide is shown
-      step: () => sim.step(5),
-      draw: () => MJ.draw2(F, sim, { plane: "xz", contacts: true }),
-    });
-  })();
-  (window.DECK_PENDING = window.DECK_PENDING || []).push(ready);
+  const F = Fig("#t-mj", { w: 560, h: 380, xlim: [-0.3, 0.3], ylim: [-0.05, 0.35] });
+  MJ.player(document.getElementById("mujoco-drop"), {   // runs only while the slide is shown
+    sim: MJ.sim(MODELS.box_on_plane),                   // tutorial/models/box_on_plane.xml
+    fig: F,                                             // "loading" and errors are drawn here
+    draw: (sim) => {
+      F.clear();                                        // draw2 appends; clear every frame
+      const r = MJ.draw2(F, sim, { plane: "xz", contacts: true });
+      document.getElementById("t-mj-read").textContent =
+        "sum F_z = " + r.contacts.reduce((a, c) => a + c.fworld[2], 0).toFixed(3) + " N";
+    },
+    printSteps: 60,                                     // print mode: the frame after 1 s
+  });                                                   // MJ.player registers with Deck.pending
 -->
 
 <!-- ============================================================ references -->

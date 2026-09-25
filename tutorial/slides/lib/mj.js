@@ -28,10 +28,14 @@
  *   MJ.ready() -> Promise<module>       loads and starts the engine once (about 0.1-0.2 s); the
  *                                        raw bindings (mujoco.d.ts) are the module's members.
  *   MJ.sim(xml) -> Promise<Sim>         compiles MJCF text, makes MjData, runs mj_forward.
- *                                        Rejects with MuJoCo's own message on a bad model.
+ *                                        Rejects with MuJoCo's own message on a bad model
+ *                                        ("MuJoCo Error: Loading error: XML Error: ...").
  *   MJ.track(promise) -> promise        registers async work with deck.js (Deck.pending, or
  *                                        window.DECK_PENDING before deck.js has run) so the test
- *                                        tools wait for it. MJ.ready, MJ.sim and MJ.player call it.
+ *                                        tools wait for it. MJ.ready, MJ.sim and MJ.player call it;
+ *                                        MJ.ready and MJ.sim register a copy that never rejects,
+ *                                        so a failure is reported once, by whoever awaits it (a
+ *                                        player, or the browser's unhandled-rejection error).
  *   MJ.stats                            {load: {scripts, decode, init, total, at} ms,
  *                                        players: [{slide, created, ready, firstFrame, frames,
  *                                        steps, stepMs, mjStepMs, drawMs, simTime, runMs}]}
@@ -55,10 +59,18 @@
  *   sim.reset(key?)                     mj_resetData (or mj_resetDataKeyframe for a key name or
  *                                        index), then mj_forward. Model edits (setOpt,
  *                                        geomParam) are kept.
- *   sim.getState() -> {time, qpos, qvel, act, ctrl, warmstart}   copies (Float64Array)
- *   sim.setState(s, forward = true)     writes any of those fields back; warmstart restores
- *                                        qacc_warmstart, which makes a restored rollout repeat
- *                                        bit for bit. Pass forward = false inside rollout loops.
+ *   sim.getState() -> {time, qpos, qvel, act, ctrl, warmstart, qfrc_applied, xfrc_applied,
+ *                      mocap_pos, mocap_quat}   copies (Float64Array): MuJoCo's
+ *                                        mjSTATE_INTEGRATION except eq_active, userdata, plugin
+ *                                        state and delay history, which the tutorial models do
+ *                                        not use
+ *   sim.setState(s, forward = true)     writes any of those fields back (a field of the wrong
+ *                                        length throws); warmstart restores qacc_warmstart, which
+ *                                        makes a restored rollout repeat bit for bit (without it,
+ *                                        400 steps of the tumbling box in tools/demos/mj_demo.html
+ *                                        differ by 4e-15). Pass forward = false inside rollout
+ *                                        loops (mj_step runs the forward pass itself). A state
+ *                                        from one Sim restores into another Sim of the same model.
  *   sim.setOpt({timestep, cone: 'pyramidal'|'elliptic', impratio, noslip_iterations,
  *               noslip_tolerance, iterations, tolerance, gravity: [x,y,z],
  *               integrator: 'euler'|'rk4'|'implicit'|'implicitfast',
@@ -75,11 +87,16 @@
  *                      geom1, geom2, geom1Name, geom2Name, body1, body2, dim, mu (friction[0]),
  *                      friction: [5], active, force: [6] (contact frame: normal, t1, t2, then
  *                      torsional and rolling torques), fworld: [3]}]
- *       The normal points from geom1 to geom2. force and fworld are the force that geom1 exerts
- *       on geom2 (mj_contactForce, then frame^T * force[0:3]). A 1 kg box resting on a plane
- *       (plane = geom1) gives four contacts whose fworld sum to (0, 0, +9.81) N; checked
- *       against Python mujoco 3.14.0 in tools/twins/mujoco.json. active is false for contacts
- *       inside the margin but not yet in the solver (efc_address < 0); their force is zero.
+ *       The normal points from geom1 to geom2 (mjContact.frame in MuJoCo's mjdata.h). force
+ *       and fworld are the force that geom1 exerts on geom2, the same sign convention for
+ *       every component: mj_contactForce gives force in the contact frame, for pyramidal and
+ *       elliptic cones alike, and fworld = frame^T * force[0:3]. A 1 kg box resting on a plane
+ *       (plane = geom1) gives four contacts of force[0] = 2.4525 N whose fworld sum to
+ *       (0, 0, +9.81) N; on the 20 degree ramp of tilted_plane.xml the sum is again
+ *       (0, 0, +9.81) N, the friction part pointing uphill. Checked against Python mujoco
+ *       3.14.0 in tools/twins/mujoco.json. active is false for contacts that MuJoCo keeps out
+ *       of the solver (efc_address < 0: inside the gap, or between bodies without degrees of
+ *       freedom); their force is zero, and the renderers skip them unless opts.inactive.
  *   sim.geoms() -> [{id, type: 'plane'|'sphere'|'capsule'|'ellipsoid'|'cylinder'|'box'|'mesh'|
  *                   'hfield'|'sdf', size: [3], pos: [3], mat: [9], rgba: [4], name, body,
  *                   bodyName, group, static (true for world-body geoms)}]
@@ -99,6 +116,7 @@
  *     geoms: true         draw solid geoms: light gray fill, black outline; boxes and meshes as
  *                         the hull of their projected vertices, spheres as circles, capsules,
  *                         cylinders and ellipsoids as projected hulls; back to front
+ *     fill: '#e6e6e6'     default fill of solid geoms
  *     colors: {}          per geom name: a fill color or {fill, stroke, width, dash, opacity};
  *                         or the string 'model' to use each geom's rgba
  *     skip: []            geom names not to draw; groups: [0, 1, 2] geom groups drawn
@@ -114,6 +132,7 @@
  *     frameLen: 0.05      world units
  *     bodyFrames: false   body axes x (orange), y (teal), z (purple); bodyFrameLen: 0.06
  *     filter: c => bool   keep only these contacts
+ *     inactive: false     also draw contacts with active = false (zero force)
  *   MJ.draw3(F, sim, view, opts)   orthographic 3D. view is Fig.view3(az, el) (radians) or
  *     {az, el} in degrees. Box faces (back faces culled, shaded by a fixed light), sphere discs,
  *     capsule / cylinder / ellipsoid silhouettes and mesh faces are painted back to front.
@@ -121,7 +140,8 @@
  *     opts.grid spacing). Same contact options as draw2, plus cones: true | 'circle' |
  *     'pyramid' | 'auto' (pyramid when opt.cone is pyramidal), drawn with Fig's in3.cone /
  *     in3.pyramid, and coneLen.
- *   MJ.message(F, text, color?)     centred text in a figure (used for loading and errors)
+ *   MJ.message(F, text, color?)     centred text in a figure (used for loading and errors),
+ *                                    wrapped to the figure's width, at most 8 lines
  *
  * Player: an animation that runs only while its slide can be seen.
  *   const P = MJ.player(slideEl, {
@@ -129,8 +149,9 @@
  *     init,             optional async () => {...}, awaited before the first frame
  *     fig,              Fig for "loading" / error text (default: none; errors go to the console)
  *     draw(sim),        redraws the figure; called after every frame, reset and step
- *     step(dt, sim),    advances by dt seconds of sim time (wall time x speed, clamped to
- *                       maxDt = 0.05 s per frame); default sim.advance(dt)
+ *     step(dt, sim),    advances by dt seconds of sim time (wall time since the last frame,
+ *                       clamped to maxDt, times speed); default sim.advance(dt)
+ *     maxDt: 0.05,      longest wall-time interval, s, one frame may simulate
  *     onReset(sim),     runs after sim.reset(), at start and on every [reset]: put initial
  *                       conditions here
  *     fps: 60,          frame-rate cap; speed: 1 (0.25 = quarter speed)
@@ -149,16 +170,24 @@
  *   A load or draw failure is written into fig in red and logged once with console.error.
  *   Present mode: runs while slideEl is the current slide (listens to slideshown / slidehidden /
  *   deckmode and re-checks slideEl.classList.contains('current') every frame). Read mode: runs
- *   while the slide is on screen (IntersectionObserver). Print mode: printSteps, then one frame.
+ *   while a quarter of the slide is on screen (IntersectionObserver). Print mode (?mode=print,
+ *   or print mode entered later, as Ctrl+P and the [pdf] link do through beforeprint): reset,
+ *   onReset, printSteps, then one static frame; leaving print mode resumes from that state.
  *   A page without deck.js: always runs.
  *
  * Helpers: MJ.quat(axis, angle) -> [w,x,y,z]; MJ.quatMul(a, b); MJ.mat(quat) -> row-major [9];
- *   MJ.rotate(quat, v) -> [3]; MJ.deg(d) -> radians; MJ.GEOM_TYPES.
+ *   MJ.rotate(quat, v) -> [3]; MJ.deg(d) -> radians; MJ.hull(points2d) -> convex hull (CCW);
+ *   MJ.GEOM_TYPES.
  *
- * Memory: contact vectors and their elements are copies and are deleted inside contacts();
- * the mjOption handle and the 6-double force buffer are allocated once per Sim. Nothing is
- * allocated on the WebAssembly heap per frame. Do not call .delete() on d.warning, d.solver or
- * d.timer: they belong to MjData, and freeing them aborts the module.
+ * Memory: d.contact returns a new vector on every read and vec.get(i) a new element handle;
+ * contacts() deletes both before it returns. The 6-double force buffer is allocated once per
+ * Sim and freed by dispose(). A player stepping and drawing box_on_plane.xml for 20000 frames
+ * leaves the WebAssembly heap size and the address of the next allocation unchanged, and
+ * 600 cycles of MJ.sim, 20 steps, contacts() and dispose() stay at the heap size of the first
+ * 150 (the allocator's high-water mark).
+ * Handles from struct-valued getters (m.opt, d.warning, d.solver, d.timer) point inside the
+ * MjModel / MjData wrapper: never call .delete() on them (freeing an interior pointer corrupts
+ * the heap or aborts the module); m.delete() and d.delete() release them.
  */
 (function () {
   "use strict";
@@ -292,13 +321,17 @@
     return mod;
   }
 
+  // Registers p with deck.js as settled-either-way, so a rejection is not logged a second time
+  // by Deck.pending; the caller still gets (and must handle) the rejecting p.
+  const trackQuiet = (p) => { MJ.track(p.then(() => {}, () => {})); return p; };
+
   MJ.ready = function () {
-    if (!modP) modP = MJ.track(load());
+    if (!modP) modP = trackQuiet(load());
     return modP;
   };
 
   MJ.sim = function (xml) {
-    return MJ.track(MJ.ready().then((mod) => {
+    return trackQuiet(MJ.ready().then((mod) => {
       if (typeof xml !== "string" || xml.indexOf("<mujoco") < 0)
         throw new Error("mj.js: MJ.sim needs MJCF text (got " + (typeof xml === "string" ? JSON.stringify(xml.slice(0, 40)) : typeof xml) + ")");
       let m = null, d = null;
@@ -323,7 +356,7 @@
     this.m = m;
     this.d = d;
     this.xml = xml;
-    this.opt = m.opt;                       // one handle per Sim; a reference into the model
+    this.opt = m.opt;                       // points inside the MjModel wrapper: never delete it
     this._f6 = new mod.DoubleBuffer(6);     // out-parameter for mj_contactForce
     this._acc = 0;
     this._names = {};
@@ -386,18 +419,25 @@
       time: d.time,
       qpos: d.qpos.slice(), qvel: d.qvel.slice(), act: d.act.slice(), ctrl: d.ctrl.slice(),
       warmstart: d.qacc_warmstart.slice(),
+      qfrc_applied: d.qfrc_applied.slice(), xfrc_applied: d.xfrc_applied.slice(),
+      mocap_pos: d.mocap_pos.slice(), mocap_quat: d.mocap_quat.slice(),
     };
   };
+
+  const STATE_FIELDS = { qpos: "qpos", qvel: "qvel", act: "act", ctrl: "ctrl", warmstart: "qacc_warmstart",
+    qfrc_applied: "qfrc_applied", xfrc_applied: "xfrc_applied", mocap_pos: "mocap_pos", mocap_quat: "mocap_quat" };
 
   S.setState = function (s, forward) {
     this._live();
     const d = this.d;
     if (s.time !== undefined) d.time = s.time;
-    if (s.qpos) d.qpos.set(s.qpos);
-    if (s.qvel) d.qvel.set(s.qvel);
-    if (s.act && s.act.length) d.act.set(s.act);
-    if (s.ctrl && s.ctrl.length) d.ctrl.set(s.ctrl);
-    if (s.warmstart) d.qacc_warmstart.set(s.warmstart);
+    for (const k in STATE_FIELDS) {
+      const v = s[k];
+      if (!v || !v.length) continue;
+      const dst = d[STATE_FIELDS[k]];
+      if (v.length !== dst.length) throw new Error("mj.js: setState " + k + " has " + v.length + " values; the model needs " + dst.length);
+      dst.set(v);
+    }
     this._acc = 0;
     if (forward !== false) this.mj.mj_forward(this.m, d);
     return this;
@@ -555,6 +595,7 @@
   };
 
   S.sensor = function (s) {
+    this._live();
     const i = this.id("sensor", s), m = this.m, a = m.sensor_adr[i], n = m.sensor_dim[i];
     return Array.from(this.d.sensordata.subarray(a, a + n));
   };
@@ -563,7 +604,8 @@
     if (this.dead) return;
     this.dead = true;
     try { this._f6.delete(); } catch (e) { /* already gone */ }
-    try { this.opt.delete(); } catch (e) { /* already gone */ }
+    // this.opt is not deleted: it points inside the MjModel wrapper, which m.delete() frees.
+    this.opt = null;
     this.d.delete();
     this.m.delete();
   };
@@ -916,8 +958,14 @@
     if (!F) return;
     F.clear();
     const lines = [];
+    const wrap = Math.max(16, Math.floor((F.w - 24) / 8.2));   // characters of 18 px Times per line
     String(text).split("\n").forEach((ln) => {
-      while (ln.length > 58) { let k = ln.lastIndexOf(" ", 58); if (k < 20) k = 58; lines.push(ln.slice(0, k)); ln = ln.slice(k).trim(); }
+      while (ln.length > wrap) {
+        let k = ln.lastIndexOf(" ", wrap);
+        if (k < wrap / 3) k = wrap;
+        lines.push(ln.slice(0, k));
+        ln = ln.slice(k).trim();
+      }
       if (ln.trim()) lines.push(ln);
     });
     const shown = lines.slice(0, 8);
@@ -1024,6 +1072,14 @@
       raf = requestAnimationFrame(frame);
     }
     function kick() { if (!raf && ready && playing && !failed && visible()) raf = requestAnimationFrame(frame); }
+    // The one static frame of print mode: from the initial state, after printSteps.
+    function printFrame() {
+      stop();
+      doReset();
+      if (typeof o.printSteps === "function") o.printSteps(sim);
+      else for (let k = 0; k < (o.printSteps || 0); k++) advance(speed / fps);
+      drawNow();
+    }
 
     const api = {
       play() { playing = true; kick(); },
@@ -1043,7 +1099,11 @@
 
     slide.addEventListener("slideshown", kick);
     slide.addEventListener("slidehidden", stop);
-    document.addEventListener("deckmode", () => { stop(); kick(); });
+    document.addEventListener("deckmode", () => {
+      stop();
+      if (ready && !failed && modeNow() === "print") { try { printFrame(); } catch (e) { fail(e); } }
+      else kick();
+    });
     if ("IntersectionObserver" in window) {
       new IntersectionObserver((es) => { es.forEach((e) => { inView = e.isIntersecting; }); if (inView) kick(); else if (modeNow() === "read") stop(); },
         { threshold: 0.25 }).observe(slide);
@@ -1057,14 +1117,9 @@
         if (document.readyState === "loading") await new Promise((r) => document.addEventListener("DOMContentLoaded", r, { once: true }));
         st.ready = performance.now();
         if (o.fig) o.fig.clear();
-        doReset();
         ready = true;
-        if (modeNow() === "print") {
-          if (typeof o.printSteps === "function") o.printSteps(sim);
-          else for (let k = 0; k < (o.printSteps || 0); k++) advance(speed / fps);
-        }
-        drawNow();
-        kick();
+        if (modeNow() === "print") printFrame();
+        else { doReset(); drawNow(); kick(); }
       } catch (e) {
         fail(e);                          // drawn in the figure and logged once; ready still resolves
       }

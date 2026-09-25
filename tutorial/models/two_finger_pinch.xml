@@ -6,7 +6,9 @@
   pulls the box down; only friction at the two pads holds it. With pad friction mu and squeeze
   force F on each side, Coulomb friction holds the box when 2 mu F >= m g, that is
   F >= 0.2 * 9.81 / (2 mu) = 1.96 N for mu = 0.5. Below that the box slips and falls 0.07 m to
-  the floor.
+  the floor. MuJoCo's soft friction lets a held box creep: with 5 N per pad (the "hold" key)
+  it slides down at 4.8 mm/s with the default pyramidal cone and 2.6 mm/s with the elliptic
+  cone (Python mujoco 3.14.0, 0.5 s to 3 s); with 1.5 N it reaches the floor within 1 s.
 
   The pads have priority="1", so their friction sets the pad-box contacts' friction; a slide or
   notebook changes mu by writing geom_friction[left, 0] and geom_friction[right, 0].

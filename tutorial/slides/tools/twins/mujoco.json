@@ -1,0 +1,115 @@
+{
+ "py_setup": "# Python side of the MuJoCo parity twins: the same XML (tutorial/models/*.xml, which\n# lib/models.js carries verbatim) stepped by Python mujoco 3.14.0.\nimport mujoco\nimport numpy as np\nfrom _browser import TUTORIAL\n\nassert mujoco.__version__ == \"3.14.0\", mujoco.__version__\nMODEL_DIR = TUTORIAL / \"models\"\nXML = {p.stem: p.read_text(encoding=\"utf-8\") for p in sorted(MODEL_DIR.glob(\"*.xml\"))}\n# Initial state of the tumbling box (tools/demos/mj_demo.html, #tumbling-box): rotated 35 deg\n# about (1, 1, 0), moving at 0.4 m/s along x, spinning at (6, -6, 2) rad/s. Literal numbers,\n# so both engines start from the same doubles.\nTUMBLE_QPOS = [-0.15, 0.0, 0.25, 0.9537169507482269, 0.21263110997159387, 0.21263110997159387, 0.0]\nTUMBLE_QVEL = [0.4, 0.0, 0.0, 6.0, -6.0, 2.0]\nBAD_XML = \"<mujoco><worldbody><body><joint type='bogus'/><geom size='0.1'/></body></worldbody></mujoco>\"\n\n\ndef load(name):\n    m = mujoco.MjModel.from_xml_string(XML[name])\n    d = mujoco.MjData(m)\n    mujoco.mj_forward(m, d)\n    return m, d\n\n\ndef contacts(m, d):\n    \"\"\"Each contact as lib/mj.js reports it: force of geom1 on geom2, contact and world frame.\"\"\"\n    out, f = [], np.zeros(6)\n    for i in range(d.ncon):\n        c = d.contact[i]\n        f[:] = 0.0\n        if c.efc_address >= 0:\n            mujoco.mj_contactForce(m, d, i, f)\n        out.append({\"geom1\": int(c.geom1), \"geom2\": int(c.geom2), \"dist\": float(c.dist),\n                    \"pos\": c.pos.tolist(), \"frame\": c.frame.tolist(), \"force\": f.tolist(),\n                    \"fworld\": (c.frame.reshape(3, 3).T @ f[:3]).tolist()})\n    return out\n\n\ndef box_drop(steps):\n    m, d = load(\"box_on_plane\")\n    mujoco.mj_step(m, d, steps)\n    return {\"time\": d.time, \"qpos\": d.qpos.tolist(), \"qvel\": d.qvel.tolist(), \"ncon\": d.ncon}\n\n\ndef box_rest():\n    m, d = load(\"box_on_plane\")\n    mujoco.mj_step(m, d, 1500)\n    return contacts(m, d)\n\n\ndef tilted(theta_deg, cone, seconds=1.0, mu=0.5):\n    \"\"\"The block re-placed on the ramp at theta, as placeBlock() in mj_demo.html does it.\"\"\"\n    m, d = load(\"tilted_plane\")\n    th = np.deg2rad(theta_deg)\n    q = [np.cos(th / 2), 0.0, np.sin(th / 2), 0.0]\n    g = m.geom(\"ramp\").id\n    m.geom_quat[g] = q\n    m.geom_friction[g, 0] = mu\n    m.geom_sameframe[g] = 0\n    m.opt.cone = {\"pyramidal\": 0, \"elliptic\": 1}[cone]\n    mujoco.mj_resetData(m, d)\n    d.qpos[:] = [0.025 * np.sin(th), 0.0, 0.025 * np.cos(th), *q]\n    d.qvel[:] = 0.0\n    mujoco.mj_forward(m, d)\n    x0, down = d.qpos[:3].copy(), np.array([np.cos(th), 0.0, -np.sin(th)])\n    mujoco.mj_step(m, d, int(round(seconds / m.opt.timestep)))\n    return {\"slip\": float((d.qpos[:3] - x0) @ down), \"contacts\": contacts(m, d)}\n\n\ndef tilted_as_loaded(steps=500):\n    m, d = load(\"tilted_plane\")\n    x0, th = d.qpos[:3].copy(), np.deg2rad(20)\n    mujoco.mj_step(m, d, steps)\n    return float((d.qpos[:3] - x0) @ np.array([np.cos(th), 0.0, -np.sin(th)]))\n\n\ndef tumble(steps):\n    m, d = load(\"box_on_plane\")\n    d.qpos[:] = TUMBLE_QPOS\n    d.qvel[:] = TUMBLE_QVEL\n    mujoco.mj_forward(m, d)\n    mujoco.mj_step(m, d, steps)\n    return {\"qpos\": d.qpos.tolist(), \"qvel\": d.qvel.tolist(), \"ncon\": d.ncon}\n\n\ndef pinch(steps=250):\n    m, d = load(\"two_finger_pinch\")\n    mujoco.mj_resetDataKeyframe(m, d, m.key(\"hold\").id)\n    mujoco.mj_forward(m, d)\n    mujoco.mj_step(m, d, steps)\n    return {\"box\": d.xpos[m.body(\"box\").id].tolist(), \"pads\": d.qpos[:2].tolist(), \"contacts\": contacts(m, d)}\n\n\ndef net_on(cs, m_body_geoms):\n    \"\"\"Summed fworld on the geoms in m_body_geoms (sign flipped where they are geom1).\"\"\"\n    tot = np.zeros(3)\n    for c in cs:\n        if c[\"geom2\"] in m_body_geoms:\n            tot += c[\"fworld\"]\n        elif c[\"geom1\"] in m_body_geoms:\n            tot -= c[\"fworld\"]\n    return tot.tolist()\n\n\ndef bad_model_message():\n    try:\n        mujoco.MjModel.from_xml_string(BAD_XML)\n    except ValueError as e:\n        return str(e).strip()\n    return \"compiled\"\n\n\nMG = 1.0 * 9.81\n",
+ "scripts": [
+  "lib/models.js",
+  "lib/mj.js"
+ ],
+ "js_setup": "// JavaScript side: lib/mj.js on the vendored MuJoCo 3.14.0 WebAssembly build, same XML.\nconst TUMBLE_QPOS = [-0.15, 0.0, 0.25, 0.9537169507482269, 0.21263110997159387, 0.21263110997159387, 0.0];\nconst TUMBLE_QVEL = [0.4, 0.0, 0.0, 6.0, -6.0, 2.0];\nconst BAD_XML = \"<mujoco><worldbody><body><joint type='bogus'/><geom size='0.1'/></body></worldbody></mujoco>\";\nconst C = (s) => s.contacts().map((c) => ({ geom1: c.geom1, geom2: c.geom2, dist: c.dist, pos: c.pos,\n  frame: c.frame, force: c.force, fworld: c.fworld }));\nconst run = async (name, fn) => { const s = await MJ.sim(MODELS[name]); try { return await fn(s); } finally { s.dispose(); } };\nconst boxDrop = (steps) => run(\"box_on_plane\", (s) => { s.step(steps);\n  return { time: s.time, qpos: Array.from(s.qpos), qvel: Array.from(s.qvel), ncon: s.ncon }; });\nconst boxRest = () => run(\"box_on_plane\", (s) => { s.step(1500); return C(s); });\nconst tilted = (deg, cone, seconds = 1, mu = 0.5) => run(\"tilted_plane\", (s) => {\n  const th = (deg * Math.PI) / 180, q = [Math.cos(th / 2), 0, Math.sin(th / 2), 0];\n  s.geomParam(\"ramp\", { quat: q, friction: mu });\n  s.setOpt({ cone });\n  s.reset();\n  s.qpos.set([0.025 * Math.sin(th), 0, 0.025 * Math.cos(th), q[0], q[1], q[2], q[3]]);\n  s.qvel.fill(0);\n  s.forward();\n  const x0 = Array.from(s.qpos.subarray(0, 3)), down = [Math.cos(th), 0, -Math.sin(th)];\n  s.step(Math.round(seconds / s.timestep));\n  const slip = (s.qpos[0] - x0[0]) * down[0] + (s.qpos[1] - x0[1]) * down[1] + (s.qpos[2] - x0[2]) * down[2];\n  return { slip, contacts: C(s) };\n});\nconst tiltedAsLoaded = (steps = 500) => run(\"tilted_plane\", (s) => {\n  const x0 = Array.from(s.qpos.subarray(0, 3)), th = (20 * Math.PI) / 180;\n  s.step(steps);\n  return (s.qpos[0] - x0[0]) * Math.cos(th) - (s.qpos[2] - x0[2]) * Math.sin(th);\n});\nconst tumbleInit = (s) => { s.qpos.set(TUMBLE_QPOS); s.qvel.set(TUMBLE_QVEL); s.forward(); };\nconst tumble = (steps) => run(\"box_on_plane\", (s) => { tumbleInit(s); s.step(steps);\n  return { qpos: Array.from(s.qpos), qvel: Array.from(s.qvel), ncon: s.ncon }; });\nconst pinch = (steps = 250) => run(\"two_finger_pinch\", (s) => { s.reset(\"hold\"); s.step(steps);\n  return { box: s.body(\"box\").xpos, pads: Array.from(s.qpos.subarray(0, 2)), contacts: C(s) }; });\nconst netOn = (cs, geoms) => cs.reduce((t, c) => {\n  const sg = geoms.includes(c.geom2) ? 1 : geoms.includes(c.geom1) ? -1 : 0;\n  return t.map((v, k) => v + sg * c.fworld[k]); }, [0, 0, 0]);\nconst uphill = (c) => -Math.cos(Math.PI / 9) * c.fworld[0] + Math.sin(Math.PI / 9) * c.fworld[2] > 0;\nconst sum = (xs) => xs.reduce((a, b) => a + b, 0);\nconst maxDiff = (a, b) => Math.max(...Array.from(a).map((v, i) => Math.abs(v - b[i])));\n// Rollouts from a saved state: the same Sim, with and without the forward pass, and a second Sim.\nconst rollout = () => run(\"box_on_plane\", async (s) => {\n  const u = await MJ.sim(MODELS.box_on_plane);\n  tumbleInit(s); s.step(120);\n  const st = s.getState();\n  const roll = (x) => { x.step(400); return Array.from(x.qpos).concat(Array.from(x.qvel), [x.time]); };\n  const a = roll(s);\n  s.setState(st, false); const b = roll(s);\n  s.setState(st); const c = roll(s);\n  u.setState(st, false); const d = roll(u);\n  u.dispose();\n  return [maxDiff(a, b), maxDiff(a, c), maxDiff(a, d)];\n});\nconst badModelMessage = async () => {\n  try { await MJ.sim(BAD_XML); return \"compiled\"; }\n  catch (e) { return e.message.replace(/^MuJoCo Error: Loading error: /, \"\").trim(); }\n};\n",
+ "cases": [
+  {
+   "name": "same XML: lib/models.js carries tutorial/models/*.xml verbatim",
+   "py": "XML",
+   "js": "Object.fromEntries(Object.keys(MODELS).sort().map((k) => [k, MODELS[k]]))"
+  },
+  {
+   "name": "box drop, 500 steps (1 s): time, qpos, qvel, contact count",
+   "py": "box_drop(500)",
+   "js": "await boxDrop(500)",
+   "tol": 1e-09
+  },
+  {
+   "name": "box drop, 120 steps (mid-impact, 14.8 mm deep): qpos and qvel",
+   "py": "box_drop(120)",
+   "js": "await boxDrop(120)",
+   "tol": 1e-09
+  },
+  {
+   "name": "box at rest (1500 steps): every contact's geoms, distance, frame, force, fworld",
+   "py": "box_rest()",
+   "js": "await boxRest()",
+   "tol": 1e-09
+  },
+  {
+   "name": "box at rest: the four normal forces sum to m g = 9.81 N",
+   "py": "MG",
+   "js": "sum((await boxRest()).map((c) => c.force[0]))",
+   "tol": 1e-06
+  },
+  {
+   "name": "box at rest: fworld (force of the floor on the box) sums to (0, 0, +m g)",
+   "py": "[0.0, 0.0, MG]",
+   "js": "netOn(await boxRest(), [1])",
+   "tol": 1e-06
+  },
+  {
+   "name": "tilted block as loaded (20 deg, pyramidal): slip after 500 steps (1 s)",
+   "py": "tilted_as_loaded()",
+   "js": "await tiltedAsLoaded()",
+   "tol": 1e-09
+  },
+  {
+   "name": "block re-placed at 20 deg, pyramidal cone: slip after 1 s and contacts",
+   "py": "tilted(20, 'pyramidal')",
+   "js": "await tilted(20, 'pyramidal')",
+   "tol": 1e-09
+  },
+  {
+   "name": "block re-placed at 20 deg, elliptic cone: slip after 1 s and contacts",
+   "py": "tilted(20, 'elliptic')",
+   "js": "await tilted(20, 'elliptic')",
+   "tol": 1e-09
+  },
+  {
+   "name": "block at 20 deg: ramp force on the block is (0, 0, +m g) for both cones",
+   "py": "[[0.0, 0.0, MG], [0.0, 0.0, MG]]",
+   "js": "[netOn((await tilted(20, 'pyramidal')).contacts, [1]), netOn((await tilted(20, 'elliptic')).contacts, [1])]",
+   "tol": 1e-06
+  },
+  {
+   "name": "block at 20 deg: every contact's friction on the block points uphill, fworld . (-cos 20, 0, sin 20) > 0",
+   "py": "[True, True]",
+   "js": "[(await tilted(20, 'pyramidal')).contacts.every(uphill), (await tilted(20, 'elliptic')).contacts.every(uphill)]"
+  },
+  {
+   "name": "block at 30 deg (slides), pyramidal and elliptic: slip after 1 s",
+   "py": "[tilted(30, 'pyramidal')['slip'], tilted(30, 'elliptic')['slip']]",
+   "js": "[(await tilted(30, 'pyramidal')).slip, (await tilted(30, 'elliptic')).slip]",
+   "tol": 1e-09
+  },
+  {
+   "name": "block at 30 deg: slip after 1 s within 0.3 % of Coulomb's g (sin 30 - 0.5 cos 30) / 2 = 328.6 mm",
+   "py": "0.5 * 9.81 * (np.sin(np.pi / 6) - 0.5 * np.cos(np.pi / 6))",
+   "js": "(await tilted(30, 'pyramidal')).slip",
+   "tol": 0.003
+  },
+  {
+   "name": "tumbling box, 520 steps (corner, edge and face contacts): qpos, qvel, contact count",
+   "py": "tumble(520)",
+   "js": "await tumble(520)",
+   "tol": 1e-09
+  },
+  {
+   "name": "two-finger pinch, keyframe 'hold', 250 steps: box position, pad positions, contacts",
+   "py": "pinch()",
+   "js": "await pinch()",
+   "tol": 1e-09
+  },
+  {
+   "name": "two-finger pinch: pad and floor forces on the box sum to (0, 0, +0.2 g)",
+   "py": "[0.0, 0.0, 0.2 * 9.81]",
+   "js": "netOn((await pinch()).contacts, [3])",
+   "tol": 1e-06
+  },
+  {
+   "name": "rollout from getState repeats bit for bit (same Sim, with forward pass, other Sim)",
+   "py": "[0.0, 0.0, 0.0]",
+   "js": "await rollout()",
+   "tol": 0
+  },
+  {
+   "name": "bad model: MJ.sim rejects with MuJoCo's own compiler message",
+   "py": "bad_model_message()",
+   "js": "await badModelMessage()"
+  }
+ ]
+}
