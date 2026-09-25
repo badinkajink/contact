@@ -2,11 +2,13 @@
 
 num.json loads this module through its "notebook" field, so every name below is visible to
 the "py" expressions. The inputs come from num_data.js, the same file the JavaScript side
-loads, so both sides see identical numbers.
+loads, so both sides see identical numbers; the random degenerate LPs and QPs come from
+num_gen.js on the JavaScript side and from its port gen_lp / gen_qp here.
 
 The references are numpy / scipy where a library routine exists, and independent exact
-computations where it does not: row reduction in Fractions, a QP solved by enumerating
-active sets, and a port of the mulberry32 generator.
+computations where it does not: row reduction in Fractions, the condition number of a 2x2
+in Fractions and 60-digit Decimals, a QP solved by enumerating active sets, and a port of
+the mulberry32 generator.
 """
 
 import itertools
@@ -124,6 +126,16 @@ class Mulberry32:
 
     def normal_vec(self, n):
         return [self.normal() for _ in range(n)]
+
+    def uniform_vec(self, n, lo=0.0, hi=1.0):
+        return [self.uniform(lo, hi) for _ in range(n)]
+
+    def sphere(self, n):
+        while True:
+            v = self.normal_vec(n)
+            s = float(np.linalg.norm(v))
+            if s > 1e-12:
+                return [x / s for x in v]
 
     def mvnormal(self, mean, cov):
         cov = np.asarray(cov, float)
@@ -386,3 +398,18 @@ def qp_summary(p):
     feas = linprog({"c": [0] * n, "Aub": p["Aub"], "bub": p["bub"], "Aeq": p.get("Aeq"),
                     "beq": p.get("beq"), "bounds": [None, None]})
     return ["infeasible" if feas["status"] == "infeasible" else "no KKT point found", None]
+
+
+def lp_sxf(p):
+    """[status, x, fun] in Num.lp's convention: x None and fun -inf / inf unless optimal."""
+    r = linprog(p)
+    s = r["status"]
+    if s == "optimal":
+        return [s, r["x"], r["fun"]]
+    return [s, None, -math.inf if s == "unbounded" else math.inf]
+
+
+def pinv_ref(A):
+    """numpy.linalg.pinv with Num's cutoff max(m, n) eps sigma_max (numpy's default is 1e-15)."""
+    A = np.asarray(A, float)
+    return np.linalg.pinv(A, rcond=max(A.shape) * np.finfo(float).eps)

@@ -2,9 +2,10 @@
  "notebook": "slides/tools/twins/num_ref.py",
  "scripts": [
   "tools/twins/num_data.js",
-  "lib/num.js"
+  "lib/num.js",
+  "tools/twins/num_gen.js"
  ],
- "js_setup": "const D = window.NUM_TWIN_DATA;\nconst T = Num.transpose, MM = Num.matmul;\nconst flat = (A) => [].concat(...A.map((r) => (Array.isArray(r) ? r : [r])));\nconst maxAbs = (A) => Math.max(0, ...flat(A).map(Math.abs));\nconst orthRows = (B) => (B.length ? maxAbs(Num.sub(MM(B, T(B)), Num.eye(B.length))) : 0);\nconst orthCols = (Q) => orthRows(T(Q));\nconst projRows = (B, n) => (B.length ? MM(T(B), B) : Num.zeros(n, n));\nconst projCols = (Q) => MM(Q, T(Q));\nconst recon = (A, s) => maxAbs(Num.sub(MM(s.U, Num.diag(s.S), T(s.V)), A));\nconst reconFull = (A, s) => {\n  const Sg = Num.zeros(A.length, A[0].length);\n  s.S.forEach((x, i) => (Sg[i][i] = x));\n  return maxAbs(Num.sub(MM(s.U, Sg, T(s.V)), A));\n};\nconst rrefView = (r) => ({\n  R: r.R, pivots: r.pivots,\n  ops: r.steps.map((s) => [s.op, s.i, s.op === \"scale\" ? -1 : s.j]),\n  k: r.steps.map((s) => (s.op === \"swap\" ? 0 : s.k)),\n  mats: r.steps.map((s) => s.matrix),\n});\nconst largestPositive = (vs) => vs.every((v) => {\n  let k = 0;\n  v.forEach((x, i) => { if (Math.abs(x) > Math.abs(v[k]) + 1e-12) k = i; });\n  return v[k] > 0;\n});\nconst sampleStats = (g, N) => {\n  const xs = Array.from({ length: N }, () => g.mvnormal(D.MEAN2, D.COV2));\n  const mean = Num.scale(xs.reduce((a, x) => Num.add(a, x), [0, 0]), 1 / N);\n  let C = Num.zeros(2, 2);\n  for (const x of xs) C = Num.add(C, Num.outer(Num.sub(x, mean), Num.sub(x, mean)));\n  return [mean, Num.scale(C, 1 / (N - 1))];\n};\nconst rosenJS = (x) => {\n  let s = 0;\n  for (let i = 0; i + 1 < x.length; i++) s += 100 * (x[i + 1] - x[i] * x[i]) ** 2 + (1 - x[i]) ** 2;\n  return s;\n};\nconst errorOf = (f) => { try { f(); return \"no error\"; } catch (e) { return e.message; } };",
+ "js_setup": "const D = window.NUM_TWIN_DATA;\nconst T = Num.transpose, MM = Num.matmul;\nconst flat = (A) => [].concat(...A.map((r) => (Array.isArray(r) ? r : [r])));\nconst maxAbs = (A) => Math.max(0, ...flat(A).map(Math.abs));\nconst orthRows = (B) => (B.length ? maxAbs(Num.sub(MM(B, T(B)), Num.eye(B.length))) : 0);\nconst orthCols = (Q) => orthRows(T(Q));\nconst projRows = (B, n) => (B.length ? MM(T(B), B) : Num.zeros(n, n));\nconst projCols = (Q) => MM(Q, T(Q));\nconst recon = (A, s) => maxAbs(Num.sub(MM(s.U, Num.diag(s.S), T(s.V)), A));\nconst reconFull = (A, s) => {\n  const Sg = Num.zeros(A.length, A[0].length);\n  s.S.forEach((x, i) => (Sg[i][i] = x));\n  return maxAbs(Num.sub(MM(s.U, Sg, T(s.V)), A));\n};\nconst rrefView = (r) => ({\n  R: r.R, pivots: r.pivots,\n  ops: r.steps.map((s) => [s.op, s.i, s.op === \"scale\" ? -1 : s.j]),\n  k: r.steps.map((s) => (s.op === \"swap\" ? 0 : s.k)),\n  mats: r.steps.map((s) => s.matrix),\n});\nconst largestPositive = (vs) => vs.every((v) => {\n  let k = 0;\n  v.forEach((x, i) => { if (Math.abs(x) > Math.abs(v[k]) + 1e-12) k = i; });\n  return v[k] > 0;\n});\nconst sampleStats = (g, N) => {\n  const xs = Array.from({ length: N }, () => g.mvnormal(D.MEAN2, D.COV2));\n  const mean = Num.scale(xs.reduce((a, x) => Num.add(a, x), [0, 0]), 1 / N);\n  let C = Num.zeros(2, 2);\n  for (const x of xs) C = Num.add(C, Num.outer(Num.sub(x, mean), Num.sub(x, mean)));\n  return [mean, Num.scale(C, 1 / (N - 1))];\n};\nconst rosenJS = (x) => {\n  let s = 0;\n  for (let i = 0; i + 1 < x.length; i++) s += 100 * (x[i + 1] - x[i] * x[i]) ** 2 + (1 - x[i]) ** 2;\n  return s;\n};\nconst errorOf = (f) => { try { f(); return \"no error\"; } catch (e) { return e.message; } };\nconst sampleStatsOf = (g, N, mean, cov) => {\n  const n = mean.length;\n  const xs = Array.from({ length: N }, () => g.mvnormal(mean, cov));\n  const mu = Num.scale(xs.reduce((a, x) => Num.add(a, x), Num.zeros(n)), 1 / N);\n  let C = Num.zeros(n, n);\n  for (const x of xs) C = Num.add(C, Num.outer(Num.sub(x, mu), Num.sub(x, mu)));\n  return [mu, Num.scale(C, 1 / (N - 1))];\n};\nconst penrose = (A, P) => {\n  const AP = MM(A, P), PA = MM(P, A);\n  return [maxAbs(Num.sub(MM(AP, A), A)), maxAbs(Num.sub(MM(PA, P), P)), maxAbs(Num.sub(T(AP), AP)), maxAbs(Num.sub(T(PA), PA))];\n};\nconst qpKKT = (p, r) => {\n  const Aeq = p.Aeq || [], Aub = p.Aub || [], beq = p.beq || [], bub = p.bub || [];\n  let s = Num.add(Num.matvec(p.H, r.x), p.g || Num.zeros(r.x.length));\n  Aeq.forEach((a, i) => (s = Num.add(s, Num.scale(a, r.lamEq[i]))));\n  Aub.forEach((a, i) => (s = Num.add(s, Num.scale(a, r.lamUb[i]))));\n  const slack = Aub.map((a, i) => Num.dot(a, r.x) - bub[i]);\n  return Math.max(maxAbs(s), 0, ...r.lamUb.map((l) => -l), ...slack,\n    ...Aeq.map((a, i) => Math.abs(Num.dot(a, r.x) - beq[i])), ...slack.map((v, i) => Math.abs(v * r.lamUb[i])));\n};\nconst boundsOf = (p) => {\n  const n = p.c.length, b = p.bounds;\n  const lo = (v) => (v === null || v === undefined ? -Infinity : v), hi = (v) => (v === null || v === undefined ? Infinity : v);\n  if (b === undefined || b === null) return Array.from({ length: n }, () => [0, Infinity]);\n  if (Array.isArray(b[0]) || Array.isArray(b[1]) || (b.length !== 2 && b.length === n))\n    return b.map((x) => (x === null ? [-Infinity, Infinity] : [lo(x[0]), hi(x[1])]));\n  return Array.from({ length: n }, () => [lo(b[0]), hi(b[1])]);\n};\nconst lpKKT = (p, r) => {\n  const Aub = p.Aub || [], Aeq = p.Aeq || [], bub = p.bub || [], d = r.duals, x = r.x, B = boundsOf(p);\n  const s = p.c.map((cj, j) => cj - d.lower[j] - d.upper[j]\n    - Aub.reduce((t, a, i) => t + a[j] * d.ub[i], 0) - Aeq.reduce((t, a, i) => t + a[j] * d.eq[i], 0));\n  const sign = Math.max(0, ...d.ub, ...d.lower.map((v) => -v), ...d.upper);\n  const comp = Math.max(0, ...Aub.map((a, i) => Math.abs(d.ub[i] * (Num.dot(a, x) - bub[i]))),\n    ...B.map(([l, h], j) => (l > -Infinity ? Math.abs(d.lower[j] * (x[j] - l)) : Math.abs(d.lower[j]))),\n    ...B.map(([l, h], j) => (h < Infinity ? Math.abs(d.upper[j] * (h - x[j])) : Math.abs(d.upper[j]))));\n  return [maxAbs(s), sign, comp];\n};\nconst summary = (r) => [r.status, r.status === 'optimal' ? r.fun : null];\nconst randQP = (seed, n, mI, mE) => {\n  const R = Num.rng(seed);\n  const B = Array.from({ length: n }, () => R.normalVec(n));\n  const x0 = R.normalVec(n);\n  const Aub = Array.from({ length: mI }, () => R.normalVec(n));\n  const p = { H: Num.add(MM(B, T(B)), Num.eye(n)), g: Num.scale(R.normalVec(n), 5), Aub, bub: Num.add(Num.matvec(Aub, x0), R.uniformVec(mI)) };\n  if (mE) { p.Aeq = Array.from({ length: mE }, () => R.normalVec(n)); p.beq = Num.matvec(p.Aeq, x0); }\n  return p;\n};\nconst msPerCall = (f) => {\n  for (let i = 0; i < 3; i++) f();\n  let best = Infinity;\n  for (let k = 0; k < 5; k++) {\n    let reps = 0;\n    const t0 = performance.now();\n    do { f(); reps++; } while (performance.now() - t0 < 20);\n    best = Math.min(best, (performance.now() - t0) / reps);\n  }\n  return best;\n};\nconst budget = (label, f, limit) => { const ms = msPerCall(f); return ms < limit ? `${label} under ${limit} ms` : `${label} took ${ms.toFixed(3)} ms`; };\n",
  "cases": [
   {
    "name": "matmul: 4x3 times 3x5",
@@ -238,6 +239,42 @@
    "js": "Num.svd(D.ROT3).S"
   },
   {
+   "name": "svd singular values: exactly rank-2 wide 4x6, rank-1 tall 5x3, zero tall 3x2, a zero column",
+   "py": "[sv(M(k)) for k in ('RK2_46', 'RK1_53', 'Z32', 'ZC33')]",
+   "js": "['RK2_46', 'RK1_53', 'Z32', 'ZC33'].map((k) => Num.svd(D[k]).S)",
+   "tol": 1e-12
+  },
+  {
+   "name": "svd full of the rank-2 wide 4x6: U 4x4 and V 6x6 orthogonal, U Sigma V^T = A",
+   "py": "[[4, 4], [6, 6], 0.0, 0.0, 0.0]",
+   "js": "((s) => [Num.shape(s.U), Num.shape(s.V), orthCols(s.U), orthCols(s.V), reconFull(D.RK2_46, s)])(Num.svd(D.RK2_46, {full: true}))",
+   "tol": 1e-12
+  },
+  {
+   "name": "svd thin and full of the rank-1 tall 5x3 and the zero tall 3x2: U, V orthonormal and U S V^T = A",
+   "py": "[[0.0] * 3, [0.0] * 3, [0.0] * 3, [0.0] * 3]",
+   "js": "['RK1_53', 'Z32'].flatMap((k) => [((s) => [recon(D[k], s), orthCols(s.U), orthCols(s.V)])(Num.svd(D[k])), ((s) => [reconFull(D[k], s), orthCols(s.U), orthCols(s.V)])(Num.svd(D[k], {full: true}))])",
+   "tol": 1e-12
+  },
+  {
+   "name": "svd of entries near 1e-200 and 1e200 (their squares underflow and overflow): S / scale equals numpy's",
+   "py": "[sv(M('TINY43')) / 1e-200, sv(M('HUGE34')) / 1e200]",
+   "js": "[Num.svd(D.TINY43).S.map((x) => x / 1e-200), Num.svd(D.HUGE34).S.map((x) => x / 1e200)]",
+   "tol": 1e-12
+  },
+  {
+   "name": "rank and orthonormal U, V of the rank-2 matrices scaled by 1e-200 and 1e200",
+   "py": "[int(np.linalg.matrix_rank(M('TINY43'))), int(np.linalg.matrix_rank(M('HUGE34'))), 0.0, 0.0, 0.0, 0.0]",
+   "js": "[Num.rank(D.TINY43), Num.rank(D.HUGE34), ...[D.TINY43, D.HUGE34].flatMap((A) => ((s) => [orthCols(s.U), orthCols(s.V)])(Num.svd(A, {full: true})))]",
+   "tol": 1e-12
+  },
+  {
+   "name": "qr R / 1e-200 of the tiny 4x3 equals numpy's with diag(R) >= 0; eigSym values / 1e250 of a 4x4 equal eigh's",
+   "py": "[qr_pos(M('TINY43'))[1] / 1e-200, np.linalg.eigvalsh(M('HUGE_S4'))[::-1] / 1e250]",
+   "js": "[Num.qr(D.TINY43).R.map((r) => r.map((x) => x / 1e-200)), Num.eigSym(D.HUGE_S4).values.map((x) => x / 1e250)]",
+   "tol": 1e-12
+  },
+  {
    "name": "rank of full, tall, wide, rank-deficient, zero, and singular matrices",
    "py": "[int(np.linalg.matrix_rank(M(k))) for k in ('A66', 'A43', 'A35', 'R63', 'R45', 'Z23', 'SING3')]",
    "js": "['A66', 'A43', 'A35', 'R63', 'R45', 'Z23', 'SING3'].map((k) => Num.rank(D[k]))"
@@ -267,6 +304,35 @@
    "name": "nullspace of a full-rank square matrix is empty; of the zero matrix it is all of R^3",
    "py": "[[], np.eye(3)]",
    "js": "[Num.nullspace(D.A66), projRows(Num.nullspace(D.Z23), 3)]"
+  },
+  {
+   "name": "subspace dimensions [row, null, col, left null] of the rank-2 4x6, rank-1 5x3, and zero 3x2 (rank-nullity)",
+   "py": "[[2, 4, 2, 2], [1, 2, 1, 4], [0, 2, 0, 3]]",
+   "js": "['RK2_46', 'RK1_53', 'Z32'].map((k) => [Num.rowspace(D[k]).length, Num.nullspace(D[k]).length, Num.colspace(D[k]).length, Num.leftNullspace(D[k]).length])"
+  },
+  {
+   "name": "projectors onto the four subspaces of the rank-2 wide 4x6 equal scipy's null_space and numpy's pinv",
+   "py": "(lambda A: [null_proj(A), pinv_ref(A) @ A, A @ pinv_ref(A), null_proj(A.T)])(M('RK2_46'))",
+   "js": "[projRows(Num.nullspace(D.RK2_46), 6), projRows(Num.rowspace(D.RK2_46), 6), projRows(Num.colspace(D.RK2_46), 4), projRows(Num.leftNullspace(D.RK2_46), 4)]",
+   "tol": 1e-12
+  },
+  {
+   "name": "projectors onto the four subspaces of the rank-1 tall 5x3 equal scipy's and numpy's",
+   "py": "(lambda A: [null_proj(A), pinv_ref(A) @ A, A @ pinv_ref(A), null_proj(A.T)])(M('RK1_53'))",
+   "js": "[projRows(Num.nullspace(D.RK1_53), 3), projRows(Num.rowspace(D.RK1_53), 3), projRows(Num.colspace(D.RK1_53), 5), projRows(Num.leftNullspace(D.RK1_53), 5)]",
+   "tol": 1e-12
+  },
+  {
+   "name": "zero tall 3x2: null space R^2, row and column spaces empty, left null space R^3; the orthonormal rows are exact",
+   "py": "[np.eye(2), [], [], np.eye(3), 0.0]",
+   "js": "[projRows(Num.nullspace(D.Z32), 2), Num.rowspace(D.Z32), Num.colspace(D.Z32), projRows(Num.leftNullspace(D.Z32), 3), orthRows(Num.leftNullspace(D.Z32))]",
+   "tol": 0
+  },
+  {
+   "name": "rowspace, nullspace of a zero column [[1,0,2],[3,0,4],[5,0,6]]: the null space is e2 exactly",
+   "py": "[[[0.0, 1.0, 0.0]], np.eye(3) - np.diag([0.0, 1.0, 0.0])]",
+   "js": "[Num.nullspace(D.ZC33), projRows(Num.rowspace(D.ZC33), 3)]",
+   "tol": 1e-15
   },
   {
    "name": "rowspace projector equals pinv(A) A (rank-2 6x3)",
@@ -299,6 +365,18 @@
    "js": "[Num.pinv(D.R63), Num.pinv(D.A35)]"
   },
   {
+   "name": "pinv of the rank-2 wide 4x6, the rank-1 tall 5x3, and the zero 3x2 (the 2x3 zero matrix) equals numpy's",
+   "py": "[pinv_ref(M(k)) for k in ('RK2_46', 'RK1_53', 'Z32')]",
+   "js": "['RK2_46', 'RK1_53', 'Z32'].map((k) => Num.pinv(D[k]))",
+   "tol": 1e-12
+  },
+  {
+   "name": "pinv of the rank-2 wide 4x6 and the rank-1 tall 5x3 satisfies the four Penrose conditions",
+   "py": "[[0.0] * 4] * 2",
+   "js": "['RK2_46', 'RK1_53'].map((k) => penrose(D[k], Num.pinv(D[k])))",
+   "tol": 1e-12
+  },
+  {
    "name": "lstsq of an overdetermined 4x3: x and residual norm equal numpy's",
    "py": "(lambda r: [r[0], math.sqrt(r[1][0])])(np.linalg.lstsq(M('A43'), M('b4'), rcond=None))",
    "js": "((r) => [r.x, r.residual])(Num.lstsq(D.A43, D.b4))"
@@ -313,6 +391,24 @@
    "py": "[np.linalg.lstsq(M('A35'), M('v3'), rcond=None)[0], 0.0]",
    "js": "((r) => [r.x, r.residual])(Num.lstsq(D.A35, D.v3))",
    "tol": 1e-12
+  },
+  {
+   "name": "lstsq of the rank-2 wide 4x6 with an inconsistent b: minimum-norm x, residual, and rank equal numpy's",
+   "py": "(lambda A, b: (lambda r: [r[0], float(np.linalg.norm(A @ r[0] - b)), int(r[2])])(np.linalg.lstsq(A, b, rcond=None)))(M('RK2_46'), M('b4'))",
+   "js": "((r) => [r.x, r.residual, r.rank])(Num.lstsq(D.RK2_46, D.b4))",
+   "tol": 1e-12
+  },
+  {
+   "name": "lstsq of the rank-1 tall 5x3: minimum-norm x, residual, and rank equal numpy's",
+   "py": "(lambda A, b: (lambda r: [r[0], float(np.linalg.norm(A @ r[0] - b)), int(r[2])])(np.linalg.lstsq(A, b, rcond=None)))(M('RK1_53'), M('v5'))",
+   "js": "((r) => [r.x, r.residual, r.rank])(Num.lstsq(D.RK1_53, D.v5))",
+   "tol": 1e-12
+  },
+  {
+   "name": "lstsq of the zero 3x2: x = 0, residual = |b|, rank 0",
+   "py": "[[0.0, 0.0], float(np.linalg.norm(M('v3'))), 0]",
+   "js": "((r) => [r.x, r.residual, r.rank])(Num.lstsq(D.Z32, D.v3))",
+   "tol": 1e-15
   },
   {
    "name": "cond of a 6x6, a tall 4x3, and a wide 3x5 equals numpy.linalg.cond",
@@ -334,6 +430,46 @@
    "name": "nearly parallel rows: a 1e-8 change in b moves x from [2, 0] to about [1, 1]",
    "py": "[np.linalg.solve(M('NEAR2'), [2, 2]), np.linalg.solve(M('NEAR2'), [2, 2 + 1e-8])]",
    "js": "[Num.solve(D.NEAR2, [2, 2]), Num.solve(D.NEAR2, [2, 2 + 1e-8])]",
+   "tol": 1e-06
+  },
+  {
+   "name": "cond of [[1, 1], [1, 1 + d]] for d = 1e-2, 1e-4, 1e-6, 1e-8 equals the exact value (Fractions) to 1e-8",
+   "py": "[cond2_exact(near_parallel(d)) for d in (1e-2, 1e-4, 1e-6, 1e-8)]",
+   "js": "[1e-2, 1e-4, 1e-6, 1e-8].map((d) => Num.cond([[1, 1], [1, 1 + d]]))",
+   "tol": 1e-08
+  },
+  {
+   "name": "cond at d = 1e-10 and 1e-12 (4e10 and 4e12) equals the exact value to 1e-3, as numpy's does (error about eps cond)",
+   "py": "[cond2_exact(near_parallel(d)) for d in (1e-10, 1e-12)]",
+   "js": "[1e-10, 1e-12].map((d) => Num.cond([[1, 1], [1, 1 + d]]))",
+   "tol": 0.001
+  },
+  {
+   "name": "rank at the default tolerance: d = 1e-14 gives rank 2 and d = 1e-15 rank 1, as numpy.linalg.matrix_rank",
+   "py": "[int(np.linalg.matrix_rank(np.array(near_parallel(d)))) for d in (1e-14, 1e-15)]",
+   "js": "[1e-14, 1e-15].map((d) => Num.rank([[1, 1], [1, 1 + d]]))"
+  },
+  {
+   "name": "cond at d = 1e-15 is Infinity (rank 1 at the default tolerance), where numpy.linalg.cond reports 3.2e15",
+   "py": "math.inf",
+   "js": "Num.cond([[1, 1], [1, 1 + 1e-15]])"
+  },
+  {
+   "name": "tol 1e-6 on [[1, 1], [1, 1 + 1e-8]]: nullspace is the line through [1, -1], pinv is the rank-1 pseudoinverse",
+   "py": "(lambda A: [np.outer(np.linalg.svd(A)[2][1], np.linalg.svd(A)[2][1]), np.linalg.pinv(A, rcond=1e-6 / sv(A)[0])])(M('NEAR2'))",
+   "js": "[projRows(Num.nullspace(D.NEAR2, 1e-6), 2), Num.pinv(D.NEAR2, 1e-6)]",
+   "tol": 1e-08
+  },
+  {
+   "name": "lstsq with tol 1e-6 gives about [1, 1] for both b = [2, 2] and b = [2, 2 + 1e-8] (solve gives [2, 0] and [1, 1])",
+   "py": "[np.linalg.lstsq(M('NEAR2'), b, rcond=1e-6 / sv(M('NEAR2'))[0])[0] for b in ([2.0, 2.0], [2.0, 2.0 + 1e-8])]",
+   "js": "[[2, 2], [2, 2 + 1e-8]].map((b) => Num.lstsq(D.NEAR2, b, 1e-6).x)",
+   "tol": 1e-08
+  },
+  {
+   "name": "cond of a 3x3 with two rows 1e-6 apart equals numpy.linalg.cond",
+   "py": "np.linalg.cond(M('NEARPAR3'))",
+   "js": "Num.cond(D.NEARPAR3)",
    "tol": 1e-06
   },
   {
@@ -401,6 +537,23 @@
    "tol": 0
   },
   {
+   "name": "rng reproducibility: two Num.rng(42) give the same 50 normals while a third generator draws in between; Num.rng() is Num.rng(1)",
+   "py": "(lambda g: [[g.normal() for _ in range(50)], [Mulberry32(1).uniform()] * 2])(Mulberry32(42))",
+   "js": "((a, b, o) => { const xs = [], ys = []; for (let i = 0; i < 50; i++) { xs.push(a.normal()); o.uniform(); o.normal(); ys.push(b.normal()); } if (JSON.stringify(xs) !== JSON.stringify(ys)) return 'streams differ'; return [xs, [Num.rng().uniform(), Num.rng(1).uniform()]]; })(Num.rng(42), Num.rng(42), Num.rng(7))",
+   "tol": 1e-14
+  },
+  {
+   "name": "rng mixed calls (normal, uniform, normal, int, normalVec, uniformVec, sphere, shuffle) equal the port's; the Box-Muller spare survives a uniform draw",
+   "py": "(lambda g: [g.normal(), g.uniform(), g.normal(), g.int(6), g.normal_vec(3), g.uniform_vec(2, -1, 1), g.sphere(3), g.shuffle([1, 2, 3, 4, 5])])(Mulberry32(99))",
+   "js": "((g) => [g.normal(), g.uniform(), g.normal(), g.int(6), g.normalVec(3), g.uniformVec(2, -1, 1), g.sphere(3), g.shuffle([1, 2, 3, 4, 5])])(Num.rng(99))",
+   "tol": 1e-14
+  },
+  {
+   "name": "rng.sphere(0) and a mean / cov shape mismatch in mvnormal throw named errors (sphere(0) used to loop forever)",
+   "py": "['Num.rng.sphere: needs a dimension n >= 1', 'Num.rng.mvnormal: mean has 3 entries, cov is 2x2']",
+   "js": "[errorOf(() => Num.rng(1).sphere(0)), errorOf(() => Num.rng(1).mvnormal([0, 0, 0], D.COV2))]"
+  },
+  {
    "name": "rng mvnormal: mean + chol(cov) z equals the port's",
    "py": "(lambda g: [g.mvnormal(D['MEAN2'], D['COV2']) for _ in range(3)])(Mulberry32(11))",
    "js": "((g) => Array.from({length: 3}, () => g.mvnormal(D.MEAN2, D.COV2)))(Num.rng(11))",
@@ -410,6 +563,36 @@
    "name": "rng mvnormal: mean and covariance of 20000 draws are within 0.03 of the true ones",
    "py": "[D['MEAN2'], D['COV2']]",
    "js": "sampleStats(Num.rng(5), 20000)",
+   "tol": 0.03
+  },
+  {
+   "name": "rng mvnormal 3-D: sample mean and covariance of 20000 draws equal those of the port's 20000 draws",
+   "py": "sample_stats(5, 20000, D['MEAN3'], D['COV3'])",
+   "js": "sampleStatsOf(Num.rng(5), 20000, D.MEAN3, D.COV3)",
+   "tol": 1e-10
+  },
+  {
+   "name": "rng mvnormal 3-D: the covariance of 20000 draws is within 0.03 (1 + |sigma_ij|) of the true covariance",
+   "py": "[D['MEAN3'], D['COV3']]",
+   "js": "sampleStatsOf(Num.rng(5), 20000, D.MEAN3, D.COV3)",
+   "tol": 0.03
+  },
+  {
+   "name": "rng mvnormal with a singular rank-2 covariance (no Cholesky factor): the first 5 draws equal the port's",
+   "py": "(lambda g: [g.mvnormal(D['MEAN3'], D['COV3_SING']) for _ in range(5)])(Mulberry32(21))",
+   "js": "((g) => Array.from({length: 5}, () => g.mvnormal(D.MEAN3, D.COV3_SING)))(Num.rng(21))",
+   "tol": 1e-12
+  },
+  {
+   "name": "rng mvnormal with the singular covariance: 2000 draws stay in its range, n . (x - mean) = 0 for n = [2, -2, 1] / 3",
+   "py": "0.0",
+   "js": "((g) => Math.max(...Array.from({length: 2000}, () => Math.abs(Num.dot([2 / 3, -2 / 3, 1 / 3], Num.sub(g.mvnormal(D.MEAN3, D.COV3_SING), D.MEAN3))))))(Num.rng(22))",
+   "tol": 1e-12
+  },
+  {
+   "name": "rng mvnormal with the singular covariance: mean and covariance of 20000 draws are within 0.03 (1 + |value|) of the true ones",
+   "py": "[D['MEAN3'], D['COV3_SING']]",
+   "js": "sampleStatsOf(Num.rng(23), 20000, D.MEAN3, D.COV3_SING)",
    "tol": 0.03
   },
   {
@@ -479,6 +662,49 @@
    "js": "Num.lp({c: [1], bounds: [[2, 1]]}).status"
   },
   {
+   "name": "lp Kuhn's and Chvatal's cycling examples (degenerate at the origin): status, x, fun, and duals equal HiGHS's",
+   "py": "[linprog(D['LP_KUHN']), linprog(D['LP_CHVATAL'])]",
+   "js": "[Num.lp(D.LP_KUHN), Num.lp(D.LP_CHVATAL)]"
+  },
+  {
+   "name": "lp at a 12-row apex in 3-D (free variables): x and fun equal HiGHS's; the non-unique duals satisfy the KKT conditions",
+   "py": "(lambda r: [r['status'], r['x'], r['fun'], [0.0, 0.0, 0.0]])(linprog(D['LP_APEX']))",
+   "js": "((r) => [r.status, r.x, r.fun, lpKKT(D.LP_APEX, r)])(Num.lp(D.LP_APEX))",
+   "tol": 1e-12
+  },
+  {
+   "name": "lp with free variables: optimum at negative x, unbounded, and free next to bounded variables",
+   "py": "[lp_sxf(D[k]) for k in ('LP_FREE_NEG', 'LP_FREE_UNB', 'LP_FREE_MIX')]",
+   "js": "['LP_FREE_NEG', 'LP_FREE_UNB', 'LP_FREE_MIX'].map((k) => ((r) => [r.status, r.x, r.fun])(Num.lp(D[k])))"
+  },
+  {
+   "name": "lp with upper-only and two-sided bounds: x, fun, and duals equal HiGHS's",
+   "py": "linprog(D['LP_UPPER'])",
+   "js": "Num.lp(D.LP_UPPER)"
+  },
+  {
+   "name": "lp equality-only: x >= 0, free with c in the row space, free and unbounded, square, infeasible, inconsistent, negative rhs",
+   "py": "[lp_sxf(D[k]) for k in ('LP_EQ', 'LP_EQ_FREE', 'LP_EQ_UNB', 'LP_EQ_SQ', 'LP_EQ_INF', 'LP_EQ_INCONS', 'LP_EQ_NEG')]",
+   "js": "['LP_EQ', 'LP_EQ_FREE', 'LP_EQ_UNB', 'LP_EQ_SQ', 'LP_EQ_INF', 'LP_EQ_INCONS', 'LP_EQ_NEG'].map((k) => ((r) => [r.status, r.x, r.fun])(Num.lp(D[k])))"
+  },
+  {
+   "name": "lp equality-only duals: eq marginals equal HiGHS's on the square system and satisfy KKT on the others",
+   "py": "[linprog(D['LP_EQ_SQ'])['duals']['eq'], [[0.0, 0.0, 0.0]] * 3]",
+   "js": "[Num.lp(D.LP_EQ_SQ).duals.eq, ['LP_EQ', 'LP_EQ_FREE', 'LP_EQ_NEG'].map((k) => lpKKT(D[k], Num.lp(D[k])))]",
+   "tol": 1e-12
+  },
+  {
+   "name": "lp on 24 random degenerate problems (NUM_GEN.lp, seeds 1-24; bounds, free variables, doubled equality rows): status and fun equal HiGHS's",
+   "py": "[lp_summary(gen_lp(s)) for s in range(1, 25)]",
+   "js": "Array.from({length: 24}, (_, i) => summary(Num.lp(NUM_GEN.lp(i + 1))))"
+  },
+  {
+   "name": "lp on the 24 random degenerate problems: duals satisfy stationarity, sign, and complementary slackness to 1e-9",
+   "py": "[0.0, 0.0, 0.0]",
+   "js": "Array.from({length: 24}, (_, i) => ((p, r) => (r.status === 'optimal' ? lpKKT(p, r) : [0, 0, 0]))(NUM_GEN.lp(i + 1), Num.lp(NUM_GEN.lp(i + 1)))).reduce((a, k) => a.map((v, j) => Math.max(v, k[j])), [0, 0, 0])",
+   "tol": 1e-09
+  },
+  {
    "name": "feasible: a nonempty and an empty polygon with free variables",
    "py": "[True, False]",
    "js": "[Num.feasible({Aub: [[1, 0], [0, 1], [-1, -1]], bub: [1, 1, 0.5], bounds: [null, null]}).feasible, Num.feasible({Aub: [[1, 0], [-1, 0]], bub: [1, -2], bounds: [null, null]}).feasible]"
@@ -542,6 +768,57 @@
    "js": "((r) => [r.status, r.x, r.fun])(Num.qp(D.QP_DEG))"
   },
   {
+   "name": "qp at a pyramid apex (5 rows active at the optimum in 3-D): x = 0, fun = 0, and the KKT conditions hold",
+   "py": "['optimal', [0.0, 0.0, 0.0], 0.0, 0.0]",
+   "js": "((r) => [r.status, r.x, r.fun, qpKKT(D.QP_APEX, r)])(Num.qp(D.QP_APEX))",
+   "tol": 1e-12
+  },
+  {
+   "name": "qp with the target beside the apex: x and fun equal the enumeration, KKT holds",
+   "py": "(lambda r: [r['x'], r['fun'], 0.0])(qp_enum(D['QP_APEX_SIDE']))",
+   "js": "((r) => [r.x, r.fun, qpKKT(D.QP_APEX_SIDE, r)])(Num.qp(D.QP_APEX_SIDE))",
+   "tol": 1e-12
+  },
+  {
+   "name": "qp with duplicated and scaled copies of the active rows: x and fun equal the enumeration, KKT holds",
+   "py": "(lambda r: [r['x'], r['fun'], 0.0])(qp_enum(D['QP_DUP']))",
+   "js": "((r) => [r.x, r.fun, qpKKT(D.QP_DUP, r)])(Num.qp(D.QP_DUP))",
+   "tol": 1e-12
+  },
+  {
+   "name": "qp whose unconstrained minimum is feasible: x = -H^{-1} g, lamUb = 0, no active rows",
+   "py": "[np.linalg.solve(np.array(D['QP_INTERIOR']['H'], float), -np.array(D['QP_INTERIOR']['g'], float)), [0.0] * 4, []]",
+   "js": "((r) => [r.x, r.lamUb, r.activeUb])(Num.qp(D.QP_INTERIOR))",
+   "tol": 1e-12
+  },
+  {
+   "name": "qp with an equality row through the unconstrained minimum: x = -H^{-1} g = [2/7, 6/7], lamEq = 0",
+   "py": "[[2 / 7, 6 / 7], [0.0], [0.0]]",
+   "js": "((r) => [r.x, r.lamEq, r.lamUb])(Num.qp(D.QP_INTERIOR_EQ))",
+   "tol": 1e-12
+  },
+  {
+   "name": "qp infeasible: an equality row outside the box, and inconsistent dependent equalities",
+   "py": "[['infeasible', None, math.inf]] * 2",
+   "js": "[D.QP_INF_EQUB, D.QP_INF_EQDEP].map((p) => ((r) => [r.status, r.x, r.fun])(Num.qp(p)))"
+  },
+  {
+   "name": "qp convexity test is scale-free: H = 1e-12 diag(1, -1) is 'nonconvex', 1e-12 diag(1, 0) is not",
+   "py": "['nonconvex', 'optimal']",
+   "js": "[Num.qp({H: [[1e-12, 0], [0, -1e-12]], g: [0, 0], Aub: [[1, 0]], bub: [1]}).status, Num.qp({H: [[1e-12, 0], [0, 0]], g: [0, 0], Aub: [[1, 0]], bub: [1]}).status]"
+  },
+  {
+   "name": "qp on 24 random degenerate problems (NUM_GEN.qp, seeds 1-24; H semidefinite for every third): status and fun equal the enumeration",
+   "py": "[qp_summary(gen_qp(s)) for s in range(1, 25)]",
+   "js": "Array.from({length: 24}, (_, i) => summary(Num.qp(NUM_GEN.qp(i + 1))))"
+  },
+  {
+   "name": "qp on the 24 random degenerate problems: the KKT residual of every optimum is below 1e-9",
+   "py": "0.0",
+   "js": "Math.max(0, ...Array.from({length: 24}, (_, i) => ((p, r) => (r.status === 'optimal' ? qpKKT(p, r) : 0))(NUM_GEN.qp(i + 1), Num.qp(NUM_GEN.qp(i + 1)))))",
+   "tol": 1e-09
+  },
+  {
    "name": "eqQP: Hou & Mason 2019 eq. 22, min f^T f s.t. M f = b, gives the minimum-norm pinv(M) b",
    "py": "[np.linalg.pinv(M('HOU_M')) @ M('HOU_b'), False]",
    "js": "((r) => [r.x, r.singular])(Num.eqQP(Num.scale(Num.eye(7), 2), null, D.HOU_M, D.HOU_b))"
@@ -557,6 +834,35 @@
    "js": "((r) => [r.x, r.singular])(Num.eqQP(Num.eye(2), [1, 1], [[1, 1], [2, 2]], [1, 2]))"
   },
   {
+   "name": "eqQP with a third row 0.3 r1 - 1.7 r2 (dependent in floating point): flagged singular; x equals the KKT solve without it",
+   "py": "[eq_kkt(D['EQDEP']['H'], D['EQDEP']['g'], D['EQDEP']['Aeq'][:2], D['EQDEP']['beq'][:2])[0], True]",
+   "js": "((p, r) => [r.x, r.singular])(D.EQDEP, Num.eqQP(D.EQDEP.H, D.EQDEP.g, D.EQDEP.Aeq, D.EQDEP.beq))",
+   "tol": 1e-12
+  },
+  {
+   "name": "eqQP with the dependent row: A x = b and H x + g + A^T nu = 0 hold with the minimum-norm nu",
+   "py": "[0.0, 0.0]",
+   "js": "((p, r) => [maxAbs(Num.sub(Num.matvec(p.Aeq, r.x), p.beq)), maxAbs(Num.add(Num.matvec(p.H, r.x), p.g, Num.matmul(r.nu, p.Aeq)))])(D.EQDEP, Num.eqQP(D.EQDEP.H, D.EQDEP.g, D.EQDEP.Aeq, D.EQDEP.beq))",
+   "tol": 1e-12
+  },
+  {
+   "name": "eqQP in Hou & Mason's form with a fourth row r1 + r2: x = pinv(M) b and singular = true",
+   "py": "[pinv_ref(M('HOU_MDEP')) @ M('HOU_bdep'), True]",
+   "js": "((r) => [r.x, r.singular])(Num.eqQP(Num.scale(Num.eye(6), 2), null, D.HOU_MDEP, D.HOU_bdep))",
+   "tol": 1e-12
+  },
+  {
+   "name": "eqQP with inconsistent dependent rows x1 + x2 = 1, 2 x1 + 2 x2 = 3: the minimum-norm least-squares KKT solution",
+   "py": "[*eq_kkt_lstsq(np.eye(2), [0.0, 0.0], [[1, 1], [2, 2]], [1, 3]), True]",
+   "js": "((r) => [r.x, r.nu, r.singular])(Num.eqQP(Num.eye(2), [0, 0], [[1, 1], [2, 2]], [1, 3]))",
+   "tol": 1e-12
+  },
+  {
+   "name": "eqQP and qp name themselves in shape errors",
+   "py": "['Num.eqQP: H is 2x2 but g has length 3', 'Num.eqQP: A has 1 rows but b has length 2', 'Num.qp: H is 2x2 but g has length 1', 'Num.qp: a constraint row has 3 entries for 2 variables']",
+   "js": "[errorOf(() => Num.eqQP(Num.eye(2), [1, 2, 3], [[1, 1]], [1])), errorOf(() => Num.eqQP(Num.eye(2), [1, 2], [[1, 1]], [1, 2])), errorOf(() => Num.qp({H: Num.eye(2), g: [1]})), errorOf(() => Num.qp({H: Num.eye(2), g: [1, 1], Aub: [[1, 1, 1]], bub: [1]}))]"
+  },
+  {
    "name": "nnls 8x5: x and residual equal scipy.optimize.nnls",
    "py": "list(so.nnls(M('NNLS_A'), M('NNLS_b')))",
    "js": "((r) => [r.x, r.residual])(Num.nnls(D.NNLS_A, D.NNLS_b))"
@@ -565,6 +871,24 @@
    "name": "nnls wide 3x5: residual equals scipy's",
    "py": "so.nnls(M('NNLS_Aw'), np.array(D['NNLS_bw']))[1]",
    "js": "Num.nnls(D.NNLS_Aw, D.NNLS_bw).residual"
+  },
+  {
+   "name": "nnls with a positive 6x3 A and b = A [-1, -0.5, -2] (least squares all negative): x = 0, residual = |b|",
+   "py": "[[0.0, 0.0, 0.0], float(np.linalg.norm(M('NNLS_POS_b')))]",
+   "js": "((r) => [r.x, r.residual])(Num.nnls(D.NNLS_POS_A, D.NNLS_POS_b))",
+   "tol": 1e-12
+  },
+  {
+   "name": "nnls 8x4 whose least-squares solution is all negative but whose NNLS solution is not zero: x and residual equal scipy's",
+   "py": "[bool((np.linalg.lstsq(M('NNLS_NEG_A'), M('NNLS_NEG_b'), rcond=None)[0] < 0).all()), *so.nnls(M('NNLS_NEG_A'), M('NNLS_NEG_b'))]",
+   "js": "[Num.lstsq(D.NNLS_NEG_A, D.NNLS_NEG_b).x.every((v) => v < 0), ...((r) => [r.x, r.residual])(Num.nnls(D.NNLS_NEG_A, D.NNLS_NEG_b))]",
+   "tol": 1e-10
+  },
+  {
+   "name": "nnls of the zero matrix, of [[-1]] x = 2, and of [[2]] x = 3",
+   "py": "[[[0.0, 0.0], math.sqrt(5)], [[0.0], 2.0], [[1.5], 0.0]]",
+   "js": "[[[[0, 0], [0, 0]], [1, 2]], [[[-1]], [2]], [[[2]], [3]]].map(([A, b]) => ((r) => [r.x, r.residual])(Num.nnls(A, b)))",
+   "tol": 1e-15
   },
   {
    "name": "gradFD of the Rosenbrock function equals the analytic gradient",
@@ -599,6 +923,26 @@
    "name": "tex of a matrix with fractions and of a vector with fixed digits",
    "py": "[r'\\begin{bmatrix} 1 & \\tfrac{1}{2} \\\\ -\\tfrac{2}{3} & 4 \\end{bmatrix}', r'\\begin{bmatrix} 0.50 \\\\ -1.00 \\end{bmatrix}']",
    "js": "[Num.tex([[1, 0.5], [-2 / 3, 4]]), Num.tex([0.5, -1], {digits: 2})]"
+  },
+  {
+   "name": "tex of Infinity, -Infinity, 1.5e-7, and 2.5e21 is valid KaTeX (\\infty, 10^{...})",
+   "py": "[r'\\infty', r'-\\infty', r'1.5 \\times 10^{-7}', r'2.5 \\times 10^{21}']",
+   "js": "[Num.tex(Infinity), Num.tex(-Infinity), Num.tex(1.5e-7), Num.tex(2.5e21)]"
+  },
+  {
+   "name": "functions that need a matrix reject one with no columns by name",
+   "py": "['Num.svd: expects a non-empty matrix (an array of row arrays)', 'Num.rank: expects a non-empty matrix (an array of row arrays)']",
+   "js": "[errorOf(() => Num.svd([[]])), errorOf(() => Num.rank([[], []]))]"
+  },
+  {
+   "name": "svd 6x6, qp with 6 variables (8 inequality and 2 equality rows), eqQP, and lstsq 6x6 each take under 1 ms (0.003-0.2 ms measured), so a 60 fps slide (16.7 ms per frame) can call several per frame",
+   "py": "['svd 6x6 under 1 ms', 'qp 6 variables under 1 ms', 'eqQP 6 variables under 1 ms', 'lstsq 6x6 under 1 ms']",
+   "js": "[budget('svd 6x6', () => Num.svd(D.A66), 1), budget('qp 6 variables', () => Num.qp(D.QP_RAND), 1), budget('eqQP 6 variables', () => Num.eqQP(D.QP_RAND.H, D.QP_RAND.g, D.QP_RAND.Aeq, D.QP_RAND.beq), 1), budget('lstsq 6x6', () => Num.lstsq(D.A66, D.b6), 1)]"
+  },
+  {
+   "name": "svd 40x40 takes under 10 ms and qp with 40 variables and 40 inequality rows under 250 ms (0.5 ms and 23 ms in headless Chrome 149)",
+   "py": "['svd 40x40 under 10 ms', 'qp 40 variables under 250 ms']",
+   "js": "((A, p) => [budget('svd 40x40', () => Num.svd(A), 10), budget('qp 40 variables', () => Num.qp(p), 250)])(((g) => Array.from({length: 40}, () => g.normalVec(40)))(Num.rng(40)), randQP(41, 40, 40, 0))"
   }
  ]
 }

@@ -25,6 +25,10 @@
  * colspace, leftNullspace, pinv, lstsq, projector, project) reads it as an ABSOLUTE threshold
  * on the singular values. cond() uses the same default to decide that a matrix is singular.
  *
+ * Scaling. qr, eigSym, and svd factor A / 2^e with 2^e <= max|a_ij| < 2^(e+1), which is exact,
+ * and scale R, the eigenvalues, or S back, so entries from 1e-300 to 1e300 neither underflow
+ * nor overflow when squared.
+ *
  * Sign conventions, chosen so that figures do not flip between frames:
  *   qr:     diag(R) >= 0 (unique thin QR when A has full column rank, as numpy's up to signs).
  *   eigSym, svd: in each eigenvector / right singular vector the entry of largest magnitude
@@ -122,7 +126,9 @@
  * svdvals(A)          the singular values only.
  * rank(A, tol)        number of singular values above tol (default above).
  * cond(A)             sigma_max / sigma_min over the k = min(m, n) singular values;
- *                     Infinity when rank(A) < k.
+ *                     Infinity when rank(A) < k. numpy.linalg.cond has no such cutoff: for
+ *                     [[1, 1], [1, 1 + 1e-15]] it reports 3.2e15 where cond() gives Infinity.
+ *                     Its relative error is about eps cond(A), as numpy's (1e-3 at 4e12).
  * pinv(A, tol)        Moore-Penrose pseudoinverse V_r diag(1/sigma) U_r^T (n x m).
  * lstsq(A, b, tol) -> {x, residual, rank, S}   minimum-norm least-squares solution
  *                     x = pinv(A) b; residual = |A x - b|.
@@ -168,12 +174,16 @@
  *   .uniformVec(n, a = 0, b = 1)
  *   .sphere(n)            uniform unit vector in R^n (a normalized normalVec).
  *   .mvnormal(mean, cov)  mean + L z with L = chol(cov), z = normalVec; a PSD cov without a
- *                         Cholesky factor uses L = V diag(sqrt(max(values, 0))).
+ *                         Cholesky factor uses L = V diag(sqrt(values)) from eigSym, with
+ *                         eigenvalues below n eps max|value| (and negative ones) set to 0, so
+ *                         the draws of a singular cov stay in its range to rounding.
  *   .shuffle(arr)         shuffled COPY (Fisher-Yates, j = int(i + 1) for i = n-1 .. 1).
  * Normals come in Box-Muller pairs: u1 = 1 - uniform(), u2 = uniform(),
  * r = sqrt(-2 ln u1), first r cos(2 pi u2), then (next call) r sin(2 pi u2).
- * tools/twins/num.json holds a Python port that reproduces the stream bit for bit, so a
- * notebook can regenerate a slide's random data exactly.
+ * tools/twins/num_ref.py (class Mulberry32) holds a Python port that reproduces the stream
+ * (uniforms bit for bit, normals to about 1e-15), so a notebook can regenerate a slide's
+ * random data exactly. Each rng() has its own state: two generators with the same seed give
+ * the same stream however their calls interleave, and rng() is rng(1).
  *
  *   const R = Num.rng(42);  const z = R.normalVec(3);
  *
@@ -203,9 +213,12 @@
  *                     solves the equality-constrained subproblem exactly on the null space of
  *                     the working constraints, so x is exact to rounding (about 1e-14).
  *                     status: 'optimal' | 'infeasible' | 'unbounded' | 'nonconvex' |
- *                     'iteration_limit'. Infeasibility and unboundedness are decided by
- *                     simplex LPs, so both are exact. lamEq, lamUb follow the Lagrangian above
- *                     (lamUb >= 0, zero on inactive rows); activeUb lists the active rows.
+ *                     'iteration_limit'. 'nonconvex' means an eigenvalue of H below -1e-10
+ *                     times its largest |eigenvalue|. Infeasibility and unboundedness are
+ *                     decided by simplex LPs, so both are exact. lamEq, lamUb follow the
+ *                     Lagrangian above (lamUb >= 0, zero on inactive rows; not unique at a
+ *                     degenerate vertex or with dependent rows); activeUb lists the rows in the
+ *                     final working set.
  * eqQP(H, g, A, b) -> {x, nu, singular}
  *                     minimize (1/2) x^T H x + g^T x s.t. A x = b by ONE linear solve of the
  *                     KKT system [H A^T; A 0] [x; nu] = [-g; b]. Hou & Mason 2019 eq. 22
@@ -237,10 +250,22 @@
  * ======================================================================================
  * fmt(x, d = 3)       number, vector, or matrix as text with d decimals; a matrix becomes
  *                     aligned rows separated by "\n" (for a monospace .readout).
- * frac(x, maxDen = 1000)   "p/q" when x is within 1e-9 of a fraction with q <= maxDen,
- *                     "p" for integers, otherwise 4 significant digits.
+ * frac(x, maxDen = 1000)   "p/q" when x is within 1e-9 max(1, |x|) of a fraction with
+ *                     q <= maxDen, "p" for integers, otherwise 4 significant digits.
  * tex(A, {digits})    KaTeX source for a number, vector (a column), or matrix (bmatrix).
- *                     Without digits, entries are fractions where possible (\tfrac{1}{3}).
+ *                     Without digits, entries are fractions where possible (\tfrac{1}{3}),
+ *                     other numbers get 4 significant digits (1.5 \times 10^{-7}); infinities
+ *                     are \infty.
+ *
+ * ======================================================================================
+ * SPEED
+ * ======================================================================================
+ * Measured in headless Chrome 149 on the owner's workstation (tools/twins/num.json checks the
+ * 6x6 budget on every run): svd 6x6 0.007 ms, 40x40 0.5 ms; eigSym 40x40 0.8 ms; lstsq, pinv,
+ * nullspace 6x6 0.007 ms; eqQP with 6 variables 0.003 ms; qp with 6 variables and 8 rows
+ * 0.07-0.2 ms; lp with 40 variables and 40 rows 1.1 ms; qp with 40 variables and 40 rows
+ * 23 ms (39 active-set steps, each an SVD null-space basis plus an SVD least-squares solve).
+ * A 60 fps slide has 16.7 ms per frame.
  */
 (function (root) {
   "use strict";
@@ -1011,8 +1036,9 @@
     if (!isFinite(x)) return x !== x ? "\\text{NaN}" : x > 0 ? "\\infty" : "-\\infty";
     if (digits !== undefined) return fixedStr(x, digits);
     const r = ratApprox(x, 1000);
-    if (!r) return sig4(x).replace(/e\+?(-?\d+)$/, " \\times 10^{$1}");
-    if (r[1] === 1) return String(r[0]);
+    const pow10 = (s) => s.replace(/e\+?(-?\d+)$/, " \\times 10^{$1}"); // 1.5e-7 -> 1.5 \times 10^{-7}
+    if (!r) return pow10(sig4(x));
+    if (r[1] === 1) return pow10(String(r[0]));
     return `${r[0] < 0 ? "-" : ""}\\tfrac{${Math.abs(r[0])}}{${r[1]}}`;
   }
 
@@ -1369,8 +1395,8 @@
   function eqQP(H, g, A, b) {
     const [n, nH] = needMat(H, "eqQP"), m = A ? A.length : 0;
     g = g || zeros(n);
-    if (n !== nH || g.length !== n) fail("eqQP", `H must be n x n and g of length n (H is ${n}x${nH}, g has ${g.length} entries)`);
-    if (m && (!b || b.length !== m)) fail("eqQP", `A has ${m} rows, b has ${b ? b.length : 0} entries`);
+    if (n !== nH || g.length !== n) fail("eqQP", `H is ${n}x${nH} but g has length ${g.length}`);
+    if (m && (!b || b.length !== m)) fail("eqQP", `A has ${m} rows but b has length ${b ? b.length : 0}`);
     for (let i = 0; i < m; i++) if (A[i].length !== n) fail("eqQP", `row ${i} of A has ${A[i].length} entries for ${n} variables`);
     const K = zeros(n + m, n + m), rhs = zeros(n + m);
     for (let i = 0; i < n; i++) {
@@ -1398,7 +1424,7 @@
     const g = prob.g || zeros(n);
     const Aeq = prob.Aeq || [], beq = prob.beq || [], Aub = prob.Aub || [], bub = prob.bub || [];
     const mE = Aeq.length, mI = Aub.length;
-    if (g.length !== n) fail("qp", `H is ${n}x${n}, g has ${g.length} entries`);
+    if (g.length !== n) fail("qp", `H is ${n}x${n} but g has length ${g.length}`);
     if (beq.length !== mE || bub.length !== mI) fail("qp", "Aeq, beq (or Aub, bub) have different lengths");
     for (const r of Aeq.concat(Aub)) if (r.length !== n) fail("qp", `a constraint row has ${r.length} entries for ${n} variables`);
     const fval = (x) => 0.5 * dot(x, matvec(H, x)) + dot(g, x);
