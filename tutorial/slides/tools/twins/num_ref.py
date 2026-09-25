@@ -86,6 +86,15 @@ def rref_exact(A):
 
 # ---- mulberry32 + Box-Muller, the stream of Num.rng(seed) --------------------------------
 
+def largest_index(v):
+    """Index of the entry of largest magnitude, the first among ties within 1e-12 (Num's rule)."""
+    k = 0
+    for i in range(1, len(v)):
+        if abs(v[i]) > abs(v[k]) + 1e-12:
+            k = i
+    return k
+
+
 class Mulberry32:
     """Port of Num.rng: uniform() matches bit for bit; normals to about 1e-15 (libm)."""
 
@@ -117,7 +126,19 @@ class Mulberry32:
         return [self.normal() for _ in range(n)]
 
     def mvnormal(self, mean, cov):
-        L = np.linalg.cholesky(np.asarray(cov, float))
+        cov = np.asarray(cov, float)
+        try:
+            L = np.linalg.cholesky(cov)
+        except np.linalg.LinAlgError:
+            # Num.rng's fallback: L = V diag(sqrt(w)), eigenvalues descending, the largest
+            # entry of each eigenvector positive, eigenvalues below n eps max|w| set to 0.
+            w, V = np.linalg.eigh(cov)
+            w, V = w[::-1], V[:, ::-1]
+            for j in range(len(w)):
+                if V[largest_index(V[:, j]), j] < 0:
+                    V[:, j] = -V[:, j]
+            cut = len(w) * np.finfo(float).eps * np.abs(w).max()
+            L = V * np.where(w > cut, np.sqrt(np.maximum(w, 0)), 0.0)
         return (np.asarray(mean, float) + L @ np.array(self.normal_vec(len(mean)))).tolist()
 
     def shuffle(self, arr):
@@ -155,9 +176,11 @@ def linprog(p):
     return out
 
 
-def qp_enum(p, tol=1e-9):
+def qp_enum(p, tol=1e-9, max_active=None):
     """Exact convex-QP reference: try every subset of inequality rows as the active set,
-    solve its KKT system, and keep the point that is primal and dual feasible."""
+    solve its KKT system, and keep the point that is primal and dual feasible.
+    max_active limits the subset size; n suffices (Caratheodory: -(H x + g) is a conic
+    combination of at most n independent active normals, modulo the equality rows)."""
     H = np.array(p["H"], float)
     g = np.array(p.get("g") or [0.0] * len(H), float)
     n = len(g)
@@ -166,7 +189,8 @@ def qp_enum(p, tol=1e-9):
     Aub = np.array(p.get("Aub") or np.zeros((0, n)), float).reshape(-1, n)
     bub = np.array(p.get("bub") or [], float)
     mE = len(Aeq)
-    for k in range(len(Aub) + 1):
+    kmax = len(Aub) if max_active is None else min(len(Aub), max_active)
+    for k in range(kmax + 1):
         for S in itertools.combinations(range(len(Aub)), k):
             A = np.vstack([Aeq, Aub[list(S)]])
             b = np.concatenate([beq, bub[list(S)]])
@@ -234,3 +258,131 @@ def kkt_solve(p):
     n, m = len(g), len(b)
     sol = np.linalg.solve(np.block([[H, A.T], [A, np.zeros((m, m))]]), np.concatenate([-g, b]))
     return {"x": sol[:n].tolist(), "nu": sol[n:].tolist()}
+
+
+# ---- edge-case references ----------------------------------------------------------------
+
+def cond2_exact(A):
+    """Exact 2-norm condition number of the 2x2 matrix A as stored (its entries are binary
+    fractions): sigma_max^2 / |det A| from Fractions, square roots in 60-digit Decimal."""
+    from decimal import Decimal, getcontext
+
+    getcontext().prec = 60
+    a, b, c, d = (Fraction(x) for x in (A[0][0], A[0][1], A[1][0], A[1][1]))
+    t, det = a * a + b * b + c * c + d * d, a * d - b * c
+    if det == 0:
+        return math.inf
+    dec = lambda f: Decimal(f.numerator) / Decimal(f.denominator)
+    smax2 = (dec(t) + dec(t * t - 4 * det * det).sqrt()) / 2
+    return float(smax2 / abs(dec(det)))
+
+
+def near_parallel(d):
+    """[[1, 1], [1, 1 + d]]: two rows at an angle of about d / 2 radians."""
+    return [[1.0, 1.0], [1.0, 1.0 + d]]
+
+
+def eq_kkt(H, g, A, b):
+    """x, nu of min (1/2) x^T H x + g^T x s.t. A x = b from numpy's solve of the KKT system."""
+    H, g, A, b = (np.asarray(v, float) for v in (H, g, A, b))
+    n, m = len(g), len(b)
+    sol = np.linalg.solve(np.block([[H, A.T], [A, np.zeros((m, m))]]), np.concatenate([-g, b]))
+    return sol[:n].tolist(), sol[n:].tolist()
+
+
+def eq_kkt_lstsq(H, g, A, b):
+    """Minimum-norm least-squares [x; nu] of the (singular) KKT system, from numpy.lstsq."""
+    H, g, A, b = (np.asarray(v, float) for v in (H, g, A, b))
+    n, m = len(g), len(b)
+    K = np.block([[H, A.T], [A, np.zeros((m, m))]])
+    sol = np.linalg.lstsq(K, np.concatenate([-g, b]), rcond=None)[0]
+    return sol[:n].tolist(), sol[n:].tolist()
+
+
+def sample_stats(seed, N, mean, cov):
+    """Sample mean and covariance (ddof 1) of N draws of Mulberry32(seed).mvnormal."""
+    g = Mulberry32(seed)
+    X = np.array([g.mvnormal(mean, cov) for _ in range(N)])
+    return [X.mean(axis=0).tolist(), np.cov(X.T, ddof=1).tolist()]
+
+
+# ---- random degenerate problems: ports of tools/twins/num_gen.js -------------------------
+
+def _ints(g, n, k, off):
+    return [g.int(k) - off for _ in range(n)]
+
+
+def _dot(a, b):
+    return sum(x * y for x, y in zip(a, b))
+
+
+def gen_lp(seed):
+    """NUM_GEN.lp(seed): the same draws in the same order."""
+    g = Mulberry32(seed)
+    n = 2 + g.int(4)
+    m = 1 + g.int(7)
+    v = _ints(g, n, 5, 2)
+    Aub = [_ints(g, n, 7, 3) for _ in range(m)]
+    bub = [_dot(a, v) + (0 if g.uniform() < 0.6 else 1 + g.int(2)) for a in Aub]
+    p = {"c": _ints(g, n, 7, 3), "Aub": Aub, "bub": bub}
+    if seed % 3 == 0:
+        E = [_ints(g, n, 5, 2) for _ in range(1 + g.int(2))]
+        if seed % 5 == 0:
+            E.append([2 * x for x in E[0]])
+        p["Aeq"], p["beq"] = E, [_dot(e, v) for e in E]
+    kind = seed % 4
+    if kind == 1:
+        p["bounds"] = [None, None]
+    elif kind == 2:
+        p["bounds"] = [[[-3, 3], [None, 3], [-3, None]][g.int(3)] for _ in range(n)]
+    elif kind == 3:
+        p["bounds"] = [-4, 4]
+    return p
+
+
+def gen_qp(seed):
+    """NUM_GEN.qp(seed): the same draws in the same order."""
+    g = Mulberry32(seed)
+    n = 2 + g.int(3)
+    B = np.array([_ints(g, n, 5, 2) for _ in range(n)], float)
+    H = B @ B.T
+    if seed % 3 != 0:
+        H += 0.05 * np.eye(n)
+    v = _ints(g, n, 5, 2)
+    Aub, bub = [], []
+    for _ in range(n + 1 + g.int(3)):
+        a = _ints(g, n, 7, 3)
+        if not any(a):
+            a[0] = 1
+        Aub.append(a)
+        bub.append(_dot(a, v) + (0 if g.uniform() < 0.7 else 1 + g.int(2)))
+    for j in range(n):
+        e = [0] * n
+        e[j] = 1
+        Aub += [e, [-x for x in e]]
+        bub += [v[j] + 3, -v[j] + 3]
+    if seed % 4 == 1:
+        Aub += [list(Aub[0]), [2 * x for x in Aub[1]]]
+        bub += [bub[0], 2 * bub[1]]
+    p = {"H": H.tolist(), "g": _ints(g, n, 13, 6), "Aub": Aub, "bub": bub}
+    if seed % 4 == 2:
+        p["Aeq"], p["beq"] = [list(Aub[0]), list(Aub[0])], [bub[0], bub[0]]
+    return p
+
+
+def lp_summary(p):
+    """[status, fun] from HiGHS (fun None unless optimal)."""
+    r = linprog(p)
+    return [r["status"], r.get("fun")]
+
+
+def qp_summary(p):
+    """[status, fun] from the enumeration (status 'infeasible' when no KKT point exists and
+    the constraints are infeasible by HiGHS; the generated QPs are bounded by their box)."""
+    r = qp_enum(p, max_active=len(p["H"]))
+    if r is not None:
+        return ["optimal", r["fun"]]
+    n = len(p["H"])
+    feas = linprog({"c": [0] * n, "Aub": p["Aub"], "bub": p["bub"], "Aeq": p.get("Aeq"),
+                    "beq": p.get("beq"), "bounds": [None, None]})
+    return ["infeasible" if feas["status"] == "infeasible" else "no KKT point found", None]

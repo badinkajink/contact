@@ -14,17 +14,20 @@
  *   const F = Plot.fig("#svg", { w: 540, h: 380, xlim: [-2, 2], ylim: [0, 8] });
  *
  * maps xlim x ylim onto the rectangle inside `margin` (px; default {l: 62, r: 16, t: 14,
- * b: 52}; a number sets all four) with separate x and y scales. `equal: true` keeps one scale
- * (the box is centred and the limits are the minimum shown). Plot.fig returns an ordinary Fig:
- * every fig.js method (arrow, text, label, dot, handle, in3, group, ...) works in these world
- * coordinates. F.limits({xlim, ylim, margin, equal}) re-maps an existing figure the same way
- * (the strip chart calls it every frame). After limits(), F.sx and F.sy are the px-per-unit
- * scales and F.s = min(F.sx, F.sy) sizes fig.js circles.
+ * b: 52}; a number sets all four) with separate x and y scales. The first limit sits at the
+ * left (bottom), so xlim [2, -2] runs x from right to left; equal limits throw. `equal: true`
+ * keeps one scale (the box is centred and the limits are the minimum shown). Plot.fig returns
+ * an ordinary Fig: every fig.js method (arrow, text, label, dot, handle, in3, group, ...) works
+ * in these world coordinates. F.limits({xlim, ylim, margin, equal}) re-maps an existing figure
+ * the same way (the strip chart calls it every frame). After limits(), F.sx and F.sy are the
+ * px-per-unit scales (negative on a reversed axis) and F.s = min(|F.sx|, |F.sy|) sizes fig.js
+ * circles.
  *
  * The plot box is the world rectangle that plotting methods clip to. F.bounds() returns it as
- * {x0, x1, y0, y1}: the limits after Plot.fig / F.limits, the axes range after F.axes, and
- * otherwise the whole visible world rect of the figure. Methods that sample a function over a
- * rectangle (contour, heat, region, quiver) default to the plot box and accept {xlim, ylim}.
+ * {x0, x1, y0, y1} with x0 < x1 and y0 < y1: the limits after Plot.fig / F.limits, the axes
+ * range after F.axes, and otherwise the whole visible world rect of the figure. Methods that
+ * sample a function over a rectangle (contour, heat, region, quiver) default to the plot box
+ * and accept {xlim, ylim} in either order.
  *
  * Draw order is paint order: heat and region first, then axes, then curves and labels.
  * Every drawing method returns the SVG element it made (a <g> for composites) with computed
@@ -33,22 +36,28 @@
  *
  * Text: axis labels, tick labels given as strings, legend names and bar labels are upright;
  * $...$ segments are italic math with fig.js sub/superscripts: "$J(z_k)$", "time $t$ (s)",
- * "$x^2$". Numbers use a true minus sign (U+2212).
+ * "$x^2$". Numbers, and "-" inside $...$, use a true minus sign (U+2212).
  *
  * ---------------------------------------------------------------- axes
  * F.axes({xlim, ylim, xticks, yticks, xstep, ystep, xfmt, yfmt, xlabel, ylabel, grid, frame,
  *         arrows, origin, clip, size, lsize, color, gridColor, ylabelAt}) -> <g>
- *   xlim, ylim   world range of the axes (default F.bounds()); also becomes the plot box
- *                unless clip: false.
- *   xticks       undefined: automatic round ticks (1-2-5 steps, thinned so labels never touch);
- *                a number: about that many ticks; an array of values; an array of
- *                [value, "label"] pairs (for pi labels: [[Math.PI, "$π$"]]);
- *                false or []: no ticks. yticks the same.
+ *   xlim, ylim   world range of the axes, in either order (default F.bounds()); also becomes
+ *                the plot box unless clip: false.
+ *   xticks       undefined: automatic round ticks (the 1-2-5 step nearest one tick per 90 px
+ *                on x and per 55 px on y, thinned so labels never touch, and made one step
+ *                finer when that gives at least three ticks that fit); a number: about that
+ *                many ticks; an array of values; an array of [value, "label"] pairs (for pi
+ *                labels: [[Math.PI, "$π$"]]); false or []: no ticks. yticks the same.
  *   xstep        exact tick spacing (overrides the automatic choice). ystep the same.
- *   xfmt(v)      tick label formatter. Default: fixed decimals from the tick step.
- *   xlabel       text under the x axis (box style) or above the right end (origin style).
+ *   xfmt(v)      tick label formatter. Default: fixed decimals from the tick step; when the
+ *                ticks reach 10^6 (with a step of 10^5 or more) or all lie below 10^-3 in size,
+ *                m×10^e ("2×10$^{−7}$").
+ *   xlabel       text under the x tick labels (box style) or above the right end (origin style).
  *   ylabel       text left of the y axis, rotated (box style; ylabelAt: "top" puts it
- *                horizontal above the axis) or right of the top end (origin style).
+ *                horizontal above the axis) or right of the top end (origin style). The rotated
+ *                label sits left of the widest tick label and stops 2 px from the figure edge,
+ *                so a narrow margin.l makes it overlap the tick labels: leave about 45 px plus
+ *                the widest tick label.
  *   grid         light gray lines at every tick. frame: full rectangle around the box.
  *   origin       true or [x, y]: math-style axes through that point (clamped to the box),
  *                ticks across the lines, no label at the crossing, arrows on by default.
@@ -62,10 +71,13 @@
  *
  * ---------------------------------------------------------------- curves and points
  * F.curve(f, x0, x1, {n, color, width, dash, opacity, clip, jumps}) -> <path>
- *   The graph of y = f(x) sampled at n + 1 points (n = 400), clipped to the plot box.
- *   x0, x1 default to the box. Non-finite values break the line. A segment whose two ends
- *   lie beyond opposite edges (the asymptotes of tan x or 1/x) is dropped; jumps: true keeps
- *   it. clip: false disables clipping. path.lines holds the clipped polylines.
+ *   The graph of y = f(x) sampled at n + 1 points (n = 400), clipped to the plot box. Each
+ *   interval is bisected (to depth 10) while its chord misses the curve's midpoint by more
+ *   than 0.75 px, so curves stay smooth near sharp turns and reach the edge of their domain
+ *   (log x, sqrt x). x0, x1 default to the box. Non-finite values break the line, and so does
+ *   an interval still unresolved at full depth: a pole (tan x, 1/x) or a jump (floor x).
+ *   jumps: true connects across poles and jumps instead, with a vertical segment at the
+ *   discontinuity. clip: false disables clipping. path.lines holds the clipped polylines.
  * F.param(fn, t0, t1, {n, ...}) -> <path>   fn(t) = [x, y], same options.
  * F.polyline(pts, {color, width, dash, close, fill, fillOpacity, stroke}) -> <path> or <g>
  *   Clipped polyline. With fill, the closed polygon is clipped (Sutherland-Hodgman) and filled;
@@ -80,18 +92,23 @@
  * F.contour(f, levels, {xlim, ylim, nx, ny, color, colors, cmap, width, dash, opacity,
  *           labels, lsize}) -> polylines
  *   Marching squares on an nx x ny grid (default one cell per 5 px), saddles resolved by the
- *   cell-centre value. levels: an array, or a number n for about n levels at round values.
- *   colors: an array per level or a function (level, k) -> color; cmap: a colormap name
- *   (levels spread over t in [0.25, 1]); color: one color (default ink). labels: true or a
- *   function level -> string; one label per level on its longest line, with a white halo,
- *   placed so labels do not overlap each other or the box edge.
+ *   cell-centre value. A grid value equal to a level counts as above it. Cells with a NaN
+ *   corner are skipped; +Infinity counts as above every level and -Infinity as below, with
+ *   the crossing put at the finite corner. levels: an array, or a number n for about n levels
+ *   at round values. colors: an array per level or a function (level, k) -> color; cmap: a
+ *   colormap name (levels spread over t in [0.25, 1]); color: one color (default ink).
+ *   labels: true or a function level -> string; one label per level on its longest line,
+ *   with a white halo, placed so labels do not overlap each other or the box edge.
  *   Returns a flat array of polylines ([[x, y], ...]) with .level and .closed on each, and
- *   .levels, .range ([min, max] of f on the grid) and .el (the <g>) on the array.
+ *   .levels, .range ([min, max] of the finite values of f on the grid), .grid ([nx, ny]) and
+ *   .el (the <g>) on the array.
  *   Plot.contours(f, levels, {xlim, ylim, nx, ny}) computes the same without drawing.
  * F.heat(f, {xlim, ylim, nx, ny, cmap, vmin, vmax, opacity, smooth}) -> <image>
  *   f at cell centres (default one cell per 3 px) through the colormap (default "heat");
- *   vmin / vmax default to the data range; NaN is transparent. smooth: false shows blocky
- *   cells. image.vmin, .vmax, .cmap feed F.colorbar({of: image}).
+ *   vmin / vmax default to the range of the finite values. A constant field c gets
+ *   c ± |c|/10 (±1 around 0), so it takes the middle color. NaN is transparent; +Infinity
+ *   and -Infinity take the end colors. smooth: false shows blocky cells. image.vmin, .vmax,
+ *   .cmap feed F.colorbar({of: image}).
  * F.colorbar({of, cmap, vmin, vmax, at, len, w, ticks, label, size}) -> <g>
  *   Vertical bar; default 14 px right of the plot box and as tall as it, so leave
  *   margin.r of about 80 px. at: [px, py] top-left corner; len: height in px.
@@ -135,16 +152,17 @@
  * F.bars(values, labels, {at, width, base, fill, stroke, values, fmt, size}) -> <g>
  *   Bar i centred at x = at[i] (default i), width 0.7, from base (0) to values[i]. fill: a
  *   color, an array, or a function (v, i) -> color. labels are written under the plot box
- *   where x tick labels go, so call F.axes({xticks: false, ...}). values: true writes each
- *   value above its bar (fmt(v) formats it).
+ *   where x tick labels go, so call F.axes({xticks: false, ...}); the xlabel of that axes
+ *   call moves down one row to make room. values: true writes each value above its bar
+ *   (fmt(v) formats it).
  *
  * ---------------------------------------------------------------- colormaps
- * Plot.colormap(name) -> cmap, with cmap(t) = "#rrggbb" for t in [0, 1] (clamped) and
- *   cmap.rgb(t) = [r, g, b]. Names: "heat" (sequential: white, pale yellow, orange, dark red;
- *   CIE lightness falls monotonically from 100 to 19), "diverging" (alias "div": dark blue,
- *   white at 0.5, dark red), "gray" (white to dark gray). Also accepts an array of colors
- *   (evenly spaced) or of [t, color] stops, or a function t -> color. Plot.colormaps lists
- *   the names. For a diverging map centred on 0 pass vmin = -vmax.
+ * Plot.colormap(name) -> cmap, with cmap(t) = "#rrggbb" for t in [0, 1] (clamped; NaN reads
+ *   as 0) and cmap.rgb(t) = [r, g, b]. Names: "heat" (sequential: white, pale yellow, orange,
+ *   dark red; CIE lightness falls monotonically from 100 to 19), "diverging" (alias "div":
+ *   dark blue, white at 0.5, dark red), "gray" (white to dark gray). Also accepts an array of
+ *   colors (evenly spaced) or of [t, color] stops, or a function t -> color. Plot.colormaps
+ *   lists the names. For a diverging map centred on 0 pass vmin = -vmax.
  *
  * ---------------------------------------------------------------- strip chart
  * Plot.strip(svgOrSelector, {w, h, series, window, ylim, ylabel, xlabel, margin, grid,
@@ -159,8 +177,9 @@
  *
  * ---------------------------------------------------------------- helpers
  * Plot.ticks(lo, hi, n) -> round tick values; Plot.fmt(v, decimals?) -> label string;
- * Plot.linspace(a, b, n); Plot.clip(pts, box, jumps) -> clipped polylines;
- * Plot.rgb(color) -> [r, g, b] or null; Plot.hex([r, g, b]) -> "#rrggbb".
+ * Plot.linspace(a, b, n); Plot.clip(pts, box, jumps) -> clipped polylines (jumps: true drops
+ * segments whose ends lie beyond opposite edges); Plot.rgb(color) -> [r, g, b] or null (hex,
+ * rgb(), or a CSS color name); Plot.hex([r, g, b]) -> "#rrggbb".
  */
 (function () {
   "use strict";
@@ -257,7 +276,8 @@
     if (s.indexOf("$") < 0) { t.textContent = s; return t; }
     s.split("$").forEach((part, k) => {
       if (!part) return;
-      if (k % 2) mathInto(el("tspan", { "font-style": "italic" }, t), part, size);
+      // In math, as in TeX, "-" is a minus sign.
+      if (k % 2) mathInto(el("tspan", { "font-style": "italic" }, t), part.replace(/-/g, MINUS), size);
       else el("tspan", {}, t).textContent = part;
     });
     return t;
@@ -284,29 +304,44 @@
 
   // ---------------------------------------------------------------- numbers and ticks
   function decimalsOf(v) {
-    for (let d = 0; d < 7; d++) {
+    if (!isNum(v) || v === 0) return 0;
+    for (let d = 0; d < 15; d++) {
       const s = v * Math.pow(10, d);
-      if (Math.abs(s - Math.round(s)) < 1e-6 * Math.max(1, Math.abs(s))) return d;
+      if (Math.abs(s - Math.round(s)) < 1e-9 * Math.max(1, Math.abs(s))) return d;
     }
-    return 6;
+    return 15;
   }
   function fixed(v, dec) {
     let s = v.toFixed(dec);
     if (parseFloat(s) === 0) s = (0).toFixed(dec);
     return s.replace("-", MINUS);
   }
+  // m×10^e in label syntax, for tick values too large or too small for fixed decimals.
+  function sci(v) {
+    if (v === 0) return "0";
+    const e = Math.floor(Math.log10(Math.abs(v)) + 1e-9);
+    const m = String(parseFloat((v / Math.pow(10, e)).toPrecision(6)));
+    return (m + "×10$^{" + e + "}$").replace(/-/g, MINUS);
+  }
   Plot.fmt = function (v, dec) {
-    if (dec !== undefined) return fixed(v, dec);
     if (!isNum(v)) return String(v);
+    if (dec !== undefined) return fixed(v, dec);
     if (v === 0) return "0";
     const a = Math.abs(v);
     const s = a >= 1e5 || a < 1e-3 ? v.toExponential(2) : String(parseFloat(v.toPrecision(4)));
-    return s.replace("-", MINUS);
+    return s.replace(/-/g, MINUS);
   };
+  // The 1-2-5 step at or above raw (used for padding ranges and thinning ticks).
   function niceStep(raw) {
     if (!(raw > 0) || !isFinite(raw)) return 1;
     const e = Math.floor(Math.log10(raw)), b = Math.pow(10, e), f = raw / b;
     return (f <= 1 + 1e-9 ? 1 : f <= 2 + 1e-9 ? 2 : f <= 5 + 1e-9 ? 5 : 10) * b;
+  }
+  // The 1-2-5 step nearest raw on a log scale (thresholds at sqrt 2, sqrt 10, sqrt 50).
+  function nearStep(raw) {
+    if (!(raw > 0) || !isFinite(raw)) return 1;
+    const e = Math.floor(Math.log10(raw)), b = Math.pow(10, e), f = raw / b;
+    return (f < Math.SQRT2 ? 1 : f < 3.1623 ? 2 : f < 7.0711 ? 5 : 10) * b;
   }
   function bumpStep(st) {
     const e = Math.floor(Math.log10(st) + 1e-9), b = Math.pow(10, e), f = Math.round(st / b);
@@ -315,11 +350,12 @@
   function multiples(lo, hi, st) {
     const eps = (hi - lo) * 1e-9, out = [];
     const k0 = Math.ceil((lo - eps) / st), k1 = Math.floor((hi + eps) / st);
-    for (let k = k0; k <= k1 && out.length < 1000; k++) out.push(parseFloat((k * st).toFixed(12)));
+    for (let k = k0; k <= k1 && out.length < 1000; k++) out.push(parseFloat((k * st).toPrecision(15)));
     return out;
   }
   Plot.ticks = function (lo, hi, n) {
-    return multiples(lo, hi, niceStep((hi - lo) / Math.max(1, n || 5)));
+    if (hi < lo) { const t = lo; lo = hi; hi = t; }
+    return multiples(lo, hi, nearStep((hi - lo) / Math.max(1, n || 5)));
   };
   Plot.linspace = function (a, b, n) {
     const out = [];
@@ -327,7 +363,7 @@
     return out;
   };
 
-  // Tick list [{v, s}] for one axis. pxLen: axis length in px.
+  // Tick list [{v, s}] for one axis. lim: [lo, hi] with lo <= hi; pxLen: axis length in px.
   function makeTicks(spec, step, lim, pxLen, size, fmt, isX) {
     if (spec === false || spec === null) return [];
     const lo = lim[0], hi = lim[1], eps = (hi - lo) * 1e-9;
@@ -339,19 +375,27 @@
       return spec.filter(inR).map((v) => ({ v, s: fmt ? fmt(v) : fixed(v, dec) }));
     }
     const label = (list, st) => {
+      if (fmt) return list.map((v) => ({ v, s: fmt(v) }));
+      const big = list.reduce((m, v) => Math.max(m, Math.abs(v)), 0);
+      if ((big >= 1e6 && st >= 1e5) || (big > 0 && big < 1e-3)) return list.map((v) => ({ v, s: sci(v) }));
       const dec = decimalsOf(st);
-      return list.map((v) => ({ v, s: fmt ? fmt(v) : fixed(v, dec) }));
+      return list.map((v) => ({ v, s: fixed(v, dec) }));
     };
     if (step) return label(multiples(lo, hi, step), step);
-    const target = typeof spec === "number" ? spec : Math.max(2, Math.floor(pxLen / (isX ? 90 : 55)));
-    let st = niceStep((hi - lo) / Math.max(1, target));
+    const target = typeof spec === "number" ? spec : Math.max(2, Math.round(pxLen / (isX ? 90 : 55)));
+    const fits = (list, st) => st * pxLen / (hi - lo) >=
+      (isX ? Math.max.apply(null, list.map((t) => textW(t.s, size))) + 14 : size + 8);
+    let st = nearStep((hi - lo) / Math.max(1, target));
     let list = label(multiples(lo, hi, st), st);
-    for (let guard = 0; guard < 12 && list.length > 2; guard++) {
-      const gap = st * pxLen / (hi - lo);
-      const need = isX ? Math.max.apply(null, list.map((t) => textW(t.s, size))) + 14 : size + 8;
-      if (gap >= need) break;
+    for (let guard = 0; guard < 12 && list.length > 2 && !fits(list, st); guard++) {
       st = bumpStep(st);
       list = label(multiples(lo, hi, st), st);
+    }
+    // Fewer than three ticks: take the next finer 1-2-5 step when its labels fit.
+    if (list.length < 3 && typeof spec !== "number" && hi > lo) {
+      const e = Math.floor(Math.log10(st) + 1e-9), b = Math.pow(10, e), f = Math.round(st / b);
+      const fine = (f === 1 ? 0.5 : f === 2 ? 1 : 2) * b, l2 = label(multiples(lo, hi, fine), fine);
+      if (l2.length >= 3 && fits(l2, fine)) list = l2;
     }
     return list;
   }
@@ -367,25 +411,29 @@
     return Object.assign(d, m);
   }
 
+  const sorted = (l) => (l[0] <= l[1] ? [l[0], l[1]] : [l[1], l[0]]);
   P.limits = function (o) {
     o = o || {};
     const xl = o.xlim, yl = o.ylim;
-    if (!xl || !yl || !(xl[1] > xl[0]) || !(yl[1] > yl[0]))
-      throw new Error("plot.js: limits need xlim [a, b] and ylim [c, d] with a < b and c < d");
+    const good = (l) => Array.isArray(l) && isNum(l[0]) && isNum(l[1]) && l[0] !== l[1];
+    if (!good(xl) || !good(yl))
+      throw new Error("plot.js: limits need finite xlim [a, b] and ylim [c, d] with a != b and c != d");
     const m = margins(o.margin);
     const W = this.w - m.l - m.r, H = this.h - m.t - m.b;
     let sx = W / (xl[1] - xl[0]), sy = H / (yl[1] - yl[0]);
     let ox = m.l - xl[0] * sx, oy = m.t + yl[1] * sy;
     if (o.equal) {
-      const s = Math.min(sx, sy), cx = (xl[0] + xl[1]) / 2, cy = (yl[0] + yl[1]) / 2;
-      sx = sy = s;
-      ox = m.l + W / 2 - cx * s;
-      oy = m.t + H / 2 + cy * s;
+      const s = Math.min(Math.abs(sx), Math.abs(sy)), cx = (xl[0] + xl[1]) / 2, cy = (yl[0] + yl[1]) / 2;
+      sx = Math.sign(sx) * s;
+      sy = Math.sign(sy) * s;
+      ox = m.l + W / 2 - cx * sx;
+      oy = m.t + H / 2 + cy * sy;
     }
-    this.sx = sx; this.sy = sy; this.s = Math.min(sx, sy); this.ox = ox; this.oy = oy;
+    this.sx = sx; this.sy = sy; this.s = Math.min(Math.abs(sx), Math.abs(sy)); this.ox = ox; this.oy = oy;
     this.X = aX; this.Y = aY; this.world = aWorld;
     this.margin = m;
-    this.plotBox = { x0: xl[0], x1: xl[1], y0: yl[0], y1: yl[1] };
+    const xs = sorted(xl), ys = sorted(yl);
+    this.plotBox = { x0: xs[0], x1: xs[1], y0: ys[0], y1: ys[1] };
     return this;
   };
 
@@ -402,12 +450,18 @@
   };
   function rectFrom(F, o) {
     const B = F.bounds();
-    if (o.xlim) { B.x0 = o.xlim[0]; B.x1 = o.xlim[1]; }
-    if (o.ylim) { B.y0 = o.ylim[0]; B.y1 = o.ylim[1]; }
+    if (o.xlim) [B.x0, B.x1] = sorted(o.xlim);
+    if (o.ylim) [B.y0, B.y1] = sorted(o.ylim);
     return B;
   }
   function pxSize(F, B) {
     return [Math.abs(F.X(B.x1) - F.X(B.x0)), Math.abs(F.Y(B.y0) - F.Y(B.y1))];
+  }
+  // Screen rectangle {L, R, T, B} (px) of a world box; axes may be reversed.
+  function pxBox(F, B) {
+    B = B || F.bounds();
+    const a = F.X(B.x0), b = F.X(B.x1), c = F.Y(B.y0), d = F.Y(B.y1);
+    return { L: Math.min(a, b), R: Math.max(a, b), T: Math.min(c, d), B: Math.max(c, d) };
   }
 
   // ---------------------------------------------------------------- clipping
@@ -492,35 +546,43 @@
   P.axes = function (o) {
     o = o || {};
     const b = this.bounds();
-    const xl = o.xlim || [b.x0, b.x1], yl = o.ylim || [b.y0, b.y1];
-    if (o.clip !== false) owner(this).plotBox = { x0: xl[0], x1: xl[1], y0: yl[0], y1: yl[1] };
+    const xl = sorted(o.xlim || [b.x0, b.x1]), yl = sorted(o.ylim || [b.y0, b.y1]);
+    const box = { x0: xl[0], x1: xl[1], y0: yl[0], y1: yl[1] };
+    if (o.clip !== false) owner(this).plotBox = box;
     const size = o.size || 18, lsize = o.lsize || 21, color = o.color || C.ink;
     const g = el("g", { class: "plot-axes" }, this.root);
-    const X0 = this.X(xl[0]), X1 = this.X(xl[1]), Y0 = this.Y(yl[0]), Y1 = this.Y(yl[1]);
+    const pb = pxBox(this, box), L = pb.L, R = pb.R, T = pb.T, Bt = pb.B;
     const org = o.origin ? (Array.isArray(o.origin) ? o.origin : [0, 0]) : null;
     const math = !!org;
     const arrows = o.arrows === undefined ? math : !!o.arrows;
-    const ow = [org ? clamp(org[0], xl[0], xl[1]) : xl[0], org ? clamp(org[1], yl[0], yl[1]) : yl[0]];
+    // Box style: the axes run along the screen's bottom and left edges of the box, whichever
+    // limit lands there (an axis may be reversed).
+    const left = this.X(xl[0]) <= this.X(xl[1]) ? xl[0] : xl[1], bottom = this.Y(yl[0]) >= this.Y(yl[1]) ? yl[0] : yl[1];
+    const ow = org ? [clamp(org[0], xl[0], xl[1]), clamp(org[1], yl[0], yl[1])] : [left, bottom];
     const ay = snap(this.Y(ow[1])), ax = snap(this.X(ow[0])); // px row of the x axis, px column of the y axis
-    const xt = makeTicks(o.xticks, o.xstep, xl, X1 - X0, size, o.xfmt, true);
-    const yt = makeTicks(o.yticks, o.ystep, yl, Y0 - Y1, size, o.yfmt, false);
+    const xt = makeTicks(o.xticks, o.xstep, xl, R - L, size, o.xfmt, true);
+    const yt = makeTicks(o.yticks, o.ystep, yl, Bt - T, size, o.yfmt, false);
     const line = (x1, y1, x2, y2, c, w) =>
       el("line", { x1: f2(x1), y1: f2(y1), x2: f2(x2), y2: f2(y2), stroke: c, "stroke-width": w }, g);
     const ext = arrows ? 9 : 0;
+    // Positive ends in px and their screen directions (xd = +1: rightward; yd = -1: upward).
+    const xe = this.X(xl[1]), xd = xe >= this.X(xl[0]) ? 1 : -1;
+    const ye = this.Y(yl[1]), yd = ye <= this.Y(yl[0]) ? -1 : 1;
+    const xtip = xe + xd * ext, ytip = ye + yd * ext;
     if (o.grid) {
       const gc = o.gridColor || "#dddddd";
-      xt.forEach((t) => { const x = snap(this.X(t.v)); line(x, Y0, x, Y1, gc, 1); });
-      yt.forEach((t) => { const y = snap(this.Y(t.v)); line(X0, y, X1, y, gc, 1); });
+      xt.forEach((t) => { const x = snap(this.X(t.v)); line(x, Bt, x, T, gc, 1); });
+      yt.forEach((t) => { const y = snap(this.Y(t.v)); line(L, y, R, y, gc, 1); });
     }
     if (o.frame) {
-      el("rect", { x: f2(snap(X0)), y: f2(snap(Y1)), width: f2(X1 - X0), height: f2(Y0 - Y1),
+      el("rect", { x: f2(snap(L)), y: f2(snap(T)), width: f2(R - L), height: f2(Bt - T),
         fill: "none", stroke: color, "stroke-width": 1 }, g);
     }
-    line(X0, ay, X1 + ext, ay, color, 1);
-    line(ax, Y0, ax, Y1 - ext, color, 1);
+    line(this.X(xl[0]), ay, xtip, ay, color, 1);
+    line(ax, this.Y(yl[0]), ax, ytip, color, 1);
     if (arrows) {
-      el("polygon", { points: [X1 + ext, ay, X1 + ext - 9, ay - 3.6, X1 + ext - 9, ay + 3.6].map(f2).join(" "), fill: color }, g);
-      el("polygon", { points: [ax, Y1 - ext, ax - 3.6, Y1 - ext + 9, ax + 3.6, Y1 - ext + 9].map(f2).join(" "), fill: color }, g);
+      el("polygon", { points: [xtip, ay, xtip - 9 * xd, ay - 3.6, xtip - 9 * xd, ay + 3.6].map(f2).join(" "), fill: color }, g);
+      el("polygon", { points: [ax, ytip, ax - 3.6, ytip - 9 * yd, ax + 3.6, ytip - 9 * yd].map(f2).join(" "), fill: color }, g);
     }
     const tout = math ? 4 : (o.ticklen === undefined ? 5 : o.ticklen), tin = math ? 4 : 0;
     const spanx = xl[1] - xl[0], spany = yl[1] - yl[0];
@@ -539,16 +601,21 @@
       maxw = Math.max(maxw, textW(t.s, size));
       txt(g, ax - tout - 5, clamp(y, size * 0.5 + 1, this.h - size * 0.5 - 1), t.s, { size, color, anchor: "end" });
     });
+    // F.bars moves a box-style x label down when it writes category labels into an empty tick row.
+    owner(this).axesInfo = null;
     if (o.xlabel) {
-      if (math) txt(g, X1 + ext, ay - lsize * 0.5 - 6, o.xlabel, { size: lsize, color, anchor: "end" });
-      else txt(g, (X0 + X1) / 2, ay + tout + 4 + (xt.length ? size + 6 : 0) + lsize * 0.5, o.xlabel, { size: lsize, color });
+      if (math) txt(g, xtip, ay - lsize * 0.5 - 6, o.xlabel, { size: lsize, color, anchor: xd > 0 ? "end" : "start" });
+      else {
+        const t = txt(g, (L + R) / 2, ay + tout + 4 + (xt.length ? size + 3 : 0) + lsize * 0.5, o.xlabel, { size: lsize, color });
+        owner(this).axesInfo = { xlabel: t, row: xt.length > 0 };
+      }
     }
     if (o.ylabel) {
-      if (math) txt(g, ax + 10, Y1 - ext + lsize * 0.5, o.ylabel, { size: lsize, color, anchor: "start" });
-      else if (o.ylabelAt === "top") txt(g, ax, Y1 - ext - lsize * 0.5 - 4, o.ylabel, { size: lsize, color, anchor: "middle" });
+      if (math) txt(g, ax + 10, ytip - yd * lsize * 0.5, o.ylabel, { size: lsize, color, anchor: "start" });
+      else if (o.ylabelAt === "top") txt(g, ax, T - (yd < 0 ? ext : 0) - lsize * 0.5 - 4, o.ylabel, { size: lsize, color, anchor: "middle" });
       else {
         const x = Math.max(lsize * 0.6, ax - tout - 5 - maxw - 8 - lsize * 0.5);
-        txt(g, x, (Y0 + Y1) / 2, o.ylabel, { size: lsize, color, rotate: -90 });
+        txt(g, x, (T + Bt) / 2, o.ylabel, { size: lsize, color, rotate: -90 });
       }
     }
     return g;
@@ -558,8 +625,8 @@
     o = o || {};
     const e = drawLines(F, [a, b], Object.assign({ width: 1.2, color: C.gray, dash: "6 5" }, o), false);
     if (o.label) {
-      const B = F.bounds(), vertical = a[0] === b[0];
-      const x = vertical ? F.X(a[0]) + 5 : F.X(B.x1) - 4, y = vertical ? F.Y(B.y1) + 12 : F.Y(a[1]) - 12;
+      const pb = pxBox(F), vertical = a[0] === b[0];
+      const x = vertical ? F.X(a[0]) + 5 : pb.R - 4, y = vertical ? pb.T + 12 : F.Y(a[1]) - 12;
       txt(F.root, x, y, o.label, { size: o.lsize || 18, color: o.lcolor || o.color || C.ink, anchor: vertical ? "start" : "end" });
     }
     return e;
@@ -572,8 +639,7 @@
     const size = o.size || 18, row = size + 6;
     const wmax = Math.max.apply(null, items.map((it) => textW(it.name || "", size)).concat([0]));
     const bw = 12 + 24 + 8 + wmax + 12, bh = items.length * row + 8;
-    const B = this.bounds();
-    const L = this.X(B.x0), R = this.X(B.x1), T = this.Y(B.y1), Bt = this.Y(B.y0);
+    const pb = pxBox(this), L = pb.L, R = pb.R, T = pb.T, Bt = pb.B;
     const at = o.at || "nw";
     let x, y;
     if (Array.isArray(at)) { x = at[0]; y = at[1]; }
@@ -594,15 +660,52 @@
   };
 
   // ---------------------------------------------------------------- curves and points
+  // Samples y = g(x) at n + 1 points and bisects every interval whose chord misses the curve's
+  // midpoint by more than 0.75 px, to depth 10. An interval that still misses at full depth
+  // holds a pole or a jump: a null breaks the line there unless jumps is true. Intervals whose
+  // three values all lie beyond the same edge of B are not refined (nothing there is visible).
+  function sampleCurve(g, x0, x1, n, B, sy, jumps) {
+    const pts = [], TOL = 0.75, DEPTH = 10, hiY = B ? B.y1 : Infinity, loY = B ? B.y0 : -Infinity;
+    let budget = 20 * n + 2000;
+    const side = (y) => (y > hiY ? 1 : y < loY ? -1 : 0);
+    function refine(xa, ya, xb, yb, d) {
+      const xm = (xa + xb) / 2, ym = g(xm), fa = isNum(ya), fb = isNum(yb), fm = isNum(ym);
+      budget--;
+      if (fa && fb && fm) {
+        const s = side(ya);
+        if ((s !== 0 && s === side(yb) && s === side(ym)) || Math.abs(ym - (ya + yb) / 2) * sy <= TOL || budget <= 0) {
+          pts.push([xm, ym], [xb, yb]);
+          return;
+        }
+      } else if (!fa && !fb && !fm) { pts.push([xb, yb]); return; }
+      if (d >= DEPTH || budget <= 0) {
+        if (fa && fb && !jumps) pts.push(null);
+        pts.push([xb, yb]);
+        return;
+      }
+      refine(xa, ya, xm, ym, d + 1);
+      refine(xm, ym, xb, yb, d + 1);
+    }
+    let xa = x0, ya = g(x0);
+    pts.push([xa, ya]);
+    for (let i = 1; i <= n; i++) {
+      const xb = x0 + (x1 - x0) * i / n, yb = g(xb);
+      refine(xa, ya, xb, yb, 0);
+      xa = xb;
+      ya = yb;
+    }
+    return pts;
+  }
+
   P.curve = function (f, x0, x1, o) {
     if (x0 !== null && typeof x0 === "object") { o = x0; x0 = undefined; x1 = undefined; }
     o = o || {};
     const B = this.bounds();
     if (x0 === undefined || x0 === null) x0 = B.x0;
     if (x1 === undefined || x1 === null) x1 = B.x1;
-    const n = o.n || 400, g = safe(f), pts = [];
-    for (let i = 0; i <= n; i++) { const x = x0 + (x1 - x0) * i / n; pts.push([x, g(x)]); }
-    return drawLines(this, pts, o, o.jumps !== true, 2);
+    const jumps = o.jumps === true;
+    const pts = sampleCurve(safe(f), x0, x1, o.n || 400, o.clip === false ? null : B, Math.abs(SY(this)), jumps);
+    return drawLines(this, pts, o, !jumps, 2);
   };
 
   P.param = function (fn, t0, t1, o) {
@@ -752,7 +855,7 @@
   }
   function niceLevels(lo, hi, n) {
     if (!(hi > lo)) return [];
-    const st = niceStep((hi - lo) / Math.max(1, n));
+    const st = nearStep((hi - lo) / Math.max(1, n));
     return multiples(lo, hi, st).filter((v) => v > lo && v < hi);
   }
 
@@ -766,13 +869,13 @@
     for (let j = 0; j <= ny; j++) {
       for (let i = 0; i <= nx; i++) {
         const v = g(xs(i), ys(j));
-        const ok = isNum(v);
-        V[j * W + i] = ok ? v : NaN;
-        if (ok) { if (v < lo) lo = v; if (v > hi) hi = v; }
+        // NaN (and anything not a number) marks a missing value; ±Infinity stays ordered.
+        V[j * W + i] = typeof v === "number" ? v : NaN;
+        if (isNum(v)) { if (v < lo) lo = v; if (v > hi) hi = v; }
       }
     }
     if (typeof levels === "number") levels = niceLevels(lo, hi, levels);
-    levels = (levels || []).slice();
+    levels = (levels || []).filter(isNum);
     const out = [], flag = new Uint8Array(V.length);
     levels.forEach((L) => {
       for (let k = 0; k < V.length; k++) flag[k] = V[k] !== V[k] ? 2 : V[k] >= L ? 1 : 0;
@@ -785,7 +888,9 @@
         let p = cache.get(id);
         if (p) return p;
         const v = id >> 1, i = v % W, j = (v - i) / W, vert = id & 1;
-        const a = V[v], b = V[vert ? v + W : v + 1], t = (L - a) / (b - a);
+        const a = V[v], b = V[vert ? v + W : v + 1];
+        // An infinite corner puts the crossing at the finite one.
+        const t = !isFinite(a) ? 1 : !isFinite(b) ? 0 : (L - a) / (b - a);
         p = vert ? [xs(i), ys(j) + t * (ys(j + 1) - ys(j))] : [xs(i) + t * (xs(i + 1) - xs(i)), ys(j)];
         cache.set(id, p);
         return p;
@@ -794,6 +899,7 @@
     });
     out.levels = levels;
     out.range = [lo, hi];
+    out.grid = [nx, ny];
     return out;
   };
 
@@ -811,9 +917,8 @@
   function placeLabels(F, g, lines, levels, colors, o) {
     const size = o.lsize || 17;
     const fmt = typeof o.labels === "function" ? o.labels : (v) => Plot.fmt(v);
-    const B = F.bounds();
-    const bx0 = Math.max(F.X(B.x0), 0), bx1 = Math.min(F.X(B.x1), F.w);
-    const by0 = Math.max(F.Y(B.y1), 0), by1 = Math.min(F.Y(B.y0), F.h);
+    const pb = pxBox(F);
+    const bx0 = Math.max(pb.L, 0), bx1 = Math.min(pb.R, F.w), by0 = Math.max(pb.T, 0), by1 = Math.min(pb.B, F.h);
     const placed = [];
     const fr = [0.5, 0.3, 0.7, 0.15, 0.85, 0.4, 0.6, 0.05, 0.95, 0.22, 0.78];
     levels.forEach((L, k) => {
@@ -868,9 +973,7 @@
   };
 
   // ---------------------------------------------------------------- colors and colormaps
-  function rgbOf(c) {
-    if (Array.isArray(c)) return c.slice(0, 3);
-    const s = String(c).trim();
+  function parseRGB(s) {
     let m = /^#([0-9a-f]{3})$/i.exec(s);
     if (m) return m[1].split("").map((h) => parseInt(h + h, 16));
     m = /^#([0-9a-f]{6})$/i.exec(s);
@@ -878,6 +981,18 @@
     m = /^rgba?\(([^)]+)\)$/i.exec(s);
     if (m) return m[1].split(",").slice(0, 3).map((x) => parseFloat(x));
     return null;
+  }
+  let probe = null;
+  function rgbOf(c) {
+    if (Array.isArray(c)) return c.slice(0, 3);
+    const s = String(c).trim(), v = parseRGB(s);
+    if (v || typeof document === "undefined") return v;
+    // Named and other CSS colors: let a canvas parse them ("red" -> "#ff0000").
+    probe = probe || document.createElement("canvas").getContext("2d");
+    probe.fillStyle = "#010203";
+    probe.fillStyle = s;
+    const out = String(probe.fillStyle);
+    return out === "#010203" ? null : parseRGB(out);
   }
   function hex(rgb) {
     return "#" + rgb.map((v) => {
@@ -896,10 +1011,12 @@
   MAPS.div = MAPS.diverging;
   Plot.colormaps = ["heat", "diverging", "gray"];
 
+  // t in [0, 1]; NaN -> 0; ±Infinity -> the ends.
+  const unitT = (t) => (t > 1 ? 1 : t >= 0 ? t : 0);
   Plot.colormap = function (name) {
     if (typeof name === "function") {
       if (name.rgb) return name;
-      const f = (t) => name(clamp(isNum(t) ? t : 0, 0, 1));
+      const f = (t) => name(unitT(t));
       f.rgb = (t) => rgbOf(f(t)) || [0, 0, 0];
       Object.defineProperty(f, "name", { value: "custom" });
       return f;
@@ -913,7 +1030,7 @@
     }
     const S = stops.map((s) => [s[0], rgbOf(s[1]) || [0, 0, 0]]);
     const rgb = (t) => {
-      t = clamp(isNum(t) ? t : 0, 0, 1);
+      t = unitT(t);
       if (t <= S[0][0]) return S[0][1].slice();
       for (let k = 1; k < S.length; k++) {
         if (t <= S[k][0]) {
@@ -956,28 +1073,37 @@
 
   P.heat = function (f, o) {
     o = o || {};
-    const B = rectFrom(this, o), [pw, ph] = pxSize(this, B);
+    const B = rectFrom(this, o), pb = pxBox(this, B), pw = pb.R - pb.L, ph = pb.B - pb.T;
     const nx = o.nx || clamp(Math.ceil(pw / 3), 4, 400), ny = o.ny || clamp(Math.ceil(ph / 3), 4, 400);
-    const g = safe(f), V = new Float64Array(nx * ny);
+    const g = safe(f), V = new Float64Array(nx * ny), xs = new Float64Array(nx);
+    // Cell centres are taken in px and mapped back, so a reversed axis samples the right side.
+    for (let c = 0; c < nx; c++) xs[c] = this.world(pb.L + (c + 0.5) * pw / nx, pb.T)[0];
     let lo = Infinity, hi = -Infinity;
     for (let r = 0; r < ny; r++) {
-      const y = B.y1 - (r + 0.5) * (B.y1 - B.y0) / ny;
+      const y = this.world(pb.L, pb.T + (r + 0.5) * ph / ny)[1];
       for (let c = 0; c < nx; c++) {
-        const v = g(B.x0 + (c + 0.5) * (B.x1 - B.x0) / nx, y);
-        V[r * nx + c] = isNum(v) ? v : NaN;
+        const v = g(xs[c], y);
+        V[r * nx + c] = typeof v === "number" ? v : NaN;
         if (isNum(v)) { if (v < lo) lo = v; if (v > hi) hi = v; }
       }
     }
-    const vmin = o.vmin !== undefined ? o.vmin : isFinite(lo) ? lo : 0;
+    let vmin = o.vmin !== undefined ? o.vmin : isFinite(lo) ? lo : 0;
     let vmax = o.vmax !== undefined ? o.vmax : isFinite(hi) ? hi : 1;
-    if (!(vmax > vmin)) vmax = vmin + 1;
+    if (!(vmax > vmin)) {
+      if (o.vmin === undefined && o.vmax === undefined) {
+        // A constant field sits in the middle of the map: c ± max(|c| / 10, 1e-9), or ±1 around 0.
+        const c0 = vmin, d = c0 === 0 ? 1 : Math.max(Math.abs(c0) * 0.1, 1e-9);
+        vmin = c0 - d;
+        vmax = c0 + d;
+      } else if (o.vmax === undefined) vmax = vmin + 1;
+      else vmin = vmax - 1;
+    }
     const cm = Plot.colormap(o.cmap || "heat");
     const url = canvasURL(nx, ny, (c, r) => {
       const v = V[r * nx + c];
       return v === v ? cm.rgb((v - vmin) / (vmax - vmin)) : null;
     });
-    const x = Math.min(this.X(B.x0), this.X(B.x1)), y = Math.min(this.Y(B.y0), this.Y(B.y1));
-    const im = image(this.root, x, y, pw, ph, url, o);
+    const im = image(this.root, pb.L, pb.T, pw, ph, url, o);
     im.vmin = vmin;
     im.vmax = vmax;
     im.cmap = cm;
@@ -990,15 +1116,15 @@
     const cm = Plot.colormap(o.cmap || src.cmap || "heat");
     const vmin = o.vmin !== undefined ? o.vmin : src.vmin !== undefined ? src.vmin : 0;
     const vmax = o.vmax !== undefined ? o.vmax : src.vmax !== undefined ? src.vmax : 1;
-    const B = this.bounds(), size = o.size || 17;
+    const pb = pxBox(this), size = o.size || 17;
     const w = o.w || 14;
-    const at = o.at || [this.X(B.x1) + 14, this.Y(B.y1)];
-    const len = o.len || Math.abs(this.Y(B.y0) - this.Y(B.y1));
+    const at = o.at || [pb.R + 14, pb.T];
+    const len = o.len || pb.B - pb.T;
     const g = el("g", { class: "plot-colorbar" }, this.root);
     const n = 128;
     image(g, at[0], at[1], w, len, canvasURL(1, n, (c, r) => cm.rgb(1 - (r + 0.5) / n)), {});
     el("rect", { x: f2(snap(at[0])), y: f2(snap(at[1])), width: w, height: f2(len), fill: "none", stroke: C.ink, "stroke-width": 1 }, g);
-    const ticks = makeTicks(o.ticks, o.step, [vmin, vmax], len, size, o.fmt, false);
+    const ticks = makeTicks(o.ticks, o.step, sorted([vmin, vmax]), len, size, o.fmt, false);
     ticks.forEach((t) => {
       const y = snap(at[1] + len * (1 - (t.v - vmin) / (vmax - vmin)));
       el("line", { x1: f2(at[0] + w), y1: f2(y), x2: f2(at[0] + w + 4), y2: f2(y), stroke: C.ink, "stroke-width": 1 }, g);
@@ -1235,8 +1361,11 @@
     let edges;
     if (Array.isArray(o.bins)) edges = o.bins.slice();
     else {
-      let lo = o.range ? o.range[0] : Math.min.apply(null, xs.length ? xs : [0]);
-      let hi = o.range ? o.range[1] : Math.max.apply(null, xs.length ? xs : [1]);
+      // A loop, not Math.min.apply: that overflows the call stack past about 1e5 samples.
+      let a = Infinity, b = -Infinity;
+      for (const x of xs) { if (x < a) a = x; if (x > b) b = x; }
+      let lo = o.range ? o.range[0] : xs.length ? a : 0;
+      let hi = o.range ? o.range[1] : xs.length ? b : 1;
       if (!(hi > lo)) { lo -= 0.5; hi += 0.5; }
       const k = o.bins || clamp(Math.ceil(Math.sqrt(xs.length)), 1, 60);
       edges = Plot.linspace(lo, hi, k + 1);
@@ -1283,9 +1412,10 @@
     if (labels && !Array.isArray(labels)) { o = labels; labels = null; }
     o = o || {};
     const at = o.at || values.map((v, i) => i), w = o.width || 0.7, base = o.base || 0;
-    const B = this.bounds(), size = o.size || 18;
+    const B = this.bounds(), pb = pxBox(this, B), size = o.size || 18;
     const g = el("g", { class: "plot-bars" }, this.root);
     const fmt = o.fmt || ((v) => Plot.fmt(v));
+    const has = (s) => s !== undefined && s !== null;
     values.forEach((v, i) => {
       const fill = typeof o.fill === "function" ? o.fill(v, i) : Array.isArray(o.fill) ? o.fill[i % o.fill.length] : o.fill || "#cccccc";
       const r = isNum(v) ? clipRect(B, at[i] - w / 2, at[i] + w / 2, base, v) : null;
@@ -1293,13 +1423,18 @@
         el("path", { d: dOf(this, [r], true), fill, stroke: o.stroke || C.ink, "stroke-width": 1, "stroke-linejoin": "miter" }, g);
       }
       if (o.values && isNum(v)) {
-        const y = clamp(v, B.y0, B.y1), up = v >= base;
+        const y = clamp(v, B.y0, B.y1), up = this.Y(v) <= this.Y(base); // the bar grows up the screen
         txt(g, this.X(at[i]), this.Y(y) + (up ? -(size * 0.5 + 4) : size * 0.5 + 4), fmt(v), { size });
       }
-      if (labels && labels[i] !== undefined && labels[i] !== null) {
-        txt(g, this.X(at[i]), this.Y(B.y0) + 9 + size * 0.5, labels[i], { size });
-      }
+      if (labels && has(labels[i])) txt(g, this.X(at[i]), pb.B + 9 + size * 0.5, labels[i], { size });
     });
+    // Category labels fill the tick-label row, so an x label that F.axes put directly under the
+    // axis (xticks: false) moves down by one row.
+    const ai = owner(this).axesInfo;
+    if (labels && labels.some(has) && ai && !ai.row && ai.xlabel.isConnected) {
+      ai.xlabel.setAttribute("y", f2(+ai.xlabel.getAttribute("y") + size + 3));
+      ai.row = true;
+    }
     return g;
   };
 

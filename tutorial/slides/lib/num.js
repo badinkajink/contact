@@ -260,7 +260,7 @@
   }
 
   function needMat(A, fn) {
-    if (!isMat(A)) fail(fn, "expects a non-empty matrix (an array of row arrays)");
+    if (!isMat(A) || A[0].length === 0) fail(fn, "expects a non-empty matrix (an array of row arrays)");
     const n = A[0].length;
     for (const r of A) if (r.length !== n) fail(fn, "rows have different lengths");
     return [A.length, n];
@@ -384,6 +384,16 @@
     }
     return s;
   }
+
+  // The power of two 2^e <= max|a_ij| < 2^(e+1), or 1 for a zero or non-finite matrix.
+  // Dividing a matrix by it is exact, and it keeps the squares and products of entries that
+  // qr, eigSym, and svd form away from overflow (|a| > 1e77) and underflow (|a| < 1e-77).
+  function pow2Scale(A) {
+    const s = maxAbs(A);
+    if (!(s > 0) || s === Infinity) return 1;
+    return Math.pow(2, Math.floor(Math.log2(s)));
+  }
+  const divideBy = (A, s) => A.map((r) => Array.from(r, (x) => x / s));
 
   // =====================================================================================
   // Products and norms
@@ -622,7 +632,8 @@
     const full = mode === "full";
     if (mode !== undefined && mode !== "full" && mode !== "thin") fail("qr", "mode is 'thin' or 'full'");
     const k = Math.min(m, n);
-    const R = clone(A), Q = eye(m);
+    const sc = pow2Scale(A); // A = sc (A / sc) exactly; R is scaled back at the end
+    const R = divideBy(A, sc), Q = eye(m);
     for (let j = 0; j < Math.min(m - 1, n); j++) {
       // Reflect x = R[j:, j] onto -sign(x0) |x| e1 (the sign choice avoids cancellation).
       const v = range(m - j).map((i) => R[j + i][j]);
@@ -653,6 +664,7 @@
         for (let r = 0; r < m; r++) Q[r][i] = -Q[r][i];
       }
     }
+    if (sc !== 1) for (const r of R) for (let c = 0; c < n; c++) r[c] *= sc;
     if (full) return { Q, R };
     return { Q: Q.map((r) => r.slice(0, k)), R: R.slice(0, k) };
   }
@@ -725,8 +737,9 @@
   function eigSym(A) {
     const [m, n] = needMat(A, "eigSym");
     if (m !== n) fail("eigSym", "needs a square matrix");
+    const sc = pow2Scale(A); // rotate A / sc, then scale the eigenvalues back
     const a = zeros(n, n);
-    for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) a[i][j] = 0.5 * (A[i][j] + A[j][i]);
+    for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) a[i][j] = 0.5 * (A[i][j] / sc + A[j][i] / sc);
     const V = eye(n);
     const floor = EPS * 1e-3 * norm(a);
     for (let sweep = 0; sweep < 60; sweep++) {
@@ -764,7 +777,7 @@
       if (!rotated) break;
     }
     const order = range(n).sort((i, j) => a[j][j] - a[i][i]);
-    const values = order.map((i) => a[i][i]);
+    const values = order.map((i) => a[i][i] * sc);
     const vectors = order.map((i) => signFix(col(V, i)));
     return { values, vectors, V: transpose(vectors) };
   }
@@ -776,11 +789,22 @@
   function svd(A, opts) {
     const [m, n] = needMat(A, "svd");
     const full = !!(opts && opts.full);
+    // Factor A / sc (exact) so that the sums of squares in svdTall neither overflow nor
+    // underflow, then scale the singular values back.
+    const sc = pow2Scale(A);
+    let r;
     if (m < n) {
       // Work on the tall matrix A^T = U' S V'^T, so A = V' S U'^T.
-      const r = svd(transpose(A), opts);
-      return fixSvdSigns({ U: r.V, S: r.S, V: r.U });
-    }
+      const t = svdTall(transpose(divideBy(A, sc)), full);
+      r = { U: t.V, S: t.S, V: t.U };
+    } else r = svdTall(divideBy(A, sc), full);
+    if (sc !== 1) r.S = r.S.map((x) => x * sc);
+    return fixSvdSigns(r);
+  }
+
+  // One-sided Jacobi on a tall (m >= n) matrix with entries of order 1; no sign convention.
+  function svdTall(A, full) {
+    const m = A.length, n = A[0].length;
     // Rotate pairs of columns of W = A V until every pair is orthogonal; then
     // sigma_i = |w_i|, u_i = w_i / sigma_i. W[j] holds column j, Vc[j] column j of V.
     const W = transpose(A), Vc = eye(n);
@@ -834,7 +858,7 @@
       const C = complement(Ucols, m);
       for (let i = 0; Ucols.length < want; i++) Ucols.push(C[i]);
     }
-    return fixSvdSigns({ U: transpose(Ucols), S, V: transpose(Vcols) });
+    return { U: transpose(Ucols), S, V: transpose(Vcols) };
   }
 
   function fixSvdSigns(res) {
@@ -984,9 +1008,10 @@
   }
 
   function texNum(x, digits) {
-    if (digits !== undefined) return fixedStr(x, digits).replace("∞", "\\infty");
+    if (!isFinite(x)) return x !== x ? "\\text{NaN}" : x > 0 ? "\\infty" : "-\\infty";
+    if (digits !== undefined) return fixedStr(x, digits);
     const r = ratApprox(x, 1000);
-    if (!r) return sig4(x);
+    if (!r) return sig4(x).replace(/e\+?(-?\d+)$/, " \\times 10^{$1}");
     if (r[1] === 1) return String(r[0]);
     return `${r[0] < 0 ? "-" : ""}\\tfrac{${Math.abs(r[0])}}{${r[1]}}`;
   }
@@ -1101,16 +1126,23 @@
     const normalVec = (n) => range(n).map(() => normal());
     const uniformVec = (n, lo, hi) => range(n).map(() => uniform(lo === undefined ? 0 : lo, hi === undefined ? 1 : hi));
     function sphere(n) {
+      if (!(n >= 1)) fail("rng.sphere", "needs a dimension n >= 1");
       for (;;) {
         const v = normalVec(n), s = norm2(v);
         if (s > 1e-12) return v.map((x) => x / s);
       }
     }
     function mvnormal(mean, cov) {
+      const [m, n] = needMat(cov, "rng.mvnormal");
+      if (m !== n || n !== mean.length) fail("rng.mvnormal", `mean has ${mean.length} entries, cov is ${m}x${n}`);
       let L = chol(cov);
       if (!L) {
+        // Eigenvalues within rounding of zero are zero, so that the draws of a singular cov
+        // stay in its range (sqrt would turn a 1e-16 rounding error into a 1e-8 offset).
         const { values, V } = eigSym(cov);
-        L = V.map((r) => r.map((x, j) => x * Math.sqrt(Math.max(values[j], 0))));
+        const cut = n * EPS * Math.max(...values.map(Math.abs));
+        const root = values.map((w) => (w > cut ? Math.sqrt(w) : 0));
+        L = V.map((r) => r.map((x, j) => x * root[j]));
       }
       return add(mean, matvec(L, normalVec(mean.length)));
     }
@@ -1269,15 +1301,16 @@
       if (st === "iteration_limit") return empty(st, NaN);
       const scaleB = Math.max(1, ...rows.map((r) => Math.abs(r.b)));
       if (-z1[RHS] > tol * scaleB) return empty("infeasible", Infinity);
-      // Drive artificials (all at zero now) out of the basis; drop redundant rows.
+      // Drive artificials (all at zero now) out of the basis on the largest available entry
+      // (the row's right-hand side is zero, so any sign keeps feasibility); drop redundant rows.
       for (let i = T.length - 1; i >= 0; i--) {
         if (basis[i] < artStart) continue;
         T[i][RHS] = 0;
-        let q = -1;
+        let q = -1, best = tol;
         for (let j = 0; j < artStart; j++) {
-          if (Math.abs(T[i][j]) > tol) {
+          if (Math.abs(T[i][j]) > best) {
             q = j;
-            break;
+            best = Math.abs(T[i][j]);
           }
         }
         if (q >= 0) pivot(z1, i, q);
@@ -1334,8 +1367,11 @@
   // =====================================================================================
 
   function eqQP(H, g, A, b) {
-    const n = H.length, m = A ? A.length : 0;
+    const [n, nH] = needMat(H, "eqQP"), m = A ? A.length : 0;
     g = g || zeros(n);
+    if (n !== nH || g.length !== n) fail("eqQP", `H must be n x n and g of length n (H is ${n}x${nH}, g has ${g.length} entries)`);
+    if (m && (!b || b.length !== m)) fail("eqQP", `A has ${m} rows, b has ${b ? b.length : 0} entries`);
+    for (let i = 0; i < m; i++) if (A[i].length !== n) fail("eqQP", `row ${i} of A has ${A[i].length} entries for ${n} variables`);
     const K = zeros(n + m, n + m), rhs = zeros(n + m);
     for (let i = 0; i < n; i++) {
       for (let j = 0; j < n; j++) K[i][j] = H[i][j];
@@ -1355,12 +1391,16 @@
 
   function qp(prob, opts) {
     const tol = (opts && opts.tol) || 1e-9;
-    const n = prob.H.length;
+    const [n, nH] = needMat(prob.H, "qp");
+    if (n !== nH) fail("qp", "H must be square");
     const H = zeros(n, n);
     for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) H[i][j] = 0.5 * (prob.H[i][j] + prob.H[j][i]);
     const g = prob.g || zeros(n);
     const Aeq = prob.Aeq || [], beq = prob.beq || [], Aub = prob.Aub || [], bub = prob.bub || [];
     const mE = Aeq.length, mI = Aub.length;
+    if (g.length !== n) fail("qp", `H is ${n}x${n}, g has ${g.length} entries`);
+    if (beq.length !== mE || bub.length !== mI) fail("qp", "Aeq, beq (or Aub, bub) have different lengths");
+    for (const r of Aeq.concat(Aub)) if (r.length !== n) fail("qp", `a constraint row has ${r.length} entries for ${n} variables`);
     const fval = (x) => 0.5 * dot(x, matvec(H, x)) + dot(g, x);
     let iterations = 0;
     const done = (status, x, lamEq, lamUb, activeUb) => ({
@@ -1371,7 +1411,7 @@
     // Convexity: H must be positive semidefinite.
     const ev = eigSym(H).values;
     const hmax = Math.max(Math.abs(ev[0]), Math.abs(ev[n - 1]));
-    if (ev[n - 1] < -1e-10 * Math.max(1, hmax)) return done("nonconvex", null);
+    if (ev[n - 1] < -1e-10 * hmax) return done("nonconvex", null);
 
     // Feasibility: LP phase 1 with free variables.
     const start = lp({ c: zeros(n), Aub, bub, Aeq, beq, bounds: [null, null] });
@@ -1498,6 +1538,7 @@
       for (;;) {
         iterations++;
         const idx = range(n).filter((j) => inP[j]);
+        if (!idx.length) break; // rounding sent every passive coordinate to zero; x = 0
         const zs = lstsq(submatrix(A, null, idx), b).x;
         const z = zeros(n);
         idx.forEach((j, k) => (z[j] = zs[k]));
