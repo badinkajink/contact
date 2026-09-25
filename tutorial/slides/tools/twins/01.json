@@ -1,0 +1,544 @@
+{
+ "notebook": "00_math_toolkit.py",
+ "py_setup": "import numpy as np",
+ "scripts": [
+  "lib/num.js",
+  "lib/algo/01_linear_maps.js"
+ ],
+ "cases": [
+  {
+   "name": "length (3, 2)",
+   "py": "d01_vector_length([3, 2])",
+   "js": "LinearMaps.length([3, 2])",
+   "tol": 1e-09
+  },
+  {
+   "name": "coords of [1, 5] in (u, w)",
+   "py": "d01_coords([1, 1], [-1, 3], [1, 5])",
+   "js": "LinearMaps.coords2([1, 1], [-1, 3], [1, 5])",
+   "tol": 1e-09
+  },
+  {
+   "name": "coords of [0, 4] in (u, w)",
+   "py": "d01_coords([1, 1], [-1, 3], [0, 4])",
+   "js": "LinearMaps.coords2([1, 1], [-1, 3], [0, 4])",
+   "tol": 1e-09
+  },
+  {
+   "name": "coords of [3, 1] in (u, w)",
+   "py": "d01_coords([1, 1], [-1, 3], [3, 1])",
+   "js": "LinearMaps.coords2([1, 1], [-1, 3], [3, 1])",
+   "tol": 1e-09
+  },
+  {
+   "name": "coords of [2.3, -1.7] in (u, w)",
+   "py": "d01_coords([1, 1], [-1, 3], [2.3, -1.7])",
+   "js": "LinearMaps.coords2([1, 1], [-1, 3], [2.3, -1.7])",
+   "tol": 1e-09
+  },
+  {
+   "name": "coords with parallel basis is null",
+   "py": "d01_coords([1, 1], [2, 2], [1, 5])",
+   "js": "LinearMaps.coords2([1, 1], [2, 2], [1, 5])",
+   "tol": 1e-09
+  },
+  {
+   "name": "independence det h = 0.0",
+   "py": "d01_independence_det(0.0)",
+   "js": "LinearMaps.indepDet(0.0)",
+   "tol": 1e-09
+  },
+  {
+   "name": "independence det h = 0.5",
+   "py": "d01_independence_det(0.5)",
+   "js": "LinearMaps.indepDet(0.5)",
+   "tol": 1e-09
+  },
+  {
+   "name": "independence det h = -1.0",
+   "py": "d01_independence_det(-1.0)",
+   "js": "LinearMaps.indepDet(-1.0)",
+   "tol": 1e-09
+  },
+  {
+   "name": "independence det h = 1.3",
+   "py": "d01_independence_det(1.3)",
+   "js": "LinearMaps.indepDet(1.3)",
+   "tol": 1e-09
+  },
+  {
+   "name": "dot and angle [3, 4], [4, 0]",
+   "py": "d01_dot_angle([3, 4], [4, 0])",
+   "js": "LinearMaps.dotAngle([3, 4], [4, 0])",
+   "tol": 1e-09
+  },
+  {
+   "name": "dot and angle [3, 4], [4, -3]",
+   "py": "d01_dot_angle([3, 4], [4, -3])",
+   "js": "LinearMaps.dotAngle([3, 4], [4, -3])",
+   "tol": 1e-09
+  },
+  {
+   "name": "dot and angle [1, 0, 1], [0, 1, 1]",
+   "py": "d01_dot_angle([1, 0, 1], [0, 1, 1])",
+   "js": "LinearMaps.dotAngle([1, 0, 1], [0, 1, 1])",
+   "tol": 1e-09
+  },
+  {
+   "name": "dot and angle [1, 1], [-1, 3]",
+   "py": "d01_dot_angle([1, 1], [-1, 3])",
+   "js": "LinearMaps.dotAngle([1, 1], [-1, 3])",
+   "tol": 1e-09
+  },
+  {
+   "name": "dot and angle [0, 0], [1, 2]",
+   "py": "d01_dot_angle([0, 0], [1, 2])",
+   "js": "LinearMaps.dotAngle([0, 0], [1, 2])",
+   "tol": 1e-09
+  },
+  {
+   "name": "dot and angle [-2, 0.5], [1.5, -3.1]",
+   "py": "d01_dot_angle([-2, 0.5], [1.5, -3.1])",
+   "js": "LinearMaps.dotAngle([-2, 0.5], [1.5, -3.1])",
+   "tol": 1e-09
+  },
+  {
+   "name": "p-norm of (3, -4), p = 1",
+   "py": "d01_pnorm([3, -4], 1)",
+   "js": "LinearMaps.pnorm([3, -4], 1)",
+   "tol": 1e-09
+  },
+  {
+   "name": "p-norm of (3, -4), p = 1.5",
+   "py": "d01_pnorm([3, -4], 1.5)",
+   "js": "LinearMaps.pnorm([3, -4], 1.5)",
+   "tol": 1e-09
+  },
+  {
+   "name": "p-norm of (3, -4), p = 2",
+   "py": "d01_pnorm([3, -4], 2)",
+   "js": "LinearMaps.pnorm([3, -4], 2)",
+   "tol": 1e-09
+  },
+  {
+   "name": "p-norm of (3, -4), p = 3",
+   "py": "d01_pnorm([3, -4], 3)",
+   "js": "LinearMaps.pnorm([3, -4], 3)",
+   "tol": 1e-09
+  },
+  {
+   "name": "p-norm of (3, -4), p = 8",
+   "py": "d01_pnorm([3, -4], 8)",
+   "js": "LinearMaps.pnorm([3, -4], 8)",
+   "tol": 1e-09
+  },
+  {
+   "name": "p-norm of (3, -4), p = np.inf",
+   "py": "d01_pnorm([3, -4], np.inf)",
+   "js": "LinearMaps.pnorm([3, -4], Infinity)",
+   "tol": 1e-09
+  },
+  {
+   "name": "norms of (1, -2, 2)",
+   "py": "d01_pnorms([1, -2, 2])",
+   "js": "LinearMaps.pnorms([1, -2, 2])",
+   "tol": 1e-09
+  },
+  {
+   "name": "norms of 1e-200 (1, 1) (no underflow)",
+   "py": "d01_pnorms([1e-200, 1e-200])",
+   "js": "LinearMaps.pnorms([1e-200, 1e-200])",
+   "tol": 1e-09
+  },
+  {
+   "name": "unit ball p = 3 lies on |x|_3 = 1",
+   "py": "[1.0] * 37",
+   "js": "LinearMaps.unitBall(3, 36).map(p => LinearMaps.pnorm(p, 3))",
+   "tol": 1e-09
+  },
+  {
+   "name": "unit ball p = 1.2 lies on |x|_1.2 = 1",
+   "py": "[1.0] * 73",
+   "js": "LinearMaps.unitBall(1.2, 72).map(p => LinearMaps.pnorm(p, 1.2))",
+   "tol": 1e-09
+  },
+  {
+   "name": "det2 [[1, -1], [1, 3]]",
+   "py": "d01_det2([[1, -1], [1, 3]])",
+   "js": "LinearMaps.det2([[1, -1], [1, 3]])",
+   "tol": 1e-09
+  },
+  {
+   "name": "inv2 [[1, -1], [1, 3]]",
+   "py": "d01_inv2([[1, -1], [1, 3]])",
+   "js": "LinearMaps.inv2([[1, -1], [1, 3]])",
+   "tol": 1e-09
+  },
+  {
+   "name": "det2 [[0, -1], [1, 0]]",
+   "py": "d01_det2([[0, -1], [1, 0]])",
+   "js": "LinearMaps.det2([[0, -1], [1, 0]])",
+   "tol": 1e-09
+  },
+  {
+   "name": "inv2 [[0, -1], [1, 0]]",
+   "py": "d01_inv2([[0, -1], [1, 0]])",
+   "js": "LinearMaps.inv2([[0, -1], [1, 0]])",
+   "tol": 1e-09
+  },
+  {
+   "name": "det2 [[2, 0], [0, 0.5]]",
+   "py": "d01_det2([[2, 0], [0, 0.5]])",
+   "js": "LinearMaps.det2([[2, 0], [0, 0.5]])",
+   "tol": 1e-09
+  },
+  {
+   "name": "inv2 [[2, 0], [0, 0.5]]",
+   "py": "d01_inv2([[2, 0], [0, 0.5]])",
+   "js": "LinearMaps.inv2([[2, 0], [0, 0.5]])",
+   "tol": 1e-09
+  },
+  {
+   "name": "det2 [[1, 0], [0, 0]]",
+   "py": "d01_det2([[1, 0], [0, 0]])",
+   "js": "LinearMaps.det2([[1, 0], [0, 0]])",
+   "tol": 1e-09
+  },
+  {
+   "name": "inv2 [[1, 0], [0, 0]]",
+   "py": "d01_inv2([[1, 0], [0, 0]])",
+   "js": "LinearMaps.inv2([[1, 0], [0, 0]])",
+   "tol": 1e-09
+  },
+  {
+   "name": "det2 [[0.866, -0.5], [0.5, 0.866]]",
+   "py": "d01_det2([[0.866, -0.5], [0.5, 0.866]])",
+   "js": "LinearMaps.det2([[0.866, -0.5], [0.5, 0.866]])",
+   "tol": 1e-09
+  },
+  {
+   "name": "inv2 [[0.866, -0.5], [0.5, 0.866]]",
+   "py": "d01_inv2([[0.866, -0.5], [0.5, 0.866]])",
+   "js": "LinearMaps.inv2([[0.866, -0.5], [0.5, 0.866]])",
+   "tol": 1e-09
+  },
+  {
+   "name": "compose rotate after shear",
+   "py": "d01_compose([[0, -1], [1, 0]], [[1, 1], [0, 1]])",
+   "js": "LinearMaps.compose([[0, -1], [1, 0]], [[1, 1], [0, 1]])",
+   "tol": 1e-09
+  },
+  {
+   "name": "compose shear after rotate",
+   "py": "d01_compose([[1, 1], [0, 1]], [[0, -1], [1, 0]])",
+   "js": "LinearMaps.compose([[1, 1], [0, 1]], [[0, -1], [1, 0]])",
+   "tol": 1e-09
+  },
+  {
+   "name": "compose 2x3 after 3x2",
+   "py": "d01_compose([[1, 0, 1], [0, 1, 1]], [[1, 0], [0, 1], [1, 1]])",
+   "js": "LinearMaps.compose([[1, 0, 1], [0, 1, 1]], [[1, 0], [0, 1], [1, 1]])",
+   "tol": 1e-09
+  },
+  {
+   "name": "transpose check",
+   "py": "d01_transpose_check([[1, 0, 1], [0, 1, 1]], [1, 2, 3], [1, -1])",
+   "js": "LinearMaps.transposeCheck([[1, 0, 1], [0, 1, 1]], [1, 2, 3], [1, -1])",
+   "tol": 1e-09
+  },
+  {
+   "name": "parallelogram (3, 1), (1, 2)",
+   "py": "d01_parallelogram_area(3, 1, 1, 2)",
+   "js": "LinearMaps.parallelogramArea(3, 1, 1, 2)",
+   "tol": 1e-09
+  },
+  {
+   "name": "parallelogram (2.5, 0.4), (0.7, 1.9)",
+   "py": "d01_parallelogram_area(2.5, 0.4, 0.7, 1.9)",
+   "js": "LinearMaps.parallelogramArea(2.5, 0.4, 0.7, 1.9)",
+   "tol": 1e-09
+  },
+  {
+   "name": "nonsquare maps t = 1.0",
+   "py": "d01_nonsquare_maps(1.0, [1, 0.5])",
+   "js": "LinearMaps.nonsquare(1.0, [1, 0.5])",
+   "tol": 1e-09
+  },
+  {
+   "name": "nonsquare maps t = -0.7",
+   "py": "d01_nonsquare_maps(-0.7, [-1.2, 2.0])",
+   "js": "LinearMaps.nonsquare(-0.7, [-1.2, 2.0])",
+   "tol": 1e-09
+  },
+  {
+   "name": "classify 2x2 [[1, -1], [1, 3]] | [1, 5]",
+   "py": "d01_classify_2x2([[1, -1], [1, 3]], [1, 5])",
+   "js": "LinearMaps.classify2([[1, -1], [1, 3]], [1, 5])",
+   "tol": 1e-09
+  },
+  {
+   "name": "classify 2x2 [[1, 1], [1, 3]] | [2, 4]",
+   "py": "d01_classify_2x2([[1, 1], [1, 3]], [2, 4])",
+   "js": "LinearMaps.classify2([[1, 1], [1, 3]], [2, 4])",
+   "tol": 1e-09
+  },
+  {
+   "name": "classify 2x2 [[1, 1], [1, 1]] | [2, 2]",
+   "py": "d01_classify_2x2([[1, 1], [1, 1]], [2, 2])",
+   "js": "LinearMaps.classify2([[1, 1], [1, 1]], [2, 2])",
+   "tol": 1e-09
+  },
+  {
+   "name": "classify 2x2 [[1, 1], [1, 1]] | [2, 3]",
+   "py": "d01_classify_2x2([[1, 1], [1, 1]], [2, 3])",
+   "js": "LinearMaps.classify2([[1, 1], [1, 1]], [2, 3])",
+   "tol": 1e-09
+  },
+  {
+   "name": "classify 2x2 [[1, 1], [1, -2]] | [2, -1.5]",
+   "py": "d01_classify_2x2([[1, 1], [1, -2]], [2, -1.5])",
+   "js": "LinearMaps.classify2([[1, 1], [1, -2]], [2, -1.5])",
+   "tol": 1e-09
+  },
+  {
+   "name": "classify 2x2 [[0, 0], [0, 0]] | [0, 0]",
+   "py": "d01_classify_2x2([[0, 0], [0, 0]], [0, 0])",
+   "js": "LinearMaps.classify2([[0, 0], [0, 0]], [0, 0])",
+   "tol": 1e-09
+  },
+  {
+   "name": "rref steps: 3x3 system",
+   "py": "(lambda r: {'R': r['R'], 'pivots': r['pivots'], 'rank': r['rank'], 'steps': [list(s[:4]) for s in r['steps']], 'matrices': r['matrices']})(d01_rref_steps([[1, 1, 1, 6], [2, 3, 1, 11], [1, -1, 2, 5]]))",
+   "js": "(r => ({R: r.R, pivots: r.pivots, rank: r.rank, steps: r.steps.map(s => s.slice(0, 4)), matrices: r.matrices}))(LinearMaps.rrefSteps([[1, 1, 1, 6], [2, 3, 1, 11], [1, -1, 2, 5]]))",
+   "tol": 1e-09
+  },
+  {
+   "name": "rref steps: A34",
+   "py": "(lambda r: {'R': r['R'], 'pivots': r['pivots'], 'rank': r['rank'], 'steps': [list(s[:4]) for s in r['steps']], 'matrices': r['matrices']})(d01_rref_steps([[1, 2, 0, 1], [2, 4, 1, 4], [3, 6, 1, 5]]))",
+   "js": "(r => ({R: r.R, pivots: r.pivots, rank: r.rank, steps: r.steps.map(s => s.slice(0, 4)), matrices: r.matrices}))(LinearMaps.rrefSteps([[1, 2, 0, 1], [2, 4, 1, 4], [3, 6, 1, 5]]))",
+   "tol": 1e-09
+  },
+  {
+   "name": "rref steps: M | (1, 2, 3)",
+   "py": "(lambda r: {'R': r['R'], 'pivots': r['pivots'], 'rank': r['rank'], 'steps': [list(s[:4]) for s in r['steps']], 'matrices': r['matrices']})(d01_rref_steps([[1, 0, 1, 1], [0, 1, 1, 2], [1, 1, 2, 3]]))",
+   "js": "(r => ({R: r.R, pivots: r.pivots, rank: r.rank, steps: r.steps.map(s => s.slice(0, 4)), matrices: r.matrices}))(LinearMaps.rrefSteps([[1, 0, 1, 1], [0, 1, 1, 2], [1, 1, 2, 3]]))",
+   "tol": 1e-09
+  },
+  {
+   "name": "rref steps: M | (1, 2, 4)",
+   "py": "(lambda r: {'R': r['R'], 'pivots': r['pivots'], 'rank': r['rank'], 'steps': [list(s[:4]) for s in r['steps']], 'matrices': r['matrices']})(d01_rref_steps([[1, 0, 1, 1], [0, 1, 1, 2], [1, 1, 2, 4]]))",
+   "js": "(r => ({R: r.R, pivots: r.pivots, rank: r.rank, steps: r.steps.map(s => s.slice(0, 4)), matrices: r.matrices}))(LinearMaps.rrefSteps([[1, 0, 1, 1], [0, 1, 1, 2], [1, 1, 2, 4]]))",
+   "tol": 1e-09
+  },
+  {
+   "name": "rref steps: needs a swap",
+   "py": "(lambda r: {'R': r['R'], 'pivots': r['pivots'], 'rank': r['rank'], 'steps': [list(s[:4]) for s in r['steps']], 'matrices': r['matrices']})(d01_rref_steps([[0, 2, 4, 2], [1, 1, 1, 3], [2, 4, 8, 6]]))",
+   "js": "(r => ({R: r.R, pivots: r.pivots, rank: r.rank, steps: r.steps.map(s => s.slice(0, 4)), matrices: r.matrices}))(LinearMaps.rrefSteps([[0, 2, 4, 2], [1, 1, 1, 3], [2, 4, 8, 6]]))",
+   "tol": 1e-09
+  },
+  {
+   "name": "rref steps: four-legged table",
+   "py": "(lambda r: {'R': r['R'], 'pivots': r['pivots'], 'rank': r['rank'], 'steps': [list(s[:4]) for s in r['steps']], 'matrices': r['matrices']})(d01_rref_steps([[1, 1, 1, 1, 100], [0.5, 0.5, -0.5, -0.5, 0], [0.5, -0.5, -0.5, 0.5, 0]]))",
+   "js": "(r => ({R: r.R, pivots: r.pivots, rank: r.rank, steps: r.steps.map(s => s.slice(0, 4)), matrices: r.matrices}))(LinearMaps.rrefSteps([[1, 1, 1, 1, 100], [0.5, 0.5, -0.5, -0.5, 0], [0.5, -0.5, -0.5, 0.5, 0]]))",
+   "tol": 1e-09
+  },
+  {
+   "name": "rref steps: wide 3x5 with fractions",
+   "py": "(lambda r: {'R': r['R'], 'pivots': r['pivots'], 'rank': r['rank'], 'steps': [list(s[:4]) for s in r['steps']], 'matrices': r['matrices']})(d01_rref_steps([[2, 4, -2, 6, 1], [3, 7, 1, 0, 2], [1, 3, 3, -6, 1]]))",
+   "js": "(r => ({R: r.R, pivots: r.pivots, rank: r.rank, steps: r.steps.map(s => s.slice(0, 4)), matrices: r.matrices}))(LinearMaps.rrefSteps([[2, 4, -2, 6, 1], [3, 7, 1, 0, 2], [1, 3, 3, -6, 1]]))",
+   "tol": 1e-09
+  },
+  {
+   "name": "rref steps: 2x2 wall",
+   "py": "(lambda r: {'R': r['R'], 'pivots': r['pivots'], 'rank': r['rank'], 'steps': [list(s[:4]) for s in r['steps']], 'matrices': r['matrices']})(d01_rref_steps([[0, 1, 0], [0, 1, -0.1]]))",
+   "js": "(r => ({R: r.R, pivots: r.pivots, rank: r.rank, steps: r.steps.map(s => s.slice(0, 4)), matrices: r.matrices}))(LinearMaps.rrefSteps([[0, 1, 0], [0, 1, -0.1]]))",
+   "tol": 1e-09
+  },
+  {
+   "name": "consistency [[1, 0, 1], [0, 1, 1], [1, 1, 2]] | [1, 2, 3]",
+   "py": "d01_consistency([[1, 0, 1], [0, 1, 1], [1, 1, 2]], [1, 2, 3])",
+   "js": "LinearMaps.consistency([[1, 0, 1], [0, 1, 1], [1, 1, 2]], [1, 2, 3])",
+   "tol": 1e-09
+  },
+  {
+   "name": "consistency [[1, 0, 1], [0, 1, 1], [1, 1, 2]] | [1, 2, 4]",
+   "py": "d01_consistency([[1, 0, 1], [0, 1, 1], [1, 1, 2]], [1, 2, 4])",
+   "js": "LinearMaps.consistency([[1, 0, 1], [0, 1, 1], [1, 1, 2]], [1, 2, 4])",
+   "tol": 1e-09
+  },
+  {
+   "name": "consistency [[0, 1], [0, 1]] | [0, -0.1]",
+   "py": "d01_consistency([[0, 1], [0, 1]], [0, -0.1])",
+   "js": "LinearMaps.consistency([[0, 1], [0, 1]], [0, -0.1])",
+   "tol": 1e-09
+  },
+  {
+   "name": "consistency [[1, -1], [1, 3]] | [1, 5]",
+   "py": "d01_consistency([[1, -1], [1, 3]], [1, 5])",
+   "js": "LinearMaps.consistency([[1, -1], [1, 3]], [1, 5])",
+   "tol": 1e-09
+  },
+  {
+   "name": "null basis A34",
+   "py": "d01_null_basis([[1, 2, 0, 1], [2, 4, 1, 4], [3, 6, 1, 5]])",
+   "js": "LinearMaps.nullBasis([[1, 2, 0, 1], [2, 4, 1, 4], [3, 6, 1, 5]])",
+   "tol": 1e-09
+  },
+  {
+   "name": "null basis A23",
+   "py": "d01_null_basis([[1, 0, 1], [0, 1, 1]])",
+   "js": "LinearMaps.nullBasis([[1, 0, 1], [0, 1, 1]])",
+   "tol": 1e-09
+  },
+  {
+   "name": "null basis M",
+   "py": "d01_null_basis([[1, 0, 1], [0, 1, 1], [1, 1, 2]])",
+   "js": "LinearMaps.nullBasis([[1, 0, 1], [0, 1, 1], [1, 1, 2]])",
+   "tol": 1e-09
+  },
+  {
+   "name": "null basis table E",
+   "py": "d01_null_basis([[1, 1, 1, 1], [0.5, 0.5, -0.5, -0.5], [0.5, -0.5, -0.5, 0.5]])",
+   "js": "LinearMaps.nullBasis([[1, 1, 1, 1], [0.5, 0.5, -0.5, -0.5], [0.5, -0.5, -0.5, 0.5]])",
+   "tol": 1e-09
+  },
+  {
+   "name": "null basis I3",
+   "py": "d01_null_basis([[1, 0, 0], [0, 1, 0], [0, 0, 1]])",
+   "js": "LinearMaps.nullBasis([[1, 0, 0], [0, 1, 0], [0, 0, 1]])",
+   "tol": 1e-09
+  },
+  {
+   "name": "null basis wide 3x5",
+   "py": "d01_null_basis([[2, 4, -2, 6, 1], [3, 7, 1, 0, 2], [1, 3, 3, -6, 1]])",
+   "js": "LinearMaps.nullBasis([[2, 4, -2, 6, 1], [3, 7, 1, 0, 2], [1, 3, 3, -6, 1]])",
+   "tol": 1e-09
+  },
+  {
+   "name": "four subspaces A34",
+   "py": "d01_four_subspaces([[1, 2, 0, 1], [2, 4, 1, 4], [3, 6, 1, 5]])",
+   "js": "LinearMaps.fourSubspaces([[1, 2, 0, 1], [2, 4, 1, 4], [3, 6, 1, 5]])",
+   "tol": 1e-09
+  },
+  {
+   "name": "four subspaces B32",
+   "py": "d01_four_subspaces([[1, 0], [0, 1], [1, 1]])",
+   "js": "LinearMaps.fourSubspaces([[1, 0], [0, 1], [1, 1]])",
+   "tol": 1e-09
+  },
+  {
+   "name": "solution set [[1, 0, 1], [0, 1, 1]] | [2, 1]",
+   "py": "d01_solution_set([[1, 0, 1], [0, 1, 1]], [2, 1])",
+   "js": "LinearMaps.solutionSet([[1, 0, 1], [0, 1, 1]], [2, 1])",
+   "tol": 1e-09
+  },
+  {
+   "name": "solution set [[1, 0, 1], [0, 1, 1], [1, 1, 2]] | [1, 2, 3]",
+   "py": "d01_solution_set([[1, 0, 1], [0, 1, 1], [1, 1, 2]], [1, 2, 3])",
+   "js": "LinearMaps.solutionSet([[1, 0, 1], [0, 1, 1], [1, 1, 2]], [1, 2, 3])",
+   "tol": 1e-09
+  },
+  {
+   "name": "solution set [[1, 0, 1], [0, 1, 1], [1, 1, 2]] | [1, 2, 4]",
+   "py": "d01_solution_set([[1, 0, 1], [0, 1, 1], [1, 1, 2]], [1, 2, 4])",
+   "js": "LinearMaps.solutionSet([[1, 0, 1], [0, 1, 1], [1, 1, 2]], [1, 2, 4])",
+   "tol": 1e-09
+  },
+  {
+   "name": "solution set [[1, 2, 0, 1], [2, 4, 1, 4], [3, 6, 1, 5]] | [1, 3, 4]",
+   "py": "d01_solution_set([[1, 2, 0, 1], [2, 4, 1, 4], [3, 6, 1, 5]], [1, 3, 4])",
+   "js": "LinearMaps.solutionSet([[1, 2, 0, 1], [2, 4, 1, 4], [3, 6, 1, 5]], [1, 3, 4])",
+   "tol": 1e-09
+  },
+  {
+   "name": "solution set [[1, 0, 1], [0, 1, 1]] | [-1.5, 0.25]",
+   "py": "d01_solution_set([[1, 0, 1], [0, 1, 1]], [-1.5, 0.25])",
+   "js": "LinearMaps.solutionSet([[1, 0, 1], [0, 1, 1]], [-1.5, 0.25])",
+   "tol": 1e-09
+  },
+  {
+   "name": "table legs W = 100, t = 0",
+   "py": "d01_table_legs(100, 0)",
+   "js": "LinearMaps.tableLegs(100, 0)",
+   "tol": 1e-09
+  },
+  {
+   "name": "table legs W = 100, t = 10",
+   "py": "d01_table_legs(100, 10)",
+   "js": "LinearMaps.tableLegs(100, 10)",
+   "tol": 1e-09
+  },
+  {
+   "name": "table legs W = 100, t = -30",
+   "py": "d01_table_legs(100, -30)",
+   "js": "LinearMaps.tableLegs(100, -30)",
+   "tol": 1e-09
+  },
+  {
+   "name": "table legs W = 98.1, t = 7.5",
+   "py": "d01_table_legs(98.1, 7.5)",
+   "js": "LinearMaps.tableLegs(98.1, 7.5)",
+   "tol": 1e-09
+  },
+  {
+   "name": "goal dims [[1, 0, 0]]",
+   "py": "d01_goal_dims([[1, 0, 0]])",
+   "js": "LinearMaps.goalDims([[1, 0, 0]])",
+   "tol": 1e-09
+  },
+  {
+   "name": "goal dims [[1, 0, 0], [0, 0, 1]]",
+   "py": "d01_goal_dims([[1, 0, 0], [0, 0, 1]])",
+   "js": "LinearMaps.goalDims([[1, 0, 0], [0, 0, 1]])",
+   "tol": 1e-09
+  },
+  {
+   "name": "goal dims [[1, 0, 0], [0, 1, 0], [0, 0, 1]]",
+   "py": "d01_goal_dims([[1, 0, 0], [0, 1, 0], [0, 0, 1]])",
+   "js": "LinearMaps.goalDims([[1, 0, 0], [0, 1, 0], [0, 0, 1]])",
+   "tol": 1e-09
+  },
+  {
+   "name": "goal dims [[1, 2, 3], [2, 4, 6]]",
+   "py": "d01_goal_dims([[1, 2, 3], [2, 4, 6]])",
+   "js": "LinearMaps.goalDims([[1, 2, 3], [2, 4, 6]])",
+   "tol": 1e-09
+  },
+  {
+   "name": "stacked ranks N = [0 1 0], G = [[1, 0, 0], [0, 1, 0], [0, 0, 1]], b = [0.1, 0, 0]",
+   "py": "d01_stacked_ranks([[0, 1, 0]], [[1, 0, 0], [0, 1, 0], [0, 0, 1]], [0.1, 0, 0])",
+   "js": "LinearMaps.stacked([[0, 1, 0]], [[1, 0, 0], [0, 1, 0], [0, 0, 1]], [0.1, 0, 0])",
+   "tol": 1e-09
+  },
+  {
+   "name": "stacked ranks N = [0 1 0], G = [[1, 0, 0], [0, 1, 0], [0, 0, 1]], b = [0.1, -0.05, 0]",
+   "py": "d01_stacked_ranks([[0, 1, 0]], [[1, 0, 0], [0, 1, 0], [0, 0, 1]], [0.1, -0.05, 0])",
+   "js": "LinearMaps.stacked([[0, 1, 0]], [[1, 0, 0], [0, 1, 0], [0, 0, 1]], [0.1, -0.05, 0])",
+   "tol": 1e-09
+  },
+  {
+   "name": "stacked ranks N = [0 1 0], G = [[1, 0, 0]], b = [0.1]",
+   "py": "d01_stacked_ranks([[0, 1, 0]], [[1, 0, 0]], [0.1])",
+   "js": "LinearMaps.stacked([[0, 1, 0]], [[1, 0, 0]], [0.1])",
+   "tol": 1e-09
+  },
+  {
+   "name": "stacked ranks N = [0 1 0], G = [[1, 0, 0], [0, 0, 1]], b = [0.1, 0]",
+   "py": "d01_stacked_ranks([[0, 1, 0]], [[1, 0, 0], [0, 0, 1]], [0.1, 0])",
+   "js": "LinearMaps.stacked([[0, 1, 0]], [[1, 0, 0], [0, 0, 1]], [0.1, 0])",
+   "tol": 1e-09
+  },
+  {
+   "name": "stacked ranks N = [0 1 0], G = [[0, 2, 0]], b = [0.3]",
+   "py": "d01_stacked_ranks([[0, 1, 0]], [[0, 2, 0]], [0.3])",
+   "js": "LinearMaps.stacked([[0, 1, 0]], [[0, 2, 0]], [0.3])",
+   "tol": 1e-09
+  },
+  {
+   "name": "stacked ranks N = [0 1 0], G = [[0, 2, 0]], b = [0]",
+   "py": "d01_stacked_ranks([[0, 1, 0]], [[0, 2, 0]], [0])",
+   "js": "LinearMaps.stacked([[0, 1, 0]], [[0, 2, 0]], [0])",
+   "tol": 1e-09
+  }
+ ]
+}
