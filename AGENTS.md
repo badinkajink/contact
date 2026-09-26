@@ -318,6 +318,7 @@ They start the system Chrome through Playwright and hold a file lock
 | `tools/run_notebook.sh ../01_optimization_fundamentals.py` | runs a notebook top to bottom, one notebook at a time |
 | `uv run tools/vendor_mujoco.py` | re-vendors the pinned MuJoCo WASM build and checks its sha256 |
 | `uv run tools/sync.py [--check] [--list FILE]` | regenerates `lib/codemap.js` and `lib/models.js`; `--check` fails on stale files or on a `data-code` in `NN_*.html`, `template.html` or `tools/demos/*.html` that does not resolve; `--list FILE` prints the references a notebook offers |
+| `uv run tools/packet.py 05` | review packet for the owner in `slides/out/review/<deck>/`: contact sheets of every slide (20 per image), `REVIEW.md` with the check result, a per-slide ledger (id, title, steps, figures, words of notes, `data-code` functions) and a five-point checklist for verifying the deck by hand |
 | `uv run export.py [deck]` | PDF, PNG or PPTX copies in `slides/out/` |
 
 A deck is done when: `check.py` reports zero errors and no missing ids or notes; every slide PNG
