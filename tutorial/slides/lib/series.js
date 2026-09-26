@@ -23,7 +23,7 @@
   ];
   const d = (n, file, title, short, part, status) => ({ n, file, title, short, part, status });
   const decks = [
-    d(1, "01_vectors_and_matrices.html", "Vectors, matrices, and linear maps", "Vectors and matrices", "I", "planned"),
+    d(1, "01_vectors_and_matrices.html", "Vectors, matrices, and linear maps", "Vectors and matrices", "I", "exists"),
     d(2, "02_eigenvalues_and_least_squares.html", "Eigenvalues, singular values, and least squares", "Eigenvalues and least squares", "I", "planned"),
     d(3, "03_derivatives_and_jacobians.html", "Derivatives, gradients, and Jacobians", "Derivatives and Jacobians", "I", "planned"),
     d(4, "04_probability_and_sampling.html", "Probability, Gaussians, and sampling", "Probability and sampling", "I", "planned"),

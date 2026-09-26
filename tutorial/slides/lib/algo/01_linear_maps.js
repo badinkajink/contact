@@ -30,12 +30,14 @@
  *   classify2(A, b)           {status: 'one' | 'none' | 'infinite', x, rankA, rankAb}.
  *                             'infinite' returns the shortest solution.  (d01_classify_2x2)
  *   rrefSteps(A)              Num.rref(A) with steps as [op, i, j, k, text] rows:
- *                             swap [op, i, j, 0], scale [op, i, i, k], add [op, i, j, k].
+ *                             swap [op, i, j, 0], scale [op, i, i, k], add [op, i, j, k];
+ *                             pivotAt[s] = [row, col] of the pivot step s works with.
  *                                                                        (d01_rref_steps)
  *   consistency(A, b)         {rankA, rankAb, consistent}.               (d01_consistency)
  *   nullBasis(A)              special solutions (one per free column), as rows. (d01_null_basis)
  *   fourSubspaces(A)          {rank, pivots, col, row, null, left_null, dims}. (d01_four_subspaces)
  *   solutionSet(A, b)         {consistent, particular (free variables 0), null}. (d01_solution_set)
+ *   minNormSolution(A, b)     pinv(A) b, the shortest (least-squares) solution. (d01_min_norm_solution)
  *   tableLegs(W, t, half)     leg forces of the four-legged table.       (d01_table_legs)
  *   goalDims(G)               n - rank(G).                               (d01_goal_dims)
  *   stacked(N, G, bG)         {rankN, rankNG, rankAug, consistent, dimSol, nav}. (d01_stacked_ranks)
@@ -177,7 +179,10 @@
       s.op === "swap" ? ["swap", s.i, s.j, 0, s.text]
         : s.op === "scale" ? ["scale", s.i, s.i, s.k, s.text]
           : ["add", s.i, s.j, s.k, s.text]);
-    return { R: r.R, pivots: r.pivots, rank: r.rank, steps, tex: r.steps.map((s) => s.tex), matrices: r.steps.map((s) => s.matrix) };
+    return {
+      R: r.R, pivots: r.pivots, rank: r.rank, steps, tex: r.steps.map((s) => s.tex),
+      matrices: r.steps.map((s) => s.matrix), pivotAt: r.steps.map((s) => s.pivot),
+    };
   }
 
   function consistency(A, b) {
@@ -221,6 +226,10 @@
     return { consistent: true, particular: x, null: nullBasis(A) };
   }
 
+  function minNormSolution(A, b) {
+    return Num.matvec(Num.pinv(as2d(A)), b).map(z0);
+  }
+
   function tableLegs(W, t, half) {
     W = W === undefined ? 100 : W;
     t = t || 0;
@@ -255,6 +264,6 @@
     length, coords2, indepDet, dotAngle, pnorm, pnorms, unitBall,
     det2, inv2, compose, transposeCheck, parallelogramArea, nonsquare, hull2,
     rank, classify2, rrefSteps, consistency, nullBasis, fourSubspaces, solutionSet,
-    tableLegs, goalDims, stacked,
+    minNormSolution, tableLegs, goalDims, stacked,
   };
 })();

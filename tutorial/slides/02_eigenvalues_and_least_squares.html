@@ -1,0 +1,1597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Eigenvalues, singular values, and least squares</title>
+<link rel="stylesheet" href="lib/katex/katex.min.css">
+<link rel="stylesheet" href="lib/retro.css">
+<script defer src="lib/katex/katex.min.js"></script>
+<script defer src="lib/katex/contrib/auto-render.min.js"></script>
+<script src="lib/fig.js"></script>
+<script src="lib/plot.js"></script>
+<script src="lib/num.js"></script>
+<script src="lib/algo/02_eigen_ls.js"></script>
+<script>
+  window.DECK_MACROS = {
+    "\\NULL": "\\operatorname{NULL}",
+    "\\ROW": "\\operatorname{ROW}",
+    "\\veta": "\\boldsymbol{\\eta}",
+  };
+</script>
+<script defer src="lib/deck.js"></script>
+<style>
+  .controls input[type="range"].short { width: 150px; }
+  .controls select { font-family: "Times New Roman", Times, serif; font-size: 20px; }
+  .tight li { margin-bottom: 3px; }
+  .slide ol.steps { padding-left: 1.3em; }
+  table.mid td, table.mid th { padding: 2px 9px; }
+  .kv { font-family: "Courier New", Courier, monospace; font-size: 0.86em; }
+</style>
+</head>
+<!--
+  Deck 02 of the series. Numbers on the slides come from tutorial/00_math_toolkit.py, section
+  "Deck 02" (functions d02_*); the live figures call lib/algo/02_eigen_ls.js (EigenLS), whose
+  twin cases are tools/twins/02.json.
+-->
+<body data-index="index.html" data-prev="01_vectors_and_matrices.html">
+<main class="deck">
+
+<!-- ============================================================ title -->
+<section class="slide title" id="title">
+  <h1>Eigenvalues, singular values, and least squares</h1>
+  <p class="authors">William Xie</p>
+  <p class="links">[<a href="index.html">index</a>] [<a href="../00_math_toolkit.py">code</a>]
+    [<a href="#" data-action="print">pdf</a>]</p>
+  <hr>
+  <div class="cols l2 mid">
+    <figure>
+      <svg id="f-hero"></svg>
+      <figcaption>$A = \begin{bmatrix} 3 & 0 \\ 4 & 5 \end{bmatrix}$ maps the unit circle (left) onto an
+        ellipse (right) with semi-axes $\sigma_1 = 6.708$ and $\sigma_2 = 2.236$, its singular values.</figcaption>
+    </figure>
+    <div class="small">
+      <p>Deck 02 of 22, Part I (mathematical toolkit).</p>
+      <p>Prerequisites: <a href="01_vectors_and_matrices.html">deck 01</a> (vectors, matrices, rank,
+        null space).</p>
+      <p>Code: every number on these slides is computed in <code>tutorial/00_math_toolkit.py</code>,
+        section &ldquo;Deck 02&rdquo;. Press <kbd>C</kbd> on a slide to see the function.</p>
+      <p>Used by decks 05, 06, 07, 08, 09, 13, 19 and 21.</p>
+    </div>
+  </div>
+  <p class="updated">Last updated September 2026.</p>
+  <aside class="notes">This deck builds the second half of the linear algebra the series needs:
+    projections and orthonormal bases, eigenvalues and the quadratic forms they describe,
+    positive definite matrices and their Cholesky factors, the singular value decomposition and
+    the condition number, least squares, minimum-norm solutions, and the Schur complement. The tex
+    tutorial states most of these results in two pages (lines 1130-1303); the slides derive
+    them. Two threads run through the deck because Hou and Mason (ICRA 2019 and 2021) need them:
+    the row space of a matrix is the orthogonal complement of its null space, which turns their
+    goal-inclusion condition into a rank test, and the condition number of a stacked velocity
+    system measures how close a hybrid force-velocity controller is to pushing into a wall. The
+    running example for the second thread is a drawer on a rail. Press R to switch between
+    presenting and this reading view.</aside>
+</section>
+
+<!-- ============================================================ part 1 -->
+<section class="slide section" id="part-projections">
+  <p class="kicker">Part 1</p>
+  <h1>Projections and orthonormal bases</h1>
+  <hr>
+  <p>The closest point of a line or a plane to a given vector, perpendicular errors, and bases in
+    which coordinates are dot products.</p>
+</section>
+
+<!-- ============================================================ projection onto a line -->
+<section class="slide" id="projection-line" data-code="00_math_toolkit.py:d02_projection_onto_line">
+  <h2>Projection of a vector onto a line</h2>
+  <div class="cols mid">
+    <figure>
+      <svg id="f-projline"></svg>
+      <figcaption>Drag the tips of $\va$ (blue) and $\vb$ (red). Purple: the projection $\vp$;
+        dashed: the error $\ve = \vb - \vp$.</figcaption>
+    </figure>
+    <div>
+      <div class="example small">Recap (<a href="01_vectors_and_matrices.html#dot-product">deck 01</a>):
+        $\va\cdot\vb = a_1 b_1 + a_2 b_2$, $\norm{\va}^2 = \va\cdot\va$, and $\va \perp \vb$ exactly
+        when $\va\cdot\vb = 0$.</div>
+      <ul class="tight">
+        <li>The <b>projection</b> of $\vb$ onto the line through $\vzero$ and $\va$ is the point
+          $\vp = \hat x\,\va$ of the line closest to $\vb$.</li>
+        <li>$\hat x = \dfrac{\va\cdot\vb}{\va\cdot\va}$, and the error $\ve = \vb - \vp$ is
+          perpendicular to $\va$.</li>
+        <li>$\va = (2, 1)$, $\vb = (1, 3)$: $\hat x = 5/5 = 1$, $\vp = (2, 1)$, $\ve = (-1, 2)$,
+          $\ve\cdot\va = -2 + 2 = 0$. Distance $\norm{\ve} = \sqrt 5 = 2.236$.</li>
+      </ul>
+      <div class="readout" id="projline-read"></div>
+    </div>
+  </div>
+  <aside class="notes">Projection answers the question &ldquo;which point of this line is closest
+    to $\vb$?&rdquo;. The answer is the foot of the perpendicular from $\vb$: the error $\ve$ meets
+    the line at a right angle, which the figure marks. Why the perpendicular foot is closest:
+    take any other point $\vq$ of the line. Then $\vb - \vq = \ve + (\vp - \vq)$, where
+    $\vp - \vq$ runs along the line and $\ve$ is perpendicular to it, so by Pythagoras
+    $\norm{\vb - \vq}^2 = \norm{\ve}^2 + \norm{\vp - \vq}^2 \ge \norm{\ve}^2$. The number
+    $\hat x$ is the signed shadow length of deck 01 divided by $\norm{\va}$; it is negative when
+    $\va$ and $\vb$ make an angle above $90^\circ$. Projection returns throughout the deck: onto
+    planes (slide <a href="#projection-subspace">projection-subspace</a>), in Gram-Schmidt, and in
+    least squares, where the tex (line 1250) describes $A\vz^\star$ as the orthogonal projection of
+    $\vb$ onto the column space. The handles snap to multiples of 0.25; the readout comes from
+    <code>EigenLS.projectLine</code>, the twin of <code>d02_projection_onto_line</code>.</aside>
+</section>
+
+<!-- ============================================================ projection derivation -->
+<section class="slide" id="projection-derivation" data-code="00_math_toolkit.py:d02_projection_onto_line">
+  <h2>Derivation of the projection formula</h2>
+  <div class="cols r2">
+    <figure>
+      <svg id="f-projder"></svg>
+      <figcaption>Any other point $\vq$ of the line is farther from $\vb$:
+        $\norm{\vb - \vq}^2 = \norm{\ve}^2 + \norm{\vp - \vq}^2$.</figcaption>
+    </figure>
+    <div>
+      <ol class="steps">
+        <li class="step">The point of the line: $\vp = \hat x\,\va$ for some number $\hat x$.</li>
+        <li class="step">Its error: $\ve = \vb - \hat x\,\va$.</li>
+        <li class="step">Closest means perpendicular: $\va\cdot(\vb - \hat x\,\va) = 0$.</li>
+        <li class="step">Expand and solve: $\va\cdot\vb - \hat x\,(\va\cdot\va) = 0$, so
+          $\hat x = \dfrac{\va\cdot\vb}{\va\cdot\va}$.</li>
+      </ol>
+      <div class="box step">$\vp = \dfrac{\va\va^\T}{\va^\T\va}\,\vb = P\vb$. For $\va = (2, 1)$:
+        $P = \tfrac15\begin{bmatrix} 4 & 2 \\ 2 & 1 \end{bmatrix} = \begin{bmatrix} 0.8 & 0.4 \\ 0.4 & 0.2 \end{bmatrix}$,
+        with $P^2 = P$ and $P^\T = P$.</div>
+      <p class="step small">Check: $P(1, 3) = (0.8 + 1.2,\ 0.4 + 0.6) = (2, 1)$.</p>
+    </div>
+  </div>
+  <aside class="notes">Step 3 uses the Pythagoras argument of the previous slide: among all points
+    of the line, the one whose error is perpendicular to the line is the closest. Step 4 uses the
+    dot-product rules $\va\cdot(\vb - \hat x\va) = \va\cdot\vb - \hat x\,\va\cdot\va$ and needs
+    $\va \ne \vzero$. The projection matrix comes from rewriting $\hat x\,\va$ with the dot product
+    as a matrix product: $\hat x\,\va = \va\,\hat x = \va\,\dfrac{\va^\T\vb}{\va^\T\va} =
+    \dfrac{\va\va^\T}{\va^\T\va}\vb$. Here $\va\va^\T$ is a column times a row, a $2\times 2$
+    matrix of rank one. $P^2 = P$ because
+    $P^2 = \va(\va^\T\va)\va^\T/(\va^\T\va)^2 = \va\va^\T/(\va^\T\va)$: projecting a point that is
+    already on the line leaves it where it is. $P^\T = P$ because $(\va\va^\T)^\T = \va\va^\T$. The
+    two properties together characterize orthogonal projections. The matrix $P$ has eigenvalues
+    1 (along $\va$) and 0 (along the perpendicular direction), which Part 2 explains.</aside>
+</section>
+
+<!-- ============================================================ orthonormal basis -->
+<section class="slide" id="orthonormal-basis" data-code="00_math_toolkit.py:d02_orthonormal_coordinates">
+  <h2>Coordinates in an orthonormal basis</h2>
+  <div class="cols mid">
+    <figure>
+      <svg id="f-onb"></svg>
+      <figcaption>Drag $\vx$. Its coordinates are the lengths of its shadows on $\vq_1$ (blue) and
+        $\vq_2$ (green).</figcaption>
+    </figure>
+    <div>
+      <ul class="tight">
+        <li>$\vq_1, \dots, \vq_k$ are <b>orthonormal</b> when $\vq_i\cdot\vq_j = 0$ for $i \ne j$
+          and $\norm{\vq_i} = 1$.</li>
+        <li>Coordinates need no linear solve: in $\vx = c_1\vq_1 + c_2\vq_2$, $c_i = \vq_i\cdot\vx$.</li>
+        <li class="step">Dot both sides with $\vq_1$:
+          $\vq_1\cdot\vx = c_1(\vq_1\cdot\vq_1) + c_2(\vq_1\cdot\vq_2) = c_1$.</li>
+        <li>$\vq_1 = (0.6, 0.8)$, $\vq_2 = (-0.8, 0.6)$, $\vx = (2, 1)$: $c_1 = 1.2 + 0.8 = 2$,
+          $c_2 = -1.6 + 0.6 = -1$.</li>
+        <li class="step">As columns of $Q = [\vq_1\ \vq_2]$: $Q^\T Q = I$, so $Q^{-1} = Q^\T$ and
+          $\vc = Q^\T\vx$.</li>
+      </ul>
+      <div class="readout" id="onb-read"></div>
+    </div>
+  </div>
+  <aside class="notes">In a general basis the coordinates of $\vx$ solve a linear system (deck 01,
+    basis-and-coordinates). In an orthonormal basis the system decouples: entry $(i, j)$ of $Q^\T Q$
+    is $\vq_i\cdot\vq_j$, which is 1 on the diagonal and 0 elsewhere, so $Q^\T Q = I$ and the
+    inverse of $Q$ is its transpose. A square matrix with orthonormal columns is called
+    <b>orthogonal</b>; it is a rotation or a reflection, and it keeps lengths and angles:
+    $\norm{Q\vy}^2 = \vy^\T Q^\T Q\vy = \norm{\vy}^2$. Check of the example:
+    $2\vq_1 - \vq_2 = (1.2 + 0.8,\ 1.6 - 0.6) = (2, 1)$. Hou and Mason store orthonormal bases as the
+    ROWS of a matrix: their $\operatorname{Null}(A)$ and $\operatorname{Row}(A)$ (2021, Sec. V) and
+    the control-axis matrix $T$ of slide <a href="#drawer-control-axes">drawer-control-axes</a> are
+    matrices with orthonormal rows, for which $QQ^\T = I$ and the coordinates are $Q\vx$.
+    <code>lib/num.js</code> and the notebook use the same row convention.</aside>
+</section>
+
+<!-- ============================================================ projection onto a plane -->
+<section class="slide" id="projection-subspace" data-code="00_math_toolkit.py:d02_projection_onto_plane">
+  <h2>Projection onto a plane through the origin</h2>
+  <div class="cols mid">
+    <figure>
+      <svg id="f-projplane"></svg>
+      <figcaption>Yellow: the plane $x + y + z = 0$. Red: $\vb$; purple: its projection $\vp$;
+        dashed: $\ve$, along the normal $(1, 1, 1)$.</figcaption>
+    </figure>
+    <div>
+      <ul class="tight">
+        <li>With an orthonormal basis $\vq_1, \dots, \vq_k$ of a subspace, the projection of $\vb$
+          is $\vp = (\vq_1\cdot\vb)\,\vq_1 + \dots + (\vq_k\cdot\vb)\,\vq_k$, and $\ve = \vb - \vp$ is
+          perpendicular to every $\vq_i$.</li>
+        <li>Plane $x + y + z = 0$: $\vq_1 = (1, -1, 0)/\sqrt2$, $\vq_2 = (1, 1, -2)/\sqrt6$.
+          $\vb = (1, 2, 3)$ gives $\vq_1\cdot\vb = -0.7071$, $\vq_2\cdot\vb = -1.2247$.</li>
+        <li class="step">$\vp = -\tfrac12(1, -1, 0) - \tfrac12(1, 1, -2) = (-1, 0, 1)$,
+          $\ve = (2, 2, 2)$.</li>
+      </ul>
+      <div class="warn step small"><b>Only for orthonormal bases.</b> For any other basis, use the
+        normal equations (slide <a href="#normal-equations">normal-equations</a>).</div>
+      <div class="controls">
+        <label>view <input type="range" class="short" id="pp-az" min="-170" max="-60" step="1" value="-120"></label>
+      </div>
+    </div>
+  </div>
+  <aside class="notes">The formula projects $\vb$ onto each basis vector separately and adds the
+    pieces. It works because the $\vq_i$ are perpendicular to each other: the error
+    $\ve = \vb - \sum_i (\vq_i\cdot\vb)\vq_i$ has $\vq_j\cdot\ve = \vq_j\cdot\vb - \vq_j\cdot\vb = 0$
+    for every $j$, since all the cross terms $\vq_j\cdot\vq_i$ vanish. With a non-orthonormal
+    basis the cross terms stay, and the coordinates come from a linear system instead (the normal
+    equations of Part 4). With the basis vectors as the columns of $Q$, the projection is
+    $\vp = QQ^\T\vb$, so the projection matrix is $P = QQ^\T$; here
+    $P = I - \tfrac13\vone\vone^\T$, which removes the component along the unit normal
+    $(1, 1, 1)/\sqrt3$. Check: $\vb\cdot(1, 1, 1)/3 = 2$, so the normal component is $(2, 2, 2)$ and
+    $\vp = (1, 2, 3) - (2, 2, 2) = (-1, 0, 1)$, the same answer. Where the basis vectors came from
+    is the next slide. The view slider turns the picture about the vertical axis.</aside>
+</section>
+
+<!-- ============================================================ Gram-Schmidt -->
+<section class="slide" id="gram-schmidt" data-code="00_math_toolkit.py:d02_gram_schmidt_qr">
+  <h2>Gram-Schmidt orthogonalization and the QR factorization</h2>
+  <div class="cols mid">
+    <figure>
+      <svg id="f-gs"></svg>
+      <figcaption>Drag $\va_1$ and $\va_2$ (black). Blue: $\vq_1$; orange: the $\vq_1$ part of
+        $\va_2$; green: $\vw_2$ and $\vq_2$.</figcaption>
+    </figure>
+    <div>
+      <ol class="steps tight">
+        <li class="step">Normalize the first vector: $\vq_1 = \va_1/\norm{\va_1} = (3, 1)/\sqrt{10} = (0.9487, 0.3162)$.</li>
+        <li class="step">Remove the $\vq_1$ part of $\va_2$:
+          $\vw_2 = \va_2 - (\vq_1\cdot\va_2)\,\vq_1 = (2, 2) - 0.8\,(3, 1) = (-0.4, 1.2)$.</li>
+        <li class="step">Normalize: $\vq_2 = \vw_2/\norm{\vw_2} = (-0.3162, 0.9487)$.</li>
+      </ol>
+      <div class="box step">$A = [\va_1\ \va_2] = QR$, $Q = [\vq_1\ \vq_2]$,
+        $R = \begin{bmatrix} \norm{\va_1} & \vq_1\cdot\va_2 \\ 0 & \norm{\vw_2} \end{bmatrix}
+        = \begin{bmatrix} 3.1623 & 2.5298 \\ 0 & 1.2649 \end{bmatrix}$.</div>
+      <div class="readout" id="gs-read"></div>
+    </div>
+  </div>
+  <aside class="notes">Gram-Schmidt turns independent vectors $\va_1, \dots, \va_k$ into orthonormal
+    vectors $\vq_1, \dots, \vq_k$ with the same span, one vector at a time: subtract from $\va_j$ its
+    projections onto the $\vq$'s already built (slide
+    <a href="#projection-subspace">projection-subspace</a>), then scale the remainder $\vw_j$ to
+    length 1. Here $\vq_1\cdot\va_2 = (6 + 2)/\sqrt{10} = 2.5298$ and
+    $(\vq_1\cdot\va_2)\vq_1 = 0.8(3, 1) = (2.4, 0.8)$. Reading the steps backwards gives the
+    factorization: $\va_1 = \norm{\va_1}\vq_1$ and $\va_2 = (\vq_1\cdot\va_2)\vq_1 + \norm{\vw_2}\vq_2$,
+    so the columns of $A$ are combinations of the columns of $Q$ with the coefficients in the
+    upper triangular $R$. A three-dimensional case, $\va_1 = (1, 1, 0)$, $\va_2 = (1, 0, 1)$: $R =
+    \begin{bmatrix} 1.4142 & 0.7071 \\ 0 & 1.2247 \end{bmatrix}$ and $\vq_2 = (1, -1, 2)/\sqrt6$.
+    When $\va_2$ is parallel to $\va_1$, $\vw_2 = \vzero$ and there is no $\vq_2$: Gram-Schmidt
+    also detects dependence. Libraries compute QR with Householder reflections, which lose less
+    accuracy in floating point; <code>Num.qr</code> does so.</aside>
+</section>
+
+<!-- ============================================================ orthogonal complement -->
+<section class="slide" id="orthogonal-complement" data-code="00_math_toolkit.py:d02_complement_split">
+  <h2>Row space and null space as orthogonal complements</h2>
+  <div class="cols mid">
+    <figure>
+      <svg id="f-compl"></svg>
+      <figcaption>Yellow: $\Row(A)$. Red line: $\Null(A)$. Black: $\vv$; blue and red: its parts
+        $\vv_{\rm row}$ and $\vv_{\rm null}$.</figcaption>
+    </figure>
+    <div>
+      <ul class="tight">
+        <li>$A = \begin{bmatrix} 1 & 1 & 0 \\ 1 & 0 & 1 \end{bmatrix}$. $A\vv = \vzero$ says
+          (row 1)$\cdot\vv = 0$ and (row 2)$\cdot\vv = 0$.</li>
+        <li>So every vector of $\Null(A)$ is perpendicular to every row, and to every combination
+          of rows: $\Null(A) \perp \Row(A)$.</li>
+        <li class="step">Dimensions: $2 + 1 = 3$ (rank-nullity), so every $\vv$ splits in exactly
+          one way as $\vv = \vv_{\rm row} + \vv_{\rm null}$.</li>
+        <li class="step">$\vn = (1, -1, -1)/\sqrt3$ spans $\Null(A)$. For $\vv = (1, 2, 3)$:
+          $\vv_{\rm null} = (\vn\cdot\vv)\,\vn = (-\tfrac43, \tfrac43, \tfrac43)$ and
+          $\vv_{\rm row} = (\tfrac73, \tfrac23, \tfrac53) = \tfrac23(1, 1, 0) + \tfrac53(1, 0, 1)$.</li>
+      </ul>
+      <div class="controls">
+        <label>view <input type="range" class="short" id="oc-az" min="-170" max="-60" step="1" value="-115"></label>
+      </div>
+    </div>
+  </div>
+  <aside class="notes">Two subspaces are <b>orthogonal complements</b> in $\R^n$ when every vector of
+    one is perpendicular to every vector of the other and together they span $\R^n$. The first
+    property is the row picture of $A\vv = \vzero$. The second follows from the dimensions: an
+    orthonormal basis of $\Row(A)$ ($r$ vectors) together with one of $\Null(A)$ ($n - r$ vectors,
+    by rank-nullity in <a href="01_vectors_and_matrices.html">deck 01</a>) gives $n$ orthonormal
+    vectors, which are independent and so a basis of $\R^n$. The split is unique: if
+    $\vv_{\rm row} + \vv_{\rm null} = \vv_{\rm row}' + \vv_{\rm null}'$, then
+    $\vv_{\rm row} - \vv_{\rm row}' = \vv_{\rm null}' - \vv_{\rm null}$ lies in both subspaces, so it
+    is perpendicular to itself and equals $\vzero$. Check of the example: $\vn\cdot\vv =
+    (1 - 2 - 3)/\sqrt3 = -4/\sqrt3$, and $\vv_{\rm row}\cdot\vn = (7/3 - 2/3 - 5/3)/\sqrt3 = 0$.
+    Hou and Mason (2021, Sec. V) use this relation to turn a statement about null spaces into a
+    statement about row spaces, which a rank computation can test (next two slides).</aside>
+</section>
+
+<!-- ============================================================ null-space inclusion -->
+<section class="slide" id="null-inclusion" data-code="00_math_toolkit.py:d02_inclusion_rank_test">
+  <h2>Null-space inclusion and reversed row-space inclusion</h2>
+  <div class="cols">
+    <div>
+      <div class="box">For $A$ and $B$ with $n$ columns:
+        $\Null(A) \subseteq \Null(B)$ $\iff$ $\Row(B) \subseteq \Row(A)$ $\iff$
+        $\rank\begin{bmatrix} A \\ B \end{bmatrix} = \rank A$.</div>
+      <ol class="steps tight">
+        <li class="step">If every row of $B$ is a combination of rows of $A$, then $A\vv = \vzero$
+          gives $B\vv = \vzero$.</li>
+        <li class="step">If $\Null(A) \subseteq \Null(B)$, every row of $B$ is perpendicular to
+          $\Null(A)$, so it lies in the complement $\Row(A)$.</li>
+        <li class="step">Stacking $B$ under $A$ keeps the rank exactly when the new rows already
+          lie in $\Row(A)$.</li>
+      </ol>
+      <p class="small">$A$ as on the previous slide. $B = (2, 1, 1)$ = row 1 + row 2: ranks 2 and 2,
+        $B\vn = 0$. $B = (0, 0, 1)$: ranks 2 and 3, $B\vn = -0.5774$.</p>
+    </div>
+    <div>
+      <figure>
+        <svg id="f-incl"></svg>
+      </figure>
+      <div class="controls">
+        <label>$B$ = <select id="incl-b">
+          <option value="0">(2, 1, 1)</option>
+          <option value="1">(0, 1, &minus;1)</option>
+          <option value="2">(0, 0, 1)</option>
+          <option value="3">(1, 1, 1)</option>
+        </select></label>
+        <label>view <input type="range" class="short" id="incl-az" min="-170" max="-60" step="1" value="-115"></label>
+      </div>
+      <div class="readout" id="incl-read"></div>
+    </div>
+  </div>
+  <aside class="notes">The figure shows $\Null(A)$ as a red line and $\Null(B)$, the plane of vectors
+    perpendicular to the single row $B$, in yellow. Inclusion holds when the line lies in the
+    plane. Step 1 is the direction ROW $\subseteq$ ROW $\Rightarrow$ NULL $\subseteq$ NULL: if
+    $B = KA$ for some matrix $K$, then $B\vv = K(A\vv) = \vzero$. Step 2 is the reverse direction
+    and uses the orthogonal complement of the previous slide: a vector perpendicular to all of
+    $\Null(A)$ has zero null-space part, so it equals its row-space part. Step 3 turns the row-space
+    inclusion into a count: $\Row\begin{bmatrix} A \\ B \end{bmatrix}$ contains $\Row(A)$, and the two
+    are equal exactly when their dimensions are equal. The rank test needs no null-space basis
+    and no solving, which is why Hou and Mason use it. In floating point the ranks come from the
+    SVD with the tolerance $\max(m, n)\,\varepsilon\,\sigma_1$ (slide
+    <a href="#svd-statement">svd-statement</a>); $B\vn$ is the same test done with the null-space
+    basis, and it is $0$ up to rounding exactly when $B$ passes.</aside>
+</section>
+
+<!-- ============================================================ rank test in Hou & Mason -->
+<section class="slide" id="rank-test" data-code="00_math_toolkit.py:d02_goal_inclusion_toy">
+  <h2>Rank test for goal inclusion in Hou and Mason 2021</h2>
+  <div class="cols">
+    <div>
+      <figure>
+        <svg id="f-ranktest"></svg>
+        <figcaption>A box on a rail, pushed by a hand on its left face.
+          $\vv = (v_{\rm box}, v_{hx}, v_{hy})$.</figcaption>
+      </figure>
+      <ul class="tight small">
+        <li>Contact: $J = [1\ \ {-1}\ \ 0]$, $J\vv = 0$ (box and hand move together in $x$).</li>
+        <li>Goal: $G = [1\ \ 0\ \ 0]$, $b_G = 0.1$ m/s.</li>
+        <li>One common solution: $\vv^* = (0.1, 0.1, 0)$, so $b_C = C\vv^*$.</li>
+      </ul>
+    </div>
+    <div>
+      <p>Hou and Mason (eq. 10) require $G\vv = \vb_G$ for every $\vv$ with $J\vv = \vzero$,
+        $C\vv = \vb_C$. The null-space part (eq. 11) is
+        $\NULL\begin{bmatrix} J \\ C \end{bmatrix} \subseteq \NULL\begin{bmatrix} J \\ G \end{bmatrix}$,
+        and by the previous slide (eq. 13):</p>
+      $$\rank\begin{bmatrix} J \\ C \end{bmatrix} = \rank\begin{bmatrix} J \\ C \\ G \end{bmatrix}.$$
+      <table class="small mid step">
+        <tr><th>velocity command $C$</th><th class="num">rank $[J; C]$</th><th class="num">rank $[J; C; G]$</th><th>goal met</th></tr>
+        <tr><td>$[0\ 1\ 0]$, hand $x$</td><td class="num">2</td><td class="num">2</td><td>yes, $b_C = 0.1$</td></tr>
+        <tr><td>$[0\ 0\ 1]$, hand $y$</td><td class="num">2</td><td class="num">3</td><td>no</td></tr>
+      </table>
+    </div>
+  </div>
+  <aside class="notes">This is the toy version of Hou and Mason 2021, Sec. V. Their NULL and ROW
+    are the subspaces written Null and Row in this series; their Null(·) and Row(·) are matrices
+    whose rows are orthonormal bases of them. Eq. 10 asks that every velocity the contacts and the
+    command allow reaches the goal. Its two Goal-Inclusion conditions: (1) the directions left
+    free by $J$ and $C$ do not change $G\vv$ (eq. 11, tested by eq. 13); (2) at least one velocity
+    satisfies all three equations. With the hand-$x$ command, $\NULL[J; C]$ is spanned by
+    $(0, 0, 1)$, a vertical slide of the hand, which leaves $v_{\rm box}$ at 0.1 m/s. With the
+    hand-$y$ command, $\NULL[J; C]$ is spanned by $(1, 1, 0)$: box and hand may move together at
+    any speed, so the goal is not guaranteed. For condition 2 the notebook takes the minimum-norm
+    solution of $[J; G]\vv = (0, 0.1)$ (slide <a href="#min-norm">min-norm</a>), $\vv^* = (0.1, 0.1, 0)$,
+    and sets $b_C = C\vv^*$, as Hou and Mason do in their eq. 28-29. At least
+    $\rank[J; G] - \rank J = 1$ velocity command is needed (deck 01, the velocity-command count).
+    Deck 21 applies the test to the block-tilting task.</aside>
+</section>
+
+<!-- ============================================================ check 1 -->
+<section class="slide" id="check-projections">
+  <h2>Check yourself: projections and orthonormal bases</h2>
+  <ol>
+    <li>Project $(4, 2)$ onto the line through $(1, 1)$. What is the error?
+      <details><summary>answer</summary><div>$\hat x = 6/2 = 3$, $\vp = (3, 3)$, $\ve = (1, -1)$, and
+        $\ve\cdot(1, 1) = 0$.</div></details></li>
+    <li>Why is $P^2 = P$ for a projection matrix?
+      <details><summary>answer</summary><div>$P\vb$ already lies on the line (or subspace), and
+        projecting a point of the line returns the same point.</div></details></li>
+    <li>Run Gram-Schmidt on $(1, 2)$, $(2, 4)$.
+      <details><summary>answer</summary><div>$\vq_1 = (1, 2)/\sqrt5$, $\vq_1\cdot\va_2 = 10/\sqrt5$, and
+        $\vw_2 = (2, 4) - 2(1, 2) = \vzero$: the second vector is dependent and gives no
+        $\vq_2$.</div></details></li>
+    <li>$A = \begin{bmatrix} 1 & 1 & 0 \\ 1 & 0 & 1 \end{bmatrix}$, $B = (1, 1, 1)$. Is
+      $\Null(A) \subseteq \Null(B)$?
+      <details><summary>answer</summary><div>No. $\rank\begin{bmatrix} A \\ B \end{bmatrix} = 3 \ne 2$,
+        and $B\vn = (1 - 1 - 1)/\sqrt3 = -0.5774 \ne 0$.</div></details></li>
+    <li>Why does the hand-$y$ command fail the goal in the box example?
+      <details><summary>answer</summary><div>It leaves $v_{\rm box} = v_{hx}$ free: $(1, 1, 0)$ lies in
+        $\NULL[J; C]$ but $G(1, 1, 0) = 1 \ne 0$.</div></details></li>
+  </ol>
+  <aside class="notes">Question 1 uses $\hat x = \va\cdot\vb/\va\cdot\va$ with $\va = (1, 1)$; the
+    projection lands on the diagonal. Question 2 is the algebraic statement that a projection
+    does nothing to points already in its target, and it also shows that the only eigenvalues of
+    a projection matrix are 1 and 0 (Part 2). Question 3 shows that Gram-Schmidt signals
+    dependence with a zero remainder; numerical codes compare $\norm{\vw_j}$ with a tolerance
+    instead of zero. Question 4 can be answered with either test of slide
+    <a href="#null-inclusion">null-inclusion</a>: the rank of the stack, or the product of $B$ with
+    the null-space basis. Question 5 is the same test on Hou and Mason's matrices, read as
+    physics: commanding the hand's vertical speed says nothing about how fast it pushes. The
+    numbers are recomputed by the cells after the &ldquo;Deck 02&rdquo; header in
+    <code>tutorial/00_math_toolkit.py</code>.</aside>
+</section>
+
+<!-- ============================================================ part 2 -->
+<section class="slide section" id="part-eigen">
+  <p class="kicker">Part 2</p>
+  <h1>Eigenvalues, quadratic forms, and positive definite matrices</h1>
+  <hr>
+  <p>Directions a matrix only stretches, the bowls and saddles of $\tfrac12\vz^\T A\vz$, and the
+    Cholesky factor that exists exactly when the bowl has a bottom.</p>
+</section>
+
+<!-- ============================================================ eigen definition -->
+<section class="slide" id="eigen-definition" data-code="00_math_toolkit.py:d02_eigen_2x2">
+  <h2>Eigenvalues and eigenvectors of a matrix</h2>
+  <div class="cols mid">
+    <figure>
+      <svg id="f-eigdef"></svg>
+      <figcaption>Drag $\vv$ around the unit circle; red is $A\vv$. Dashed gray lines: the
+        eigenvector directions, where $A\vv$ is parallel to $\vv$.</figcaption>
+    </figure>
+    <div>
+      <ul class="tight">
+        <li>An <b>eigenvector</b> of a square matrix $A$ is a nonzero $\vv$ with $A\vv = \lambda\vv$.
+          The number $\lambda$ is its <b>eigenvalue</b>.</li>
+        <li>$A$ keeps the direction of $\vv$ and scales its length by $\lambda$; $\lambda &lt; 0$
+          flips it.</li>
+        <li>$A = \begin{bmatrix} 2 & 1 \\ 1 & 2 \end{bmatrix}$: $A(1, 1) = (3, 3)$, so $\lambda = 3$;
+          $A(1, -1) = (1, -1)$, so $\lambda = 1$.</li>
+        <li class="step">A shear has one eigenvector direction. A $90^\circ$ rotation has none.</li>
+      </ul>
+      <div class="controls">
+        <label>$A$ = <select id="eig-preset">
+          <option value="sym">[[2, 1], [1, 2]]</option>
+          <option value="gen">[[4, 1], [2, 3]]</option>
+          <option value="shear">shear [[1, 1], [0, 1]]</option>
+          <option value="rot">rotation [[0, &minus;1], [1, 0]]</option>
+          <option value="neg">[[1, 0], [0, &minus;0.5]]</option>
+        </select></label>
+      </div>
+      <div class="readout" id="eigdef-read"></div>
+    </div>
+  </div>
+  <aside class="notes">Most vectors change direction under $A$; the figure shows the angle between
+    $\vv$ and $A\vv$ as $\vv$ moves around the circle. Along an eigenvector the angle is
+    $0^\circ$ (or $180^\circ$ for a negative eigenvalue) and $A$ acts as multiplication by a
+    number. Any nonzero multiple of an eigenvector is again an eigenvector with the same
+    eigenvalue, so an eigenvector is really a direction; the slides scale them to length 1 with
+    the largest entry positive. The presets: the symmetric matrix has perpendicular eigenvector
+    directions (slide <a href="#spectral-theorem">spectral-theorem</a>); $[[4, 1], [2, 3]]$ has
+    eigenvalues 5 and 2 on directions $71.57^\circ$ apart; the shear $[[1, 1], [0, 1]]$ has the
+    double eigenvalue 1 but only the $x$-axis as eigenvector direction; the rotation by
+    $90^\circ$ turns every vector, and its eigenvalues are the complex pair $\pm i$; the diagonal
+    matrix flips the $y$-axis ($\lambda = -0.5$). An eigenvalue $\lambda = 0$ means $A\vv = \vzero$:
+    the eigenvectors of 0 are the nonzero vectors of $\Null(A)$.</aside>
+</section>
+
+<!-- ============================================================ eigen 2x2 -->
+<section class="slide" id="eigen-2x2" data-code="00_math_toolkit.py:d02_eigen_2x2">
+  <h2>Eigenvalues of a $2\times 2$ matrix from the characteristic equation</h2>
+  <div class="cols r2">
+    <div>
+      <figure>
+        <svg id="f-charpoly"></svg>
+        <figcaption>$\lambda^2 - 4\lambda + 3$ crosses zero at the eigenvalues 1 and 3 of
+          $\begin{bmatrix} 2 & 1 \\ 1 & 2 \end{bmatrix}$.</figcaption>
+      </figure>
+      <div class="example small step" data-step="5">$\begin{bmatrix} 4 & 1 \\ 2 & 3 \end{bmatrix}$:
+        $\lambda^2 - 7\lambda + 10 = (\lambda - 5)(\lambda - 2)$. Eigenvectors $(0.7071, 0.7071)$
+        and $(-0.4472, 0.8944)$.</div>
+    </div>
+    <div>
+      <ol class="steps tight">
+        <li class="step" data-step="1">$A\vv = \lambda\vv$ is the same as $(A - \lambda I)\vv = \vzero$.</li>
+        <li class="step" data-step="2">A nonzero solution $\vv$ exists only when $A - \lambda I$ is
+          singular: $\det(A - \lambda I) = 0$.</li>
+        <li class="step" data-step="3">For $A = \begin{bmatrix} a & b \\ c & d \end{bmatrix}$:
+          $(a - \lambda)(d - \lambda) - bc = \lambda^2 - (\tr A)\,\lambda + \det A = 0$.</li>
+        <li class="step" data-step="4">$\begin{bmatrix} 2 & 1 \\ 1 & 2 \end{bmatrix}$:
+          $\lambda^2 - 4\lambda + 3 = (\lambda - 3)(\lambda - 1)$, so $\lambda = 3$ and $1$.
+          $A - 3I = \begin{bmatrix} -1 & 1 \\ 1 & -1 \end{bmatrix}$ has null space along $(1, 1)$;
+          $A - I$ along $(1, -1)$.</li>
+      </ol>
+      <p class="step small" data-step="5">$\lambda_1 + \lambda_2 = \tr A$ and $\lambda_1\lambda_2 = \det A$.</p>
+    </div>
+  </div>
+  <aside class="notes">Step 2 uses deck 01: a square matrix sends a nonzero vector to $\vzero$
+    exactly when its determinant is zero, because then it squashes the plane onto a line and has
+    no inverse. The <b>characteristic polynomial</b> $\det(A - \lambda I)$ has degree $n$ for an
+    $n\times n$ matrix, so $A$ has $n$ eigenvalues counted with multiplicity, some possibly complex.
+    In the $2\times 2$ case the quadratic formula gives
+    $\lambda = \tfrac12\tr A \pm \sqrt{\tfrac14(\tr A)^2 - \det A}$; the function
+    <code>d02_eigen_2x2</code> computes exactly this. When the quantity under the root is
+    negative the eigenvalues are complex, as for the rotation. Expanding
+    $(\lambda - \lambda_1)(\lambda - \lambda_2) = \lambda^2 - (\lambda_1 + \lambda_2)\lambda +
+    \lambda_1\lambda_2$ and matching coefficients gives the sum and product rules. Check of the
+    second example: $\tr = 7 = 5 + 2$, $\det = 12 - 2 = 10 = 5\cdot 2$; for $\lambda = 2$,
+    $A - 2I = \begin{bmatrix} 2 & 1 \\ 2 & 1 \end{bmatrix}$ has null space along $(-1, 2)$, which
+    normalizes to $(-0.4472, 0.8944)$. For a triangular matrix the eigenvalues are the diagonal
+    entries.</aside>
+</section>
+
+<!-- ============================================================ spectral theorem -->
+<section class="slide" id="spectral-theorem" data-code="00_math_toolkit.py:d02_eigen_2x2">
+  <h2>Symmetric matrices and the spectral theorem</h2>
+  <div class="cols">
+    <div>
+      <ul class="tight">
+        <li>A <b>symmetric</b> matrix ($A^\T = A$) has real eigenvalues: for
+          $\begin{bmatrix} a & b \\ b & d \end{bmatrix}$,
+          $\tfrac14(\tr A)^2 - \det A = \bigl(\tfrac{a - d}{2}\bigr)^2 + b^2 \ge 0$.</li>
+        <li>Eigenvectors of different eigenvalues are perpendicular:</li>
+      </ul>
+      <ol class="steps tight">
+        <li class="step">$\lambda_1\,\vv_1\cdot\vv_2 = (A\vv_1)\cdot\vv_2 = \vv_1\cdot(A^\T\vv_2)$</li>
+        <li class="step">$\phantom{\lambda_1\,\vv_1\cdot\vv_2} = \vv_1\cdot(A\vv_2) = \lambda_2\,\vv_1\cdot\vv_2$</li>
+        <li class="step">so $(\lambda_1 - \lambda_2)\,\vv_1\cdot\vv_2 = 0$ and $\vv_1\cdot\vv_2 = 0$.</li>
+      </ol>
+      <div class="box step"><b>Spectral theorem.</b> A symmetric $A$ is $V\Lambda V^\T$ with
+        $V^\T V = I$ and $\Lambda = \diag(\lambda_1, \dots, \lambda_n)$.</div>
+    </div>
+    <div>
+      <figure>
+        <svg id="f-spectral"></svg>
+        <figcaption>Unit circle (gray), its image (black) and the eigenvectors, scaled by
+          $\lambda_i$. Left: symmetric; right: not symmetric.</figcaption>
+      </figure>
+      <p class="small">$\begin{bmatrix} 2 & 1 \\ 1 & 2 \end{bmatrix} = V\diag(3, 1)V^\T$ with
+        $V = \tfrac{1}{\sqrt2}\begin{bmatrix} 1 & 1 \\ 1 & -1 \end{bmatrix}$. For
+        $\begin{bmatrix} 4 & 1 \\ 2 & 3 \end{bmatrix}$: $\vv_1\cdot\vv_2 = 0.3162$, $71.57^\circ$ apart.</p>
+    </div>
+  </div>
+  <aside class="notes">The first bullet expands $\tfrac14(a + d)^2 - (ad - b^2) =
+    \tfrac14(a^2 + 2ad + d^2) - ad + b^2 = \tfrac14(a - d)^2 + b^2$, a sum of squares, so the
+    eigenvalues $\tfrac12\tr A \pm \sqrt{\cdot}$ are real. The proof of perpendicularity uses the
+    transpose rule $(A\vx)\cdot\vy = \vx\cdot(A^\T\vy)$ of deck 01 and then $A^\T = A$. It needs
+    $\lambda_1 \ne \lambda_2$; when an eigenvalue repeats, its eigenvectors form a subspace, and
+    Gram-Schmidt picks an orthonormal basis of it. Collect the unit eigenvectors as the columns
+    of $V$. Then $AV = V\Lambda$ (column $i$ reads $A\vv_i = \lambda_i\vv_i$), and $V^{-1} = V^\T$
+    gives $A = V\Lambda V^\T = \lambda_1\vv_1\vv_1^\T + \dots + \lambda_n\vv_n\vv_n^\T$: a sum of
+    projections onto the eigenvector directions, each scaled by its eigenvalue. The figure shows
+    the consequence: a symmetric matrix maps the circle to an ellipse whose axes are its
+    eigenvectors. A non-symmetric matrix also maps the circle to an ellipse, but its axes are
+    not its eigenvectors; the singular vectors of Part 3 are.</aside>
+</section>
+
+<!-- ============================================================ quadratic forms -->
+<section class="slide" id="quadratic-forms" data-code="00_math_toolkit.py:d02_quadratic_from_eigen 00_math_toolkit.py:d02_quadratic_form_axes">
+  <h2>Quadratic forms as bowls, saddles, and valleys</h2>
+  <div class="cols">
+    <figure class="bare"><svg id="f-qf-surf"></svg></figure>
+    <figure><svg id="f-qf-cont"></svg></figure>
+  </div>
+  <div class="cols l2">
+    <p class="small">$J(\vz) = \tfrac12\vz^\T A\vz$ with $A = V\diag(\lambda_1, \lambda_2)V^\T$ and
+      the first eigenvector at angle $\theta$. Both $\lambda_i &gt; 0$: a <b>bowl</b>. Opposite
+      signs: a <b>saddle</b>. One zero: a <b>valley</b> with a line of minimizers. Both negative:
+      a <b>cap</b>. Right: level sets $J = 0.25, 0.5, 1, 2$ (solid) and $J &lt; 0$ (dashed).</p>
+    <div>
+      <div class="controls">
+        <label>$\lambda_1$ <input type="range" class="short" id="qf-l1" min="-2" max="3" step="0.1" value="2"> <span id="qf-l1-out"></span></label><br>
+        <label>$\lambda_2$ <input type="range" class="short" id="qf-l2" min="-2" max="3" step="0.1" value="0.5"> <span id="qf-l2-out"></span></label><br>
+        <label>$\theta$ <input type="range" class="short" id="qf-th" min="0" max="180" step="5" value="30"> <span id="qf-th-out"></span></label>
+      </div>
+      <div class="readout" id="qf-read"></div>
+    </div>
+  </div>
+  <aside class="notes">The tex (line 1133) calls $J(\vz) = \tfrac12\vz^\T A\vz$ the model problem of
+    optimization: near a minimizer $\vz^\star$ a smooth function is its value there plus a
+    quadratic form in $\vz - \vz^\star$ whose matrix is the Hessian (deck 03 builds the Taylor
+    expansion, deck 05 uses it). The sliders set the eigenvalues and the direction of the first
+    eigenvector; the matrix is rebuilt as $V\diag(\lambda_1, \lambda_2)V^\T$ by
+    <code>d02_quadratic_from_eigen</code>. Along the eigenvector $\vv_i$ the surface is the parabola
+    $\tfrac12\lambda_i t^2$, so each eigenvalue is the curvature in its direction: a large
+    eigenvalue gives a steep wall, a small one a shallow floor. A bowl has a single minimizer at
+    $\vzero$; a valley ($\lambda_2 = 0$) is flat along $\vv_2$, and every point of that line is a
+    minimizer; a saddle goes up along one eigenvector and down along the other, so $\vzero$ is
+    neither a minimum nor a maximum. The readout shows the matrix, the shape, the semi-axes of the
+    level set $J = 1$ (next slide) and $\kappa = \lambda_1/\lambda_2$ for a bowl. Gradient descent
+    on a bowl with $\kappa = 10$ or more zig-zags across the narrow direction (deck 05).</aside>
+</section>
+
+<!-- ============================================================ quadratic derivation -->
+<section class="slide" id="quadratic-derivation" data-code="00_math_toolkit.py:d02_quadratic_form_axes">
+  <h2>Level sets of a quadratic form in eigenvector coordinates</h2>
+  <div class="cols r2">
+    <figure>
+      <svg id="f-qd"></svg>
+      <figcaption>$J = 1$ for $A = \begin{bmatrix} 2 & 1 \\ 1 & 2 \end{bmatrix}$: semi-axes 0.8165
+        along $\vv_1$ and 1.4142 along $\vv_2$.</figcaption>
+    </figure>
+    <div>
+      <ol class="steps tight">
+        <li class="step">Eigenvector coordinates: $\vz = V\vy$, that is $\vy = V^\T\vz$.</li>
+        <li class="step">$\vz^\T A\vz = \vy^\T V^\T(V\Lambda V^\T)V\vy = \vy^\T\Lambda\vy$.</li>
+        <li class="step">$\vy^\T\Lambda\vy = \lambda_1 y_1^2 + \lambda_2 y_2^2$: no cross term.</li>
+        <li class="step">For $\lambda_1, \lambda_2 &gt; 0$, $J = c$ is the ellipse
+          $\dfrac{y_1^2}{2c/\lambda_1} + \dfrac{y_2^2}{2c/\lambda_2} = 1$, semi-axis
+          $\sqrt{2c/\lambda_i}$ along $\vv_i$.</li>
+      </ol>
+      <div class="example step">$c = 1$, $\lambda = 3, 1$: $\sqrt{2/3} = 0.8165$ along $(1, 1)$ and
+        $\sqrt2 = 1.4142$ along $(1, -1)$. Axis ratio $\sqrt3 = \sqrt\kappa$, where
+        $\kappa = \lambda_{\max}/\lambda_{\min} = 3$.</div>
+    </div>
+  </div>
+  <aside class="notes">Step 2 uses $V^\T V = I$ twice. Step 3 is the reason eigenvectors matter for
+    optimization: in the rotated coordinates $\vy$ the quadratic splits into independent
+    one-dimensional parabolas, one per eigenvalue, which the tex states at line 1145. Step 4
+    divides $\tfrac12(\lambda_1 y_1^2 + \lambda_2 y_2^2) = c$ by $c$. The semi-axis along
+    $\vv_i$ is proportional to $1/\sqrt{\lambda_i}$: the steep direction (large $\lambda$) has
+    the short axis. The ratio of the long axis to the short one is
+    $\sqrt{\lambda_{\max}/\lambda_{\min}} = \sqrt\kappa$, where $\kappa$ is the condition number
+    of $A$ (tex definition box at line 1153; slide
+    <a href="#condition-number">condition-number</a> defines it for every matrix). For $\kappa = 1$
+    the level sets are circles; for $\kappa = 100$ they are ellipses ten times longer than wide.
+    If an eigenvalue is zero or negative the level sets are not ellipses: two parallel lines for
+    a valley, hyperbolas for a saddle. The tex (line 1149) states the ellipsoid shape without the
+    condition $A \succ 0$; the errata cell of the notebook records this.</aside>
+</section>
+
+<!-- ============================================================ positive definite -->
+<section class="slide" id="positive-definite" data-code="00_math_toolkit.py:d02_definiteness_table">
+  <h2>Positive definite and positive semidefinite matrices</h2>
+  <ul class="tight">
+    <li>Symmetric $A$ is <b>positive definite</b>, $A \succ 0$, when $\vz^\T A\vz &gt; 0$ for every
+      $\vz \ne \vzero$; <b>positive semidefinite</b>, $A \succeq 0$, when $\vz^\T A\vz \ge 0$;
+      <b>indefinite</b> when both signs occur.</li>
+    <li class="step">Eigenvalue test: $\vz^\T A\vz = \sum_i \lambda_i y_i^2$, so $A \succ 0$ exactly
+      when every $\lambda_i &gt; 0$, and $A \succeq 0$ when every $\lambda_i \ge 0$.</li>
+    <li class="step">$2\times 2$ test: $A \succ 0$ exactly when $a_{11} &gt; 0$ and $\det A &gt; 0$.</li>
+  </ul>
+  <figure class="bare"><svg id="f-pd"></svg></figure>
+  <aside class="notes">The eigenvalue test follows from the previous slide: with $\vy = V^\T\vz$,
+    $\vz \ne \vzero$ exactly when $\vy \ne \vzero$, and $\sum_i\lambda_i y_i^2 &gt; 0$ for every
+    nonzero $\vy$ exactly when every $\lambda_i &gt; 0$ (take $\vy = \ve_i$ to see that each
+    $\lambda_i$ must be positive). The $2\times 2$ test: $\det A = \lambda_1\lambda_2 &gt; 0$ means
+    the eigenvalues have the same sign, and $a_{11} = \ve_1^\T A\ve_1 &gt; 0$ rules out both
+    negative. The three panels are the three cases. $[[2, 1], [1, 2]]$ has eigenvalues 3 and 1:
+    a bowl. $[[1, 1], [1, 1]]$ has eigenvalues 2 and 0: a valley, with $\vz^\T A\vz = (z_1 + z_2)^2$,
+    zero along $(1, -1)$. $[[1, 2], [2, 1]]$ has eigenvalues 3 and $-1$: a saddle, and
+    $\vz = (1, -1)$ gives $1 - 2 - 2 + 1 = -2$. Deck 07 uses one more fact: sums of PSD matrices
+    and nonnegative multiples of them are PSD, so the PSD matrices form a convex cone. Decks 08
+    and 09 need $\succ 0$ for the cost matrices of LQR and for the $Q_{uu}$ block of
+    iLQR.</aside>
+</section>
+
+<!-- ============================================================ Gram / Delassus -->
+<section class="slide" id="gram-psd" data-code="00_math_toolkit.py:d02_table_delassus">
+  <h2>Gram matrices and the Delassus matrix of a four-legged table</h2>
+  <div class="cols">
+    <div>
+      <ul class="tight">
+        <li>For any $m\times n$ matrix $A$:
+          $\vz^\T(A^\T A)\vz = (A\vz)\cdot(A\vz) = \norm{A\vz}^2 \ge 0$, so $A^\T A \succeq 0$.</li>
+        <li>$A^\T A \succ 0$ exactly when $A\vz = \vzero$ only for $\vz = \vzero$: the columns of $A$
+          are independent.</li>
+        <li class="step">Table top on legs at $(\pm 1, \pm 1)$ m, velocity $(v_z, \omega_x, \omega_y)$.
+          Leg $i$ moves up at $v_z + \omega_x y_i - \omega_y x_i$, so row $i$ of $J_c$ is
+          $[1\ \ y_i\ \ {-x_i}]$.</li>
+        <li class="step">With $M = I$: $J_c^\T J_c = 4I$, and the Delassus matrix $G = J_c M^{-1}J_c^\T$
+          has eigenvalues 4, 4, 4, 0.</li>
+      </ul>
+      <div class="box step">$G(1, -1, 1, -1) = \vzero$: this pattern of leg forces moves nothing.</div>
+    </div>
+    <figure>
+      <svg id="f-table-g"></svg>
+      <figcaption>Leg forces $+1, -1, +1, -1$ (red up, orange down) have zero net force and zero
+        net moment.</figcaption>
+    </figure>
+  </div>
+  <aside class="notes">$A^\T A$ is called the Gram matrix of the columns of $A$: entry $(i, j)$ is
+    $\va_i\cdot\va_j$. It is symmetric, and the one-line computation on the slide shows it is
+    PSD. It is singular exactly when some nonzero $\vz$ has $A\vz = \vzero$. The Delassus matrix
+    $G = J_c M^{-1}J_c^\T$ (tex line 1168; deck 19) has the same structure with $A = L^\T J_c^\T$,
+    where $M^{-1} = LL^\T$ is a Cholesky factorization of the inverse mass matrix (next slide).
+    Here $J_c$ is $4\times 3$: four legs, three motions of the top that move the legs vertically.
+    Its four rows live in $\R^3$, so they are dependent, and $G = J_cJ_c^\T$ ($4\times 4$) has rank at
+    most 3. The null vector $(1, -1, 1, -1)$ is a set of leg forces with zero sum and zero moment
+    about both axes: it squeezes the table without moving it. This is the statical indeterminacy
+    of the four-legged table (deck 13; <a href="01_vectors_and_matrices.html">deck 01</a>, the
+    four-legged table): rigid-body statics cannot tell how the load is shared, and the tex calls
+    the configuration hyperstatic with $\kappa = \infty$. Slide
+    <a href="#table-forces">table-forces</a> picks one distribution.</aside>
+</section>
+
+<!-- ============================================================ Cholesky -->
+<section class="slide" id="cholesky" data-code="00_math_toolkit.py:d02_cholesky_2x2_steps">
+  <h2>Cholesky factorization of a $2\times 2$ matrix</h2>
+  <div class="cols">
+    <div>
+      <p><b>Cholesky</b>: $A = LL^\T$ with $L$ lower triangular and $L_{ii} &gt; 0$.</p>
+      $$LL^\T = \begin{bmatrix} L_{11}^2 & L_{11}L_{21} \\ L_{11}L_{21} & L_{21}^2 + L_{22}^2 \end{bmatrix}.$$
+      <p>Match the entries of $A$:</p>
+      <ol class="steps tight">
+        <li class="step">$L_{11} = \sqrt{a_{11}}$</li>
+        <li class="step">$L_{21} = a_{21}/L_{11}$</li>
+        <li class="step">$L_{22} = \sqrt{a_{22} - L_{21}^2}$</li>
+      </ol>
+      <div class="example step">$A = \begin{bmatrix} 4 & 2 \\ 2 & 3 \end{bmatrix}$: $L_{11} = 2$,
+        $L_{21} = 1$, $L_{22} = \sqrt2$.</div>
+    </div>
+    <div>
+      <p>Solve $A\vz = \vb$, $\vb = (2, 1)$, by two triangular solves:</p>
+      <ol class="steps tight" start="4">
+        <li class="step">Forward, $L\vw = \vb$: $2w_1 = 2$, $w_1 = 1$; $w_1 + \sqrt2\,w_2 = 1$, $w_2 = 0$.</li>
+        <li class="step">Back, $L^\T\vz = \vw$: $\sqrt2\,z_2 = 0$, $z_2 = 0$; $2z_1 + z_2 = 1$, $z_1 = 0.5$.</li>
+        <li class="step">Check: $A(0.5, 0) = (2, 1)$.</li>
+      </ol>
+      <div class="box step">For $n\times n$: $n^3/3$ flops to factor (LU: $2n^3/3$), $n^2$ per
+        triangular solve.</div>
+    </div>
+  </div>
+  <aside class="notes">This is the worked example of the tex (lines 1211-1231), with each entry
+    matched separately. Entry $(1, 1)$ of $LL^\T$ is $L_{11}^2$; entry $(2, 1)$ is $L_{21}L_{11}$;
+    entry $(2, 2)$ is $L_{21}^2 + L_{22}^2$. Entry $(1, 2)$ repeats $(2, 1)$ because $LL^\T$ is
+    symmetric, so a symmetric $A$ gives three equations in three unknowns, solved in order. For
+    $n\times n$ the same matching runs column by column: $L_{jj} = \sqrt{a_{jj} - \sum_{k &lt; j}
+    L_{jk}^2}$ and $L_{ij} = (a_{ij} - \sum_{k &lt; j}L_{ik}L_{jk})/L_{jj}$ for $i &gt; j$. A
+    triangular system is solved one unknown at a time: the forward solve starts at the top row,
+    the back solve at the bottom. The tex's rule (line 1196) is to factor and substitute instead
+    of forming $A^{-1}$: the factor costs $n^3/3$ once, and each new right-hand side costs
+    $2n^2$, which is why ADMM and iLQR reuse the factor of $G + \rho I$ or $Q_{uu}$ across
+    iterations (decks 09 and 19). <code>Num.chol</code> and <code>Num.cholSolve</code> do the same
+    in the browser.</aside>
+</section>
+
+<!-- ============================================================ Cholesky exists -->
+<section class="slide" id="cholesky-exists" data-code="00_math_toolkit.py:d02_cholesky_2x2_steps">
+  <h2>Existence of the Cholesky factor and positive definiteness</h2>
+  <div class="cols">
+    <div>
+      <p>The last entry: $L_{22}^2 = a_{22} - \dfrac{a_{21}^2}{a_{11}} = \dfrac{\det A}{a_{11}}$.</p>
+      <div class="box">The Cholesky factor exists exactly when $A \succ 0$.</div>
+      <ul class="tight">
+        <li class="step">If $L$ exists: $\vz^\T A\vz = \vz^\T LL^\T\vz = \norm{L^\T\vz}^2 &gt; 0$ for
+          $\vz \ne \vzero$.</li>
+        <li class="step">If $A \succ 0$: $a_{11} = \ve_1^\T A\ve_1 &gt; 0$, and
+          $\vz = (-a_{21}/a_{11},\ 1)$ gives $\vz^\T A\vz = L_{22}^2 &gt; 0$.</li>
+        <li class="step">$A = \begin{bmatrix} 1 + \mu & 2 \\ 2 & 1 + \mu \end{bmatrix}$ has
+          eigenvalues $3 + \mu$ and $\mu - 1$. $L_{22}^2 = -3$ at $\mu = 0$, $0$ at $\mu = 1$,
+          $0.9$ at $\mu = 1.5$.</li>
+      </ul>
+    </div>
+    <div>
+      <figure>
+        <svg id="f-cholex"></svg>
+      </figure>
+      <div class="controls">
+        <label>$\mu$ = <input type="range" id="ce-mu" min="0" max="3" step="0.05" value="0.5">
+          <span id="ce-mu-out"></span></label>
+      </div>
+      <div class="readout" id="ce-read"></div>
+    </div>
+  </div>
+  <aside class="notes">$L_{22}^2 = a_{22} - (a_{21}/\sqrt{a_{11}})^2$, and multiplying by $a_{11}$
+    gives $a_{11}a_{22} - a_{21}^2 = \det A$. The first bullet proves that a factor forces
+    $A \succ 0$: $L^\T$ has positive diagonal, so it is invertible and $L^\T\vz \ne \vzero$ for
+    $\vz \ne \vzero$. The second proves the converse for $2\times 2$: both square roots of the
+    factorization have positive arguments. With $\vz = (-a_{21}/a_{11}, 1)$:
+    $\vz^\T A\vz = a_{21}^2/a_{11} - 2a_{21}^2/a_{11} + a_{22} = a_{22} - a_{21}^2/a_{11}$. The
+    $n\times n$ proof is the same argument applied column by column (the pivot $L_{jj}^2$ is a
+    ratio of leading determinants). So an attempted Cholesky factorization is also the standard
+    PD test (tex line 1206): iLQR tries to factor $Q_{uu}$, and on failure adds $\mu I$ and tries
+    again (deck 09). The slider does that to $[[1, 2], [2, 1]]$: adding $\mu I$ raises both
+    eigenvalues by $\mu$, and the factorization succeeds for every $\mu &gt; 1$. At $\mu = 1$ the
+    matrix is only PSD and $L_{22} = 0$, which a solver treats as failure.</aside>
+</section>
+
+<!-- ============================================================ check 2 -->
+<section class="slide" id="check-eigen" data-code="00_math_toolkit.py:d02_quadratic_form_axes 00_math_toolkit.py:d02_cholesky_2x2_steps">
+  <h2>Check yourself: eigenvalues and definiteness</h2>
+  <ol>
+    <li>What are the eigenvalues of $\diag(3, -1)$, and what shape is $\tfrac12\vz^\T A\vz$?
+      <details><summary>answer</summary><div>3 and $-1$ (the diagonal entries): a saddle.</div></details></li>
+    <li>Find the eigenvalues, $\kappa$ and the axis ratio of the level sets for
+      $\begin{bmatrix} 5 & 4 \\ 4 & 5 \end{bmatrix}$.
+      <details><summary>answer</summary><div>$\tr = 10$, $\det = 9$: $\lambda = 9, 1$. $\kappa = 9$,
+        axis ratio $\sqrt9 = 3$.</div></details></li>
+    <li>Is $\begin{bmatrix} 1 & 2 \\ 2 & 5 \end{bmatrix}$ positive definite? Find $L$.
+      <details><summary>answer</summary><div>Yes: $a_{11} = 1 &gt; 0$, $\det = 1 &gt; 0$.
+        $L_{11} = 1$, $L_{21} = 2$, $L_{22} = \sqrt{5 - 4} = 1$.</div></details></li>
+    <li>For which $\mu$ is $\begin{bmatrix} 1 & 2 \\ 2 & 1 \end{bmatrix} + \mu I \succ 0$?
+      <details><summary>answer</summary><div>Its eigenvalues are $3 + \mu$ and $\mu - 1$: for
+        $\mu &gt; 1$.</div></details></li>
+    <li>Why is $J_cM^{-1}J_c^\T$ singular for a table on four legs?
+      <details><summary>answer</summary><div>$J_c$ has four rows in $\R^3$, which are dependent:
+        some $\vlambda \ne \vzero$ has $J_c^\T\vlambda = \vzero$, and then $G\vlambda = \vzero$.</div></details></li>
+  </ol>
+  <aside class="notes">Question 1: a diagonal matrix has its diagonal entries as eigenvalues and the
+    coordinate axes as eigenvectors; opposite signs give a saddle. Question 2 uses the trace and
+    determinant rules of slide <a href="#eigen-2x2">eigen-2x2</a>; the eigenvectors are
+    $(1, 1)/\sqrt2$ for 9 and $(1, -1)/\sqrt2$ for 1, and the semi-axes of $J = 1$ are
+    $\sqrt{2/9} = 0.4714$ and $\sqrt2 = 1.4142$. Question 3 uses both tests: the $2\times 2$ test,
+    and a successful Cholesky factorization; check $LL^\T = [[1, 2], [2, 5]]$. Question 4 is the
+    regularization of slide <a href="#cholesky-exists">cholesky-exists</a>. Question 5 is the
+    dimension count of slide <a href="#gram-psd">gram-psd</a>: more contact rows than
+    independent motions always makes the Delassus matrix singular. The notebook cells recompute
+    the numbers of questions 2 and 3.</aside>
+</section>
+
+<!-- ============================================================ part 3 -->
+<section class="slide section" id="part-svd">
+  <p class="kicker">Part 3</p>
+  <h1>Singular values and conditioning</h1>
+  <hr>
+  <p>The ellipse a matrix makes of the unit circle, the condition number as its aspect ratio,
+    and a drawer on a rail as the example Hou and Mason care about.</p>
+</section>
+
+<!-- ============================================================ SVD picture -->
+<section class="slide" id="svd-picture" data-code="00_math_toolkit.py:d02_svd_circle_ellipse">
+  <h2>Image of the unit circle under a $2\times 2$ matrix</h2>
+  <div class="cols mid">
+    <figure>
+      <svg id="f-svdpic"></svg>
+      <figcaption>Left: unit circle with $\vv_1$ (blue), $\vv_2$ (green). Right: its image, with
+        $\sigma_1\vu_1$ and $\sigma_2\vu_2$. Drag the columns $A\ve_1$, $A\ve_2$ (hollow handles).</figcaption>
+    </figure>
+    <div>
+      <ul class="tight">
+        <li>Every $2\times 2$ matrix maps the unit circle onto an ellipse, flat when $\det A = 0$.</li>
+        <li>Its semi-axes $\sigma_1 \ge \sigma_2 \ge 0$ are the <b>singular values</b>, along unit
+          vectors $\vu_1, \vu_2$; they are images of perpendicular unit vectors: $A\vv_i = \sigma_i\vu_i$.</li>
+        <li class="step">$\norm{A\vv}^2 = \vv^\T A^\T A\vv$, so the $\vv_i$ are eigenvectors of
+          $A^\T A$ and $\sigma_i = \sqrt{\lambda_i(A^\T A)}$.</li>
+        <li class="step">$A = \begin{bmatrix} 3 & 0 \\ 4 & 5 \end{bmatrix}$:
+          $A^\T A = \begin{bmatrix} 25 & 20 \\ 20 & 25 \end{bmatrix}$, eigenvalues 45 and 5,
+          $\sigma = 6.708, 2.236$.</li>
+      </ul>
+      <div class="readout" id="svdpic-read"></div>
+    </div>
+  </div>
+  <aside class="notes">The length of $A\vv$ for a unit vector $\vv$ is
+    $\sqrt{\vv^\T(A^\T A)\vv}$, a quadratic form in the symmetric PSD matrix $A^\T A$ (slide
+    <a href="#gram-psd">gram-psd</a>). By Part 2 its largest value over unit vectors is the
+    largest eigenvalue, reached at the top eigenvector, and its smallest value is the smallest
+    eigenvalue. So the longest and shortest images are $\sigma_1 = \sqrt{\lambda_1}$ and
+    $\sigma_2 = \sqrt{\lambda_2}$, reached at the perpendicular eigenvectors $\vv_1, \vv_2$ of
+    $A^\T A$. Their images are perpendicular too: $(A\vv_1)\cdot(A\vv_2) = \vv_1^\T A^\T A\vv_2 =
+    \lambda_2\,\vv_1\cdot\vv_2 = 0$. For the example, $\vv_1 = (1, 1)/\sqrt2$ gives
+    $A\vv_1 = (3, 9)/\sqrt2 = 6.708\,(0.3162, 0.9487)$, and $\vv_2 = (1, -1)/\sqrt2$ gives
+    $A\vv_2 = (3, -1)/\sqrt2 = 2.236\,(0.9487, -0.3162)$. The area of the ellipse is
+    $\pi\sigma_1\sigma_2 = \pi\abs{\det A}$: here $6.708 \times 2.236 = 15 = \det A$. Drag a column
+    onto the line of the other to make $\sigma_2 = 0$; the ellipse collapses onto a segment and the
+    readout reports rank 1.</aside>
+</section>
+
+<!-- ============================================================ SVD statement -->
+<section class="slide" id="svd-statement" data-code="00_math_toolkit.py:d02_svd_subspaces">
+  <h2>Singular value decomposition of an $m\times n$ matrix</h2>
+  <ul class="tight">
+    <li>$A = U\Sigma V^\T = \sigma_1\vu_1\vv_1^\T + \dots + \sigma_r\vu_r\vv_r^\T$ for every
+      $m\times n$ matrix: $U$ ($m\times m$) and $V$ ($n\times n$) orthogonal, $\Sigma$ ($m\times n$)
+      zero except $\sigma_1 \ge \sigma_2 \ge \dots \ge 0$ on its diagonal.</li>
+    <li>$\rank A$ = the number of nonzero $\sigma_i$. Rows 1 to $r$ of $V^\T$ are an orthonormal
+      basis of $\Row(A)$; rows $r + 1$ to $n$ are one of $\Null(A)$.</li>
+  </ul>
+  <div class="example small step">$A = \begin{bmatrix} 1 & 1 & 0 \\ 1 & 0 & 1 \end{bmatrix}$:
+    $AA^\T = \begin{bmatrix} 2 & 1 \\ 1 & 2 \end{bmatrix}$, so $\sigma = \sqrt3 = 1.7321$ and $1$;
+    rank 2. $\Row(A)$: $(2, 1, 1)/\sqrt6$ and $(0, 1, -1)/\sqrt2$. $\Null(A)$: $(1, -1, -1)/\sqrt3$.</div>
+  <figure class="bare"><svg id="f-svdstrip"></svg></figure>
+  <aside class="notes">The strip shows the three factors of $A = [[3, 0], [4, 5]]$ acting in turn on
+    the unit circle: $V^\T$ rotates (or reflects) the right singular vectors $\vv_i$ onto the axes
+    $\ve_i$, $\Sigma$ stretches axis $i$ by $\sigma_i$, and $U$ rotates the axes onto the left
+    singular vectors $\vu_i$. Every matrix is rotation, stretch, rotation. For a wide or tall matrix
+    $\Sigma$ is rectangular: $\sigma_i$ sits at $(i, i)$ and the extra rows or columns are zero.
+    Why $V^\T$ holds the four-subspace bases: $A\vv_i = \sigma_i\vu_i$, which is $\vzero$ for
+    $i &gt; r$, so $\vv_{r+1}, \dots, \vv_n$ are orthonormal vectors in $\Null(A)$, and there are
+    $n - r$ of them, its dimension. The first $r$ are perpendicular to those, so they span the
+    complement $\Row(A)$. Numerically, rank counts the singular values above
+    $\max(m, n)\,\varepsilon\,\sigma_1$ with $\varepsilon = 2.2\times 10^{-16}$, the default of numpy
+    and <code>lib/num.js</code>. Hou and Mason's Null(·) and Row(·) (2021, Sec. V) are exactly these
+    blocks of $V^\T$; the notebook's <code>d02_svd_subspaces</code> returns them with the largest
+    entry of each vector made positive.</aside>
+</section>
+
+<!-- ============================================================ condition number -->
+<section class="slide" id="condition-number" data-code="00_math_toolkit.py:d02_svd_circle_ellipse">
+  <h2>Condition number and error amplification</h2>
+  <div class="cols r2">
+    <figure>
+      <svg id="f-cond"></svg>
+      <figcaption>$A^{-1}$ maps the unit disk of changes $\Delta\vb$ onto an ellipse with
+        semi-axes $1/\sigma_2 = 0.447$ and $1/\sigma_1 = 0.149$ ($A$ as before).</figcaption>
+    </figure>
+    <div>
+      <div class="box">$\cond A = \sigma_{\max}/\sigma_{\min}$ (Hou and Mason 2021, eq. 8);
+        $\cond A = \infty$ when $A$ is singular.</div>
+      <p>For $A\vz = \vb$ it bounds how a relative error in $\vb$ grows in $\vz$:</p>
+      <ol class="steps tight">
+        <li class="step">$A\,\Delta\vz = \Delta\vb$, and $A^{-1}$ stretches by at most $1/\sigma_{\min}$:
+          $\norm{\Delta\vz} \le \norm{\Delta\vb}/\sigma_{\min}$.</li>
+        <li class="step">$\vb = A\vz$ and $A$ stretches by at most $\sigma_{\max}$:
+          $\norm{\vb} \le \sigma_{\max}\norm{\vz}$.</li>
+        <li class="step">Multiply the first by $1/\norm{\vz} \le \sigma_{\max}/\norm{\vb}$:
+          $\dfrac{\norm{\Delta\vz}}{\norm{\vz}} \le \cond A\,\dfrac{\norm{\Delta\vb}}{\norm{\vb}}$.</li>
+      </ol>
+      <p class="small step">$\diag(1, 0.01)$: $\cond = 100$. $\begin{bmatrix} 3 & 0 \\ 4 & 5 \end{bmatrix}$:
+        $6.708/2.236 = 3$. Symmetric $A \succ 0$: $\cond A = \lambda_{\max}/\lambda_{\min} = \kappa$.</p>
+    </div>
+  </div>
+  <aside class="notes">$A^{-1} = V\Sigma^{-1}U^\T$ has singular values $1/\sigma_i$, so its largest
+    stretch is $1/\sigma_{\min}$: the figure shows the unit disk of possible $\Delta\vb$ and the
+    ellipse of the resulting $\Delta\vz$. Step 3 multiplies the two inequalities of steps 1 and 2.
+    The bound is reached: take $\vb$ along $\vu_1$ (so $\vz$ is as short as possible for its
+    $\vb$) and $\Delta\vb$ along $\vu_{\min}$ (so $\Delta\vz$ is as long as possible). Hou and Mason
+    write $\cond(A) = \norm{A}_2\norm{A^\dagger}_2$, where $\norm{A}_2 = \sigma_{\max}$ is the largest
+    stretch and $A^\dagger$ is the pseudoinverse of Part 4, whose largest stretch is
+    $1/\sigma_{\min}$. For a symmetric PD matrix the singular values are the eigenvalues, and the
+    condition number is the $\kappa$ of the tex's definition box (line 1153) and of slide
+    <a href="#quadratic-derivation">quadratic-derivation</a>. A rule of thumb from floating point:
+    solving a system with $\cond A = 10^k$ loses about $k$ of the 16 significant digits. Deck 05
+    shows that $\kappa$ also sets how many gradient-descent steps a bowl needs.</aside>
+</section>
+
+<!-- ============================================================ nearly parallel rows -->
+<section class="slide" id="nearly-parallel-rows" data-code="00_math_toolkit.py:d02_nearly_parallel_example 00_math_toolkit.py:d02_nearly_parallel_rows">
+  <h2>Linear systems with nearly parallel rows</h2>
+  <div class="cols mid">
+    <figure>
+      <svg id="f-npr"></svg>
+      <figcaption>Row picture of two unit rows $\varphi$ apart, solved by $(1, 1)$ (gray dot). The
+        slider moves the second line by $\Delta b$; the red dot is the new solution.</figcaption>
+    </figure>
+    <div>
+      <ul class="tight">
+        <li>$x + y = 2$ and $x + 1.01y = 2.01$: solution $(1, 1)$.</li>
+        <li>Change the second right side to $2.02$: solution $(0, 2)$.</li>
+        <li class="step">The rows are $0.2851^\circ$ apart and $\cond = 402.01$. $\vb$ changed by
+          0.353 %, $\vz$ by 100 %: a factor 283.55, under the bound 402.01.</li>
+        <li class="step">Two unit rows $\varphi$ apart: $\cond = \cot(\varphi/2)$.</li>
+      </ul>
+      <div class="controls">
+        <label>$\varphi$ <input type="range" class="short" id="npr-phi" min="0" max="90" step="0.5" value="10"> <span id="npr-phi-out"></span></label><br>
+        <label>$\Delta b$ <input type="range" class="short" id="npr-db" min="-0.2" max="0.2" step="0.01" value="0.1"> <span id="npr-db-out"></span></label>
+      </div>
+      <div class="readout" id="npr-read"></div>
+    </div>
+  </div>
+  <aside class="notes">Each equation of a $2\times 2$ system is a line; the solution is where the
+    lines cross. When the lines cross at a small angle, moving one of them a little slides the
+    crossing a long way along the thin wedge between them. The amount is the geometry of the
+    figure: moving a line by $\Delta b$ perpendicular to itself moves the crossing by
+    $\Delta b/\sin\varphi$ along the other line. The singular values say the same thing: for unit
+    rows $\va_1, \va_2$ at angle $\varphi$, $AA^\T = [[1, \cos\varphi], [\cos\varphi, 1]]$ has
+    eigenvalues $1 \pm \cos\varphi = 2\cos^2(\varphi/2)$ and $2\sin^2(\varphi/2)$, so
+    $\cond A = \cot(\varphi/2)$, about $2/\varphi$ for small $\varphi$ in radians. The worked example
+    uses the rows $(1, 1)$ and $(1, 1.01)$, whose relative change of $\vb$ is
+    $0.01/\norm{(2, 2.01)} = 0.00353$ and of $\vz$ is $\norm{(-1, 1)}/\norm{(1, 1)} = 1$. The study
+    plan's &ldquo;ill-conditioned systems&rdquo; video covers this case. At $\varphi = 0$ the lines
+    are parallel: either no crossing or the same line, the subject of the next slide.</aside>
+</section>
+
+<!-- ============================================================ fragile vs infeasible -->
+<section class="slide" id="fragile-vs-infeasible" data-code="00_math_toolkit.py:d02_fragile_vs_infeasible">
+  <h2>Ill-conditioned and inconsistent systems</h2>
+  <figure class="bare"><svg id="f-fvi"></svg>
+    <figcaption>Rows at $45^\circ$ and $45^\circ + \varphi$, built so that $(1, 1)$ (gray) solves
+      the unperturbed system. In (a) to (c) the second right side is raised by 0.1.</figcaption>
+  </figure>
+  <ul class="tight">
+    <li><b>Fragile</b> (ill-conditioned): one solution exists, but $\cond A$ is large, so small
+      errors in $A$ or $\vb$ move it far. In (b) a change of 0.1 moves it 2.87.</li>
+    <li><b>Infeasible</b> (inconsistent): $\rank[A\,|\,\vb] &gt; \rank A$, and no $\vz$ satisfies
+      every row. Least squares finds the closest miss, 0.0707 in (c).</li>
+  </ul>
+  <aside class="notes">The two failure modes look alike in the picture, two lines that are nearly
+    or exactly parallel, and they are different problems. A fragile system still has one
+    solution, and a solver returns it; the solution is untrustworthy because it depends strongly
+    on the data, by the factor $\cond A$ of slide <a href="#condition-number">condition-number</a>
+    (here 57.29 for $\varphi = 2^\circ$, and the shift of 2.87 is 28.7 times the change of 0.1).
+    An infeasible system has no solution at all: the augmented matrix $[A\,|\,\vb]$ has larger rank
+    than $A$ (deck 01, consistency), so $\vb$ is outside $\Col(A)$. Panel (d) is the third outcome
+    of parallel rows, a consistent system with a whole line of solutions. The study plan's week-2
+    exam asks for this distinction in robot terms, which the next three slides give: a hybrid
+    controller whose velocity command is nearly parallel to a contact constraint is fragile, and
+    one whose command is exactly parallel but asks for motion into the constraint is infeasible.
+    The numbers come from <code>d02_fragile_vs_infeasible</code>, which builds all four panels with
+    <code>d02_nearly_parallel_rows</code>.</aside>
+</section>
+
+<!-- ============================================================ drawer setup -->
+<section class="slide" id="drawer-setup" data-code="00_math_toolkit.py:d02_drawer_conditioning">
+  <h2>Velocity command for a drawer on a rail</h2>
+  <div class="cols">
+    <figure>
+      <svg id="f-drawer0"></svg>
+      <figcaption>Top view, $\theta = 60^\circ$. Blue: the rail normal $\vn$; purple: the command
+        direction $\vc$; red: the resulting velocity $\vv$.</figcaption>
+    </figure>
+    <div>
+      <ul class="tight">
+        <li>The drawer slides on a rail along $x$; the hand holds its handle. Velocity
+          $\vv = (v_x, v_y)$.</li>
+        <li>Rail: $\vn\cdot\vv = 0$, $\vn = (0, 1)$. Command: $\vc\cdot\vv = b$,
+          $\vc = (\cos\theta, \sin\theta)$.</li>
+        <li class="step">$\begin{bmatrix} 0 & 1 \\ \cos\theta & \sin\theta \end{bmatrix}\vv =
+          \begin{bmatrix} 0 \\ b \end{bmatrix}$ gives $\vv = (b/\cos\theta,\ 0)$ and
+          $\cond = \tan(45^\circ + \theta/2)$.</li>
+      </ul>
+      <table class="small mid step">
+        <tr><th>$\theta$</th><th class="num">$0^\circ$</th><th class="num">$45^\circ$</th><th class="num">$80^\circ$</th><th class="num">$89^\circ$</th></tr>
+        <tr><td>cond</td><td class="num">1</td><td class="num">2.4142</td><td class="num">11.4301</td><td class="num">114.5887</td></tr>
+        <tr><td>speed / $b$</td><td class="num">1</td><td class="num">1.4142</td><td class="num">5.7588</td><td class="num">57.2987</td></tr>
+      </table>
+    </div>
+  </div>
+  <aside class="notes">This is the drawer example of the study plan's week 2, and the setting of Hou
+    and Mason's hybrid force-velocity control reduced to two dimensions. The contact (the rail)
+    removes one direction of motion, $v_y = 0$. The robot controls the other direction with a
+    velocity command, one equation $\vc\cdot\vv = b$ whose direction $\vc$ the robot chooses. The
+    combined system is the stack $[\vn; \vc]\vv = (0, b)$, eq. 6 of Hou and Mason 2021. Its rows
+    are unit vectors $90^\circ - \theta$ apart, so by the previous slides its condition number is
+    $\cot(45^\circ - \theta/2) = \tan(45^\circ + \theta/2)$. At $\theta = 0$ the command is along
+    the rail, perpendicular to the constraint: $\cond = 1$, the best possible. As $\theta \to 90^\circ$
+    the command becomes parallel to the rail normal, and the only way to satisfy
+    $\cos\theta\,v_x = b$ is a large $v_x$: the robot must drive the drawer at $b/\cos\theta$. The
+    value 2.4142 at $45^\circ$ is the first crashing index of Hou and Mason's Fig. 1. The notebook
+    checks $\cond = \tan(45^\circ + \theta/2)$ against the SVD at nine angles.</aside>
+</section>
+
+<!-- ============================================================ drawer live -->
+<section class="slide" id="drawer-live" data-code="00_math_toolkit.py:d02_drawer_conditioning">
+  <h2>Drawer velocity under a rail misalignment</h2>
+  <div class="cols mid">
+    <div>
+      <figure>
+        <svg id="f-drawer1"></svg>
+      </figure>
+      <figure>
+        <svg id="f-drawer1p"></svg>
+      </figure>
+    </div>
+    <div>
+      <ul class="tight">
+        <li>The true rail is turned by $\varepsilon$ from the model: $\vn_\varepsilon = (-\sin\varepsilon, \cos\varepsilon)$.</li>
+        <li>The same command moves the drawer along the true rail at $b/\cos(\theta - \varepsilon)$.</li>
+        <li class="step">$\theta = 85^\circ$ (model $11.47\,b$): $\varepsilon = +2^\circ$ gives
+          $8.21\,b$, $\varepsilon = -2^\circ$ gives $19.11\,b$.</li>
+        <li class="step">$\theta = 88^\circ$, $\varepsilon = -2^\circ$: the command is perpendicular
+          to the true rail, and no velocity satisfies both rows.</li>
+      </ul>
+      <div class="controls">
+        <label>$\theta$ <input type="range" class="short" id="dl-th" min="0" max="89.5" step="0.5" value="85"> <span id="dl-th-out"></span></label><br>
+        <label>$\varepsilon$ <input type="range" class="short" id="dl-eps" min="-3" max="3" step="0.5" value="-2"> <span id="dl-eps-out"></span></label>
+      </div>
+      <div class="readout" id="dl-read"></div>
+    </div>
+  </div>
+  <aside class="notes">A robot never knows the rail exactly. The figure draws the modeled rail
+    (dashed) and the true rail (solid), $\varepsilon$ degrees apart, and the velocity that the true
+    system $[\vn_\varepsilon; \vc]\vv = (0, b)$ produces. With $\theta = 0$ a $2^\circ$ error changes
+    the speed by 0.06 % ($1.0006\,b$). With $\theta = 85^\circ$ the same error changes it by $-28$ %
+    or $+67$ %: this is fragility, the model error amplified by the conditioning of the stack.
+    Past the point where $\theta - \varepsilon$ reaches $90^\circ$ the command asks the drawer to
+    move perpendicular to the true rail, which the rail forbids: the system is infeasible. A real
+    velocity-controlled arm does not stop at &ldquo;no solution&rdquo;; it keeps pushing, and the
+    contact force grows until something gives. Hou and Mason call this crashing. The lower plot
+    is $\log_{10}\cond[\vn; \vc]$ against $\theta$; the marker follows the slider. The readout
+    reports the modeled and true speeds and their ratio; <code>d02_drawer_conditioning</code>
+    computes the same numbers.</aside>
+</section>
+
+<!-- ============================================================ drawer control axes -->
+<section class="slide" id="drawer-control-axes" data-code="00_math_toolkit.py:d02_drawer_conditioning">
+  <h2>Control-axis matrix $T$ for the drawer</h2>
+  <div class="cols mid">
+    <figure>
+      <svg id="f-taxes"></svg>
+      <figcaption>Orange: the force-controlled axis (row 1 of $T$). Purple: the velocity-controlled
+        axis $\vc$ (row 2). Red: the velocity $\vv$.</figcaption>
+    </figure>
+    <div>
+      <ul class="tight">
+        <li>Hou and Mason pick the control axes as the rows of an orthonormal $T$. Drawer:
+          $T = \begin{bmatrix} \sin\theta & -\cos\theta \\ \cos\theta & \sin\theta \end{bmatrix}$.</li>
+        <li>$\vw = T\vv$ and $\veta = T\vf$: velocity and force along the axes. The last row is the
+          velocity command $C$; row 1 is force-controlled.</li>
+        <li class="step">$T^\T T = I$: $\vv = T^\T\vw$, $\cond T = 1$, and
+          $\veta\cdot\vw = \vf^\T T^\T T\vv = \vf\cdot\vv$.</li>
+        <li class="step">$\theta = 30^\circ$: $\vv = (1.1547, 0)$ gives $\vw = (0.5774, 1)$.</li>
+      </ul>
+      <div class="controls">
+        <label>$\theta$ <input type="range" class="short" id="ta-th" min="0" max="89" step="1" value="30"> <span id="ta-th-out"></span></label>
+      </div>
+      <div class="readout" id="ta-read"></div>
+    </div>
+  </div>
+  <aside class="notes">This answers the study plan's question &ldquo;what does $T$ do&rdquo;. $T$ is
+    a rotation of coordinates: it rewrites the generalized velocity $\vv$ and force $\vf$ in a new
+    orthonormal frame whose axes the controller chooses. Along each axis the robot controls one
+    thing: the force along the force-controlled axes, the velocity along the velocity-controlled
+    ones. Hou and Mason 2019 write $T = \diag(I_u, R_a)$: the unactuated coordinates keep their
+    identity rows and $R_a$ rotates the actuated ones; the 2021 paper requires $R_a$ orthonormal
+    so that force and velocity axes are perpendicular (reciprocal). Because $T$ is orthonormal, it
+    loses nothing ($\vv = T^\T\vw$) and it keeps power, force times velocity. For the drawer the
+    best choice is $\theta = 0$: velocity control along the rail and force control against the
+    rail normal, where the rail itself supplies whatever force is needed. The readout shows $T$,
+    and $\vw$ for the velocity $\vv = (1/\cos\theta, 0)$ that a command $b = 1$ produces; the
+    second entry of $\vw$ is always $b$. Deck 21 builds $T$ for the block-tilting task.</aside>
+</section>
+
+<!-- ============================================================ row normalization -->
+<section class="slide" id="row-normalization" data-code="00_math_toolkit.py:d02_crashing_index">
+  <h2>Artificial ill-conditioning, row normalization, and the crashing index</h2>
+  <div class="cols">
+    <div>
+      <ul class="tight">
+        <li>Scaling a row changes $\cond$ and not the solutions. $v_y = 0,\ v_x = 1$ and
+          $v_y = 0,\ 1000v_x = 1000$ have the same solution and $\cond$ 1 and 1000:
+          <b>artificial ill-conditioning</b>.</li>
+        <li class="step">Listing a contact twice makes $J$ itself singular, although the constraint
+          is the same.</li>
+      </ul>
+      <div class="box step"><b>Crashing index</b> (Hou and Mason 2021, eq. 9):
+        $\cond\begin{bmatrix} \hat J \\ \hat C \end{bmatrix}$, with $\hat J$ an orthonormal basis of
+        the rows of $J$ and $\hat C$ the rows of $C$ scaled to length 1.</div>
+    </div>
+    <div>
+      <table class="small mid step">
+        <tr><th>$J$; $C$</th><th class="num">$\cond[J; C]$</th><th class="num">index</th></tr>
+        <tr><td>$[0\ 1]$; $[1000\ 0]$</td><td class="num">1000</td><td class="num">1</td></tr>
+        <tr><td>$[0\ 1]$; $10\,[\cos 45^\circ\ \sin 45^\circ]$</td><td class="num">14.2132</td><td class="num">2.4142</td></tr>
+        <tr><td>$\begin{bmatrix} 0 & 1 \\ 0 & 1 \end{bmatrix}$; $[1\ 0]$</td><td class="num">1.4142</td><td class="num">1</td></tr>
+      </table>
+      <p class="small step">Row 2 is the drawer at $45^\circ$ with its command written as
+        $10\,\vc\cdot\vv = 10b$. Row 3 lists the rail twice; the command along the rail is ideal.</p>
+    </div>
+  </div>
+  <aside class="notes">The condition number of a matrix depends on how its rows are written, but the
+    controller only cares about the set of velocities the rows allow. Multiplying the equation
+    $\vc\cdot\vv = b$ by 10 changes nothing physical and changes $\cond$ from 2.4142 to 14.2132.
+    Hou and Mason (2021, Sec. IV-A) remove both artifacts before measuring. For the contact rows
+    $J$, which may be redundant when a contact is modeled by several points, they replace $J$ by
+    $\hat J = \operatorname{Row}(J)$, an orthonormal basis of its rows, which has $\cond = 1$ and
+    describes the same constraint. For the command rows $C$ they divide each row by its length,
+    the standard remedy for artificial ill-conditioning. The result, eq. 9, is the crashing index:
+    it is 1 when the commands are perpendicular to the constraints and to each other, and it
+    grows without bound as a command approaches a constraint. The table's middle row shows that
+    the drawer's index is its geometric $\tan(45^\circ + \theta/2)$ whatever the scaling. With a
+    redundant $J$ the raw number 1.4142 is not even the right kind of warning: the command is
+    ideal, and the index says so. <code>d02_crashing_index</code> computes both columns.</aside>
+</section>
+
+<!-- ============================================================ check 3 -->
+<section class="slide" id="check-svd" data-code="00_math_toolkit.py:d02_cond 00_math_toolkit.py:d02_drawer_conditioning">
+  <h2>Check yourself: singular values and conditioning</h2>
+  <ol class="tight">
+    <li>Singular values and $\cond$ of $\diag(3, -2)$?
+      <details><summary>answer</summary><div>3 and 2; $\cond = 1.5$. The sign goes into $U$.</div></details></li>
+    <li>The drawer at $\theta = 60^\circ$: $\cond$ and velocity?
+      <details><summary>answer</summary><div>$\tan 75^\circ = 3.7321$; $\vv = (2b, 0)$.</div></details></li>
+    <li>Fragile or infeasible: (a) $x + y = 2$, $x + y = 2.1$; (b) $x + y = 2$, $x + 1.001y = 2.1$?
+      <details><summary>answer</summary><div>(a) Infeasible: $\rank[A\,|\,\vb] = 2 &gt; \rank A = 1$.
+        (b) Fragile: one solution $(-98, 100)$, $\cond = 4002$.</div></details></li>
+    <li>What does $T$ do in hybrid force-velocity control?
+      <details><summary>answer</summary><div>It rotates velocities and forces into control-axis
+        coordinates, $\vw = T\vv$, $\veta = T\vf$; its last rows are velocity-controlled, the others
+        force-controlled. It is orthonormal, so nothing is lost and power is kept.</div></details></li>
+    <li>The command $\vc\cdot\vv = b$ is rewritten $1000\,\vc\cdot\vv = 1000b$. What changes?
+      <details><summary>answer</summary><div>The raw $\cond[\vn; \vc]$. The solution set and the
+        crashing index do not.</div></details></li>
+  </ol>
+  <aside class="notes">Question 1: $\diag(3, -2) = U\Sigma V^\T$ with $U = \diag(1, -1)$,
+    $\Sigma = \diag(3, 2)$, $V = I$; singular values are never negative. Question 2 uses the
+    formula of slide <a href="#drawer-setup">drawer-setup</a>: $\tan(45^\circ + 30^\circ)$, and
+    $v_x = b/\cos 60^\circ = 2b$. Question 3: in (a) the rows are equal and the right sides differ,
+    so subtracting the equations gives $0 = 0.1$; in (b) subtracting gives $0.001y = 0.1$, so
+    $y = 100$ and $x = -98$, a solution that a change of 0.001 in one coefficient would move by
+    tens. Question 4 is slide <a href="#drawer-control-axes">drawer-control-axes</a> in one
+    sentence, the week-2 exam topic. Question 5 is artificial ill-conditioning (slide
+    <a href="#row-normalization">row-normalization</a>). The notebook computes the condition
+    number 4002.00 and the solution of question 3.</aside>
+</section>
+
+<!-- ============================================================ part 4 -->
+<section class="slide section" id="part-least-squares">
+  <p class="kicker">Part 4</p>
+  <h1>Least squares, minimum-norm solutions, and the Schur complement</h1>
+  <hr>
+  <p>The best answer when a system has no solution, the shortest answer when it has many, and
+    block elimination for the systems of later decks.</p>
+</section>
+
+<!-- ============================================================ line fit -->
+<section class="slide" id="line-fit" data-code="00_math_toolkit.py:d02_line_fit_normal_equations">
+  <h2>Least-squares fit of a line to four points</h2>
+  <div class="cols mid">
+    <figure>
+      <svg id="f-fit"></svg>
+      <figcaption>Drag the four points. Red segments: the residuals $e_i = y_i - (c + d\,t_i)$.</figcaption>
+    </figure>
+    <div>
+      <ul class="tight">
+        <li>Points $(0, 1), (1, 2), (2, 2), (3, 4)$, line $y = c + d\,t$: four equations
+          $c + d\,t_i = y_i$ in two unknowns.</li>
+        <li>As a system $A\vx = \vy$: row $i$ of $A$ is $[1\ \ t_i]$, $\vx = (c, d)$. No exact solution.</li>
+        <li>Least squares minimizes $\sum_i e_i^2 = \norm{\vy - A\vx}^2$.</li>
+        <li class="step">Normal equations (next slide):
+          $\begin{bmatrix} 4 & 6 \\ 6 & 14 \end{bmatrix}\vx = \begin{bmatrix} 9 \\ 18 \end{bmatrix}$,
+          so $c = d = 0.9$. Residuals $(0.1, 0.2, -0.7, 0.4)$, sum of squares 0.7.</li>
+      </ul>
+      <div class="readout" id="fit-read"></div>
+    </div>
+  </div>
+  <aside class="notes">A line through four points that do not lie on one line must miss some of
+    them. Least squares chooses the line that makes the sum of squared vertical misses smallest.
+    Squares are used because they make the problem a quadratic with a closed-form answer, because
+    they penalize large misses more than small ones, and because they are the right criterion
+    when the measurement noise is Gaussian (deck 04). They also give outliers a strong pull: drag
+    one point far from the others to see the line follow it. The entries of the normal equations
+    are sums over the data: $A^\T A = \begin{bmatrix} n & \sum t_i \\ \sum t_i & \sum t_i^2 \end{bmatrix}
+    = \begin{bmatrix} 4 & 6 \\ 6 & 14 \end{bmatrix}$ and $A^\T\vy = (\sum y_i, \sum t_i y_i) = (9, 18)$.
+    Cramer's rule with $\det = 56 - 36 = 20$: $c = (14\cdot 9 - 6\cdot 18)/20 = 0.9$ and
+    $d = (4\cdot 18 - 6\cdot 9)/20 = 0.9$. The residuals sum to zero, which is the first normal
+    equation. The tex (lines 1234-1266) lists inverse kinematics, model fitting and the
+    Gauss-Newton step as uses of the same computation.</aside>
+</section>
+
+<!-- ============================================================ normal equations -->
+<section class="slide" id="normal-equations" data-code="00_math_toolkit.py:d02_line_fit_normal_equations">
+  <h2>Normal equations from the orthogonality of the residual</h2>
+  <div class="cols r2">
+    <figure>
+      <svg id="f-normal"></svg>
+      <figcaption>$\vb$, its projection $\vp = A\hat\vx$ onto the plane $\Col(A)$, and another point
+        $A\vx$ of the plane.</figcaption>
+    </figure>
+    <div>
+      <ol class="steps tight">
+        <li class="step">$A\vx$ runs over $\Col(A)$. The closest point $\vp = A\hat\vx$ to $\vb$ has an
+          error $\ve = \vb - A\hat\vx$ perpendicular to $\Col(A)$.</li>
+        <li class="step">Perpendicular to every column $\va_j$: $\va_j\cdot\ve = 0$, that is
+          $A^\T(\vb - A\hat\vx) = \vzero$.</li>
+        <li class="step">Normal equations: $A^\T A\,\hat\vx = A^\T\vb$.</li>
+        <li class="step">Any other $\vx$ is worse: $\vb - A\vx = \ve + A(\hat\vx - \vx)$, two
+          perpendicular parts, so $\norm{\vb - A\vx}^2 = \norm{\ve}^2 + \norm{A(\hat\vx - \vx)}^2$.</li>
+      </ol>
+      <div class="box step">$A^\T A$ is invertible exactly when the columns of $A$ are independent;
+        then $\hat\vx = (A^\T A)^{-1}A^\T\vb$.</div>
+      <p class="small step">Line fit: $A^\T\ve = (0.1 + 0.2 - 0.7 + 0.4,\ 0.2 - 1.4 + 1.2) = (0, 0)$.</p>
+    </div>
+  </div>
+  <aside class="notes">This is projection onto a subspace (slide
+    <a href="#projection-subspace">projection-subspace</a>) with a basis that is not orthonormal:
+    the columns of $A$. The condition &ldquo;error perpendicular to the subspace&rdquo; is still
+    the right one, and it becomes the normal equations; they are called normal because the error
+    is normal (perpendicular) to $\Col(A)$. Step 4 is the Pythagoras argument of slide
+    <a href="#projection-derivation">projection-derivation</a> in $\R^m$: $A(\hat\vx - \vx)$ lies in
+    $\Col(A)$ and $\ve$ is perpendicular to it. The invertibility statement is slide
+    <a href="#gram-psd">gram-psd</a>: $A^\T A \succ 0$ exactly when the columns are independent.
+    Calculus gives the same equations: the gradient of $\tfrac12\norm{A\vx - \vb}^2$ is
+    $A^\T(A\vx - \vb)$ (deck 03), and setting it to zero is step 3; the tex (line 1238) takes this
+    route. In practice the normal equations square the condition number,
+    $\cond(A^\T A) = \cond(A)^2$, so libraries solve least squares with QR or the SVD instead.
+    Gauss-Newton (deck 05) solves one such system per iteration for the linearized
+    residual.</aside>
+</section>
+
+<!-- ============================================================ LS projection 3D -->
+<section class="slide" id="ls-projection-3d" data-code="00_math_toolkit.py:d02_column_space_projection">
+  <h2>Least squares as projection onto the column space</h2>
+  <div class="cols mid">
+    <figure>
+      <svg id="f-ls3"></svg>
+      <figcaption>Yellow: $\Col(A)$, spanned by $(1, 1, 1)$ and $(0, 1, 2)$. Red: $\vb$; purple:
+        $\vp = A\hat\vx$; dashed: $\ve$.</figcaption>
+    </figure>
+    <div>
+      <ul class="tight">
+        <li>$A = \begin{bmatrix} 1 & 0 \\ 1 & 1 \\ 1 & 2 \end{bmatrix}$, $\vb = (6, 0, 0)$: a line
+          fit to $(0, 6), (1, 0), (2, 0)$.</li>
+        <li>$A^\T A = \begin{bmatrix} 3 & 3 \\ 3 & 5 \end{bmatrix}$, $A^\T\vb = (6, 0)$,
+          $\hat\vx = (5, -3)$.</li>
+        <li class="step">$\vp = A\hat\vx = (5, 2, -1)$; $\ve = (1, -2, 1)$, $\norm{\ve} = 2.4495$,
+          $A^\T\ve = \vzero$.</li>
+        <li class="step">$P = A(A^\T A)^{-1}A^\T = \tfrac16\begin{bmatrix} 5 & 2 & -1 \\ 2 & 2 & 2 \\
+          -1 & 2 & 5 \end{bmatrix}$, and $P\vb = \vp$.</li>
+      </ul>
+      <div class="controls">
+        <label>view <input type="range" class="short" id="ls3-az" min="-170" max="-40" step="1" value="-60"></label>
+      </div>
+    </div>
+  </div>
+  <aside class="notes">This example is Strang's (Introduction to Linear Algebra, Sec. 4.3; MIT
+    18.06 lecture 16, which the study plan lists for week 5). The data $\vb$ has three entries and
+    the model has two parameters, so $\Col(A)$ is a plane in $\R^3$ and $\vb$ is off it. Solving the
+    normal equations: $\det(A^\T A) = 15 - 9 = 6$, $\hat x_1 = (5\cdot 6 - 3\cdot 0)/6 = 5$,
+    $\hat x_2 = (3\cdot 0 - 3\cdot 6)/6 = -3$. So the best line is $y = 5 - 3t$, with fitted values
+    $5, 2, -1$ at $t = 0, 1, 2$ and residuals $1, -2, 1$. The error is perpendicular to both
+    columns: $(1, 1, 1)\cdot(1, -2, 1) = 0$ and $(0, 1, 2)\cdot(1, -2, 1) = 0$. The projection matrix
+    has the two properties of slide <a href="#projection-derivation">projection-derivation</a>,
+    $P^2 = P$ and $P^\T = P$, and its trace is 2, the dimension of the plane it projects onto (its
+    eigenvalues are 1, 1, 0). The view slider turns the scene; the right angle between $\ve$ and
+    the plane is visible from most angles.</aside>
+</section>
+
+<!-- ============================================================ min norm -->
+<section class="slide" id="min-norm" data-code="00_math_toolkit.py:d02_min_norm_solution">
+  <h2>Minimum-norm solution of an underdetermined system</h2>
+  <div class="cols mid">
+    <figure>
+      <svg id="f-mn"></svg>
+      <figcaption>Blue line: the solutions of $x_1 + x_2 = 2$. The slider moves $\vx$ along it;
+        the circle has radius $\norm{\vx}$.</figcaption>
+    </figure>
+    <div>
+      <ul class="tight">
+        <li>$x_1 + x_2 = 2$ has the solutions $(1, 1) + t(1, -1)$: one equation, two unknowns.</li>
+        <li>$\norm{\vx}^2 = (1 + t)^2 + (1 - t)^2 = 2 + 2t^2$, smallest at $t = 0$:
+          $\vx^+ = (1, 1)$, $\norm{\vx^+} = 1.4142$.</li>
+        <li class="step">$\vx^+$ lies in $\Row(A)$, perpendicular to $\Null(A)$. Any solution is
+          $\vx = \vx^+ + \vn$ with $\vn \in \Null(A)$, so $\norm{\vx}^2 = \norm{\vx^+}^2 + \norm{\vn}^2$.</li>
+      </ul>
+      <div class="box step">Wide $A$ with independent rows: $\vx^+ = A^\T(AA^\T)^{-1}\vb$, the
+        <b>minimum-norm solution</b>.</div>
+      <div class="controls">
+        <label>$t$ = <input type="range" id="mn-t" min="-2" max="2" step="0.05" value="0.6">
+          <span id="mn-t-out"></span></label>
+      </div>
+      <div class="readout" id="mn-read"></div>
+    </div>
+  </div>
+  <aside class="notes">A system with more unknowns than independent equations has a whole solution
+    set: one particular solution plus the null space (deck 01, solution sets). The
+    minimum-norm solution picks the point of that set closest to the origin. Geometrically it is
+    the foot of the perpendicular from $\vzero$ to the solution line, so it is perpendicular to the
+    line's direction, which spans $\Null(A)$; by the orthogonal complement (slide
+    <a href="#orthogonal-complement">orthogonal-complement</a>) it lies in $\Row(A)$. That gives the
+    formula: a vector in $\Row(A)$ is $\vx = A^\T\vy$ for some $\vy$, and $A\vx = \vb$ becomes
+    $AA^\T\vy = \vb$, solvable when the rows are independent ($AA^\T \succ 0$). Here
+    $A = [1\ 1]$, $AA^\T = 2$, $\vy = 1$ and $\vx^+ = (1, 1)$. The Pythagoras identity in the third
+    bullet shows why every other solution is longer: its extra piece $\vn$ is perpendicular to
+    $\vx^+$. At $t = 0.6$ the readout shows $\norm{\vx}^2 = 2 + 2(0.36) = 2.72$. Deck 06 derives the
+    same formula as an equality-constrained QP with Lagrange multipliers.</aside>
+</section>
+
+<!-- ============================================================ table forces -->
+<section class="slide" id="table-forces" data-code="00_math_toolkit.py:d02_table_force_distribution">
+  <h2>Minimum-norm leg forces of a four-legged table</h2>
+  <div class="cols mid">
+    <figure>
+      <svg id="f-tablef"></svg>
+      <figcaption>Leg forces $\vf^+ + t(1, -1, 1, -1)$ for the slider's $t$; the load (black) sits at
+        $(0.2, 0.1)$ m. Dashed orange: a leg that would have to pull.</figcaption>
+    </figure>
+    <div>
+      <ul class="tight">
+        <li>Legs at $(\pm 1, \pm 1)$ m, load $W = 100$ N at $(0.2, 0.1)$ m. Equilibrium:
+          $\sum f_i = W$, $\sum f_i x_i = Wx_c$, $\sum f_i y_i = Wy_c$.</li>
+        <li>$M\vf = (100, 20, 10)$: three equations, four legs. $MM^\T = 4I$, so
+          $\vf^+ = \tfrac14 M^\T(100, 20, 10) = (32.5, 22.5, 17.5, 27.5)$ N.</li>
+        <li class="step">All solutions: $\vf^+ + t(1, -1, 1, -1)$. Every leg pushes for
+          $-17.5 \le t \le 22.5$ N, and $\norm{\vf}^2 = \norm{\vf^+}^2 + 4t^2$.</li>
+        <li class="step">Hou and Mason 2019 (eq. 21, Algorithm 2) take the free forces of minimum
+          norm: here $\vf^+$, with $\norm{\vf^+} = 51.23$ N.</li>
+      </ul>
+      <div class="controls">
+        <label>$t$ = <input type="range" id="tf-t" min="-30" max="30" step="0.5" value="10">
+          <span id="tf-t-out"></span></label>
+      </div>
+      <div class="readout" id="tf-read"></div>
+    </div>
+  </div>
+  <aside class="notes">The rows of $M$ are the force balance and the moment balances about the two
+    horizontal axes; leg $i$ at $(x_i, y_i)$ contributes $f_i$, $f_i x_i$ and $f_i y_i$. The rows are
+    perpendicular with length 2, so $MM^\T = 4I$ and $\vf^+ = \tfrac14 M^\T\vr$:
+    $f_i^+ = (100 + 20x_i + 10y_i)/4$, which gives $130/4$, $90/4$, $70/4$, $110/4$ for the legs at
+    $(1, 1), (-1, 1), (-1, -1), (1, -1)$. The null vector $(1, -1, 1, -1)$ is the squeeze of slide
+    <a href="#gram-psd">gram-psd</a>. Rigid-body statics cannot choose among the solutions; a real
+    table picks one through the stiffness of its legs and floor (deck 13, statical
+    indeterminacy; <a href="13_contact_wrench_cone.html">deck 13</a>). Hou and Mason's Algorithm 2
+    faces the same ambiguity in the contact forces of their Newton's-law rows and resolves it by
+    minimizing $\vf_{\rm free}^\T\vf_{\rm free}$ subject to the equilibrium equations (2019, eq.
+    21), then solving the KKT system of that QP (eq. 22-23; deck 06). At $t = 10$ the forces are
+    $(42.5, 12.5, 27.5, 17.5)$ N with norm $\sqrt{2625 + 400} = 55.0$ N. Outside
+    $[-17.5, 22.5]$ some leg must pull on the floor, which a table cannot do.</aside>
+</section>
+
+<!-- ============================================================ pseudoinverse -->
+<section class="slide" id="pseudoinverse" data-code="00_math_toolkit.py:d02_pseudoinverse_rank_one">
+  <h2>Pseudoinverse from the SVD</h2>
+  <div class="cols">
+    <div>
+      <ul class="tight">
+        <li>$A^+ = V_r\Sigma_r^{-1}U_r^\T = \sum_{i \le r}\tfrac{1}{\sigma_i}\vv_i\vu_i^\T$ (first $r$
+          singular vectors).</li>
+        <li>$\vx^+ = A^+\vb$ is the least-squares solution of smallest norm. It is $A^{-1}\vb$,
+          $(A^\T A)^{-1}A^\T\vb$ or $A^\T(AA^\T)^{-1}\vb$ when those exist.</li>
+        <li class="step">$A = \begin{bmatrix} 1 & 2 \\ 2 & 4 \end{bmatrix} = 5\,\vu\vu^\T$,
+          $\vu = (1, 2)/\sqrt5$, $\sigma = (5, 0)$:
+          $A^+ = \tfrac15\vu\vu^\T = \tfrac1{25}\begin{bmatrix} 1 & 2 \\ 2 & 4 \end{bmatrix}$.</li>
+        <li class="step">$\vb = (1, 1)$: $\vx^+ = (0.12, 0.24)$, and $A\vx^+ = (0.6, 1.2)$ is the
+          projection of $\vb$ onto $\Col(A)$.</li>
+      </ul>
+      <p class="small step">Tikhonov: $(A^\T A + \mu I)^{-1}A^\T\vb$ is $(0.1154, 0.2308)$ at
+        $\mu = 1$ and $(0.1200, 0.2399)$ at $\mu = 0.01$; it tends to $\vx^+$ as $\mu \to 0$.</p>
+    </div>
+    <figure>
+      <svg id="f-pinv"></svg>
+      <figcaption>Right: $\vb$ and its projection onto $\Col(A)$. Left: the least-squares solutions
+        (a line) and the shortest one, $\vx^+$, in $\Row(A)$.</figcaption>
+    </figure>
+  </div>
+  <aside class="notes">The pseudoinverse undoes $A$ where it can: it maps $\vu_i$ back to
+    $\vv_i/\sigma_i$ for every nonzero singular value, and sends the directions $A$ cannot reach to
+    zero. The result solves both problems of this part at once. Of all $\vx$, $A\vx^+$ is the
+    point of $\Col(A)$ closest to $\vb$ (least squares); of all $\vx$ with that closest image,
+    $\vx^+$ is the shortest (it has no $\Null(A)$ part). For the rank-one example, the
+    least-squares solutions are the line $x_1 + 2x_2 = 0.6$, and the shortest point of it is
+    $0.6\,(1, 2)/5 = (0.12, 0.24)$. Hou and Mason's $\cond(A) = \norm{A}_2\norm{A^\dagger}_2$ uses the
+    same matrix, written $A^\dagger$. Tikhonov regularization (tex lines 1259-1266) solves
+    $\min \norm{A\vx - \vb}^2 + \mu\norm{\vx}^2$: adding $\mu I$ to $A^\T A$ makes it PD even when
+    $A$ is rank-deficient, at the price of a slightly shorter, biased answer. In inverse
+    kinematics this is damped least squares. As $\mu \to 0$ the solution tends to $\vx^+$: at
+    $\mu = 0.1$ it is $(0.1195, 0.2390)$ and at $\mu = 0.001$ $(0.1200, 0.2400)$.</aside>
+</section>
+
+<!-- ============================================================ Schur complement -->
+<section class="slide" id="schur-complement" data-code="00_math_toolkit.py:d02_schur_block_solve">
+  <h2>Block elimination and the Schur complement</h2>
+  <div class="cols r2">
+    <div>
+      <figure class="bare"><svg id="f-block"></svg></figure>
+      <div class="example small step" data-step="5">$\begin{bmatrix} 4 & 2 \\ 2 & 2 \end{bmatrix}
+        \begin{bmatrix} x \\ u \end{bmatrix} = \begin{bmatrix} 6 \\ 2 \end{bmatrix}$:
+        $S = 4 - 2\cdot 2/2 = 2$, $Sx = 6 - 2\cdot 2/2 = 4$, so $x = 2$ and $u = (2 - 2\cdot 2)/2 = -1$.</div>
+    </div>
+    <div>
+      <p>$\begin{bmatrix} A & B \\ B^\T & C \end{bmatrix}\begin{bmatrix} \vx \\ \vu \end{bmatrix}
+        = \begin{bmatrix} \vf \\ \vg \end{bmatrix}$ with $C$ invertible.</p>
+      <ol class="steps tight">
+        <li class="step" data-step="1">Second block row: $B^\T\vx + C\vu = \vg$, so
+          $\vu = C^{-1}(\vg - B^\T\vx)$.</li>
+        <li class="step" data-step="2">Substitute into the first: $A\vx + BC^{-1}(\vg - B^\T\vx) = \vf$.</li>
+        <li class="step" data-step="3">Collect $\vx$: $(A - BC^{-1}B^\T)\,\vx = \vf - BC^{-1}\vg$.</li>
+      </ol>
+      <div class="box step" data-step="4">$S = A - BC^{-1}B^\T$ is the <b>Schur complement</b> of $C$.</div>
+      <p class="small step" data-step="6">Used for KKT systems (deck 06), the Riccati recursion
+        (deck 08) and the iLQR backward pass (deck 09).</p>
+    </div>
+  </div>
+  <aside class="notes">Block elimination is Gaussian elimination with matrices in place of numbers:
+    solve the second block row for $\vu$, substitute, and a smaller system in $\vx$ alone remains.
+    Its matrix $S$ is the Schur complement. Read with scalar blocks $a, b, c$, the formula is
+    $s = a - b^2/c$, the pivot left after eliminating one variable: for the example, subtracting
+    $2/2 = 1$ times row 2 from row 1 gives $(4 - 2)x = 6 - 2$, the same $2x = 4$. Check of the
+    solution: $4\cdot 2 + 2\cdot(-1) = 6$ and $2\cdot 2 + 2\cdot(-1) = 2$. Two facts used later:
+    $\det K = \det C\cdot\det S$, so $K$ is invertible when $C$ and $S$ are; and for symmetric $K$
+    with $C \succ 0$, $K \succ 0$ exactly when $S \succ 0$ (next slide). In the $2\times 2$ Cholesky
+    factorization, $L_{22}^2 = a_{22} - a_{21}^2/a_{11}$ is the Schur complement of $a_{11}$. The
+    KKT matrix of an equality-constrained QP (deck 06) has the block form with $C = 0$, so it is
+    eliminated the other way round, through the Schur complement $-BA^{-1}B^\T$ of $A$.</aside>
+</section>
+
+<!-- ============================================================ Schur minimization -->
+<section class="slide" id="schur-minimization" data-code="00_math_toolkit.py:d02_schur_minimize_out">
+  <h2>Minimizing a quadratic over some of its variables</h2>
+  <div class="cols mid">
+    <figure>
+      <svg id="f-schur"></svg>
+      <figcaption>Level sets of $f(x, u)$; dashed: $f &lt; 0$. Purple: the minimizing $u^*(x)$
+        (drawn when $c &gt; 0$).</figcaption>
+    </figure>
+    <div>
+      <ul class="tight">
+        <li>$f(x, u) = \tfrac12(ax^2 + 2bxu + cu^2)$. For $c &gt; 0$, complete the square in $u$:
+          $f = \tfrac12 c\bigl(u + \tfrac bc x\bigr)^2 + \tfrac12\bigl(a - \tfrac{b^2}{c}\bigr)x^2$.</li>
+        <li class="step">Minimum over $u$: $u^* = -\tfrac bc x$, value $\tfrac12 s x^2$ with
+          $s = a - b^2/c$, the Schur complement of $c$.</li>
+        <li class="step">$\begin{bmatrix} a & b \\ b & c \end{bmatrix} \succ 0$ exactly when $c &gt; 0$
+          and $s &gt; 0$. $a = 4$, $c = 2$: $b = 2$ gives $s = 2$, gain $-1$; $b = 3$ gives
+          $s = -0.5$.</li>
+      </ul>
+      <div class="warn step small"><b>$c &gt; 0$ is not enough.</b> $a = 0$, $b = 1$, $c = 1$ gives
+        $s = -1$: the minimum over $u$ is $-\tfrac12x^2$.</div>
+      <div class="controls">
+        <label>$a$ <input type="range" class="short" id="sm-a" min="-1" max="5" step="0.1" value="4"> <span id="sm-a-out"></span></label>
+        <label>$b$ <input type="range" class="short" id="sm-b" min="-3" max="3" step="0.1" value="2"> <span id="sm-b-out"></span></label><br>
+        <label>$c$ <input type="range" class="short" id="sm-c" min="-1" max="4" step="0.1" value="2"> <span id="sm-c-out"></span></label>
+      </div>
+      <div class="readout" id="sm-read"></div>
+    </div>
+  </div>
+  <aside class="notes">Expanding the completed square checks it:
+    $\tfrac12c(u + \tfrac bcx)^2 = \tfrac12cu^2 + bxu + \tfrac12\tfrac{b^2}{c}x^2$, and adding
+    $\tfrac12(a - \tfrac{b^2}{c})x^2$ gives $f$. The first term is at least 0 and is 0 exactly at
+    $u = -\tfrac bcx$, so for each fixed $x$ the best $u$ is a linear function of $x$ (a feedback
+    gain $-b/c$) and the best value is a quadratic in $x$ alone with coefficient $s$. This is the
+    tex's statement (line 1284): minimizing a quadratic over a subset of variables leaves the
+    Schur complement in the rest. In LQR and iLQR, $x$ is the state and $u$ the control; the
+    backward pass minimizes out $u$ at each time step, and $V_{xx} = Q_{xx} -
+    Q_{xu}Q_{uu}^{-1}Q_{ux}$ is this $s$. The warning box corrects the tex (line 1298-1300), which
+    says $Q_{uu} \succ 0$ preserves $V_{xx} \succ 0$: it needs the whole block matrix PD, or
+    $Q_{xx}$ large enough. On the purple line the contours are tangent to vertical lines, which is
+    the condition $\partial f/\partial u = 0$. Set $c \le 0$ to see that no minimum over $u$
+    exists.</aside>
+</section>
+
+<!-- ============================================================ check 4 -->
+<section class="slide" id="check-least-squares" data-code="00_math_toolkit.py:d02_line_fit_normal_equations 00_math_toolkit.py:d02_schur_minimize_out">
+  <h2>Check yourself: least squares and the Schur complement</h2>
+  <ol class="tight">
+    <li>Fit $y = c + d\,t$ to $(0, 0), (1, 1), (2, 1)$.
+      <details><summary>answer</summary><div>$A^\T A = \begin{bmatrix} 3 & 3 \\ 3 & 5 \end{bmatrix}$,
+        $A^\T\vy = (2, 3)$, $\det = 6$: $c = (5\cdot 2 - 3\cdot 3)/6 = 1/6$ and
+        $d = (3\cdot 3 - 3\cdot 2)/6 = 1/2$.</div></details></li>
+    <li>Minimum-norm solution of $x_1 + 2x_2 = 5$?
+      <details><summary>answer</summary><div>$\vx^+ = (1, 2)\cdot 5/5 = (1, 2)$, $\norm{\vx^+} = \sqrt5$.</div></details></li>
+    <li>Minimum-norm leg forces for the table with the load at the centre?
+      <details><summary>answer</summary><div>$\vf^+ = \tfrac14 M^\T(100, 0, 0) = (25, 25, 25, 25)$ N.</div></details></li>
+    <li>Schur complement of $c$ in $\begin{bmatrix} 2 & 1 \\ 1 & 1 \end{bmatrix}$; is the matrix PD?
+      <details><summary>answer</summary><div>$s = 2 - 1/1 = 1 &gt; 0$ and $c = 1 &gt; 0$: yes.</div></details></li>
+    <li>Why does $Q_{uu} \succ 0$ not guarantee $Q_{xx} - Q_{xu}Q_{uu}^{-1}Q_{ux} \succ 0$?
+      <details><summary>answer</summary><div>$Q_{xx} = 0$, $Q_{xu} = 1$, $Q_{uu} = 1$ gives $-1$. The
+        whole block matrix must be PD.</div></details></li>
+  </ol>
+  <aside class="notes">Question 1 repeats slide <a href="#line-fit">line-fit</a> with three points;
+    Cramer's rule on $[[3, 3], [3, 5]]\vx = (2, 3)$ gives $c = (5\cdot 2 - 3\cdot 3)/6 = 1/6$ and
+    $d = (3\cdot 3 - 3\cdot 2)/6 = 1/2$, and the residuals $(-1/6, 1/3, -1/6)$ sum to zero.
+    Question 2 uses $\vx^+ = A^\T(AA^\T)^{-1}\vb$ with $AA^\T = 5$. Question 3: with the load at the
+    centre the moment equations have zero right side, and symmetry gives equal shares; the other
+    solutions $25 + t$, $25 - t$ push for $\abs{t} \le 25$ N. Question 4 is the $2\times 2$ test of
+    slide <a href="#schur-minimization">schur-minimization</a>; the eigenvalues are 2.618 and
+    0.382. Question 5 is the counterexample to tex line 1300, recorded in the notebook's errata
+    cell.</aside>
+</section>
+
+<!-- ============================================================ results -->
+<section class="slide" id="results-later-decks">
+  <h2>Results used in later decks</h2>
+  <table class="small mid">
+    <tr><th>deck</th><th>result</th><th>slide</th></tr>
+    <tr><td>05</td><td>Hessian eigenvalues are curvatures; $\kappa = \lambda_{\max}/\lambda_{\min}$ sets the axis ratio $\sqrt\kappa$ and the gradient-descent speed</td><td><a href="#quadratic-derivation">quadratic-derivation</a></td></tr>
+    <tr><td>06</td><td>minimum-norm solution $A^\T(AA^\T)^{-1}\vb$; block elimination of KKT systems</td><td><a href="#min-norm">min-norm</a>, <a href="#schur-complement">schur-complement</a></td></tr>
+    <tr><td>07</td><td>$A \succeq 0$ exactly when every eigenvalue is $\ge 0$; PSD matrices form a cone</td><td><a href="#positive-definite">positive-definite</a></td></tr>
+    <tr><td>08</td><td>minimizing out $\vu$ leaves the Schur complement; PD exactly when $C \succ 0$ and $S \succ 0$</td><td><a href="#schur-minimization">schur-minimization</a></td></tr>
+    <tr><td>09</td><td>Cholesky succeeds exactly when $A \succ 0$; $A + \mu I$ raises every eigenvalue by $\mu$</td><td><a href="#cholesky-exists">cholesky-exists</a></td></tr>
+    <tr><td>13</td><td>indeterminate leg forces $\vf^+ + t\,\vn$; the minimum-norm distribution</td><td><a href="#table-forces">table-forces</a></td></tr>
+    <tr><td>19</td><td>$J_cM^{-1}J_c^\T \succeq 0$, singular for redundant contacts; factor, then substitute</td><td><a href="#gram-psd">gram-psd</a>, <a href="#cholesky">cholesky</a></td></tr>
+    <tr><td>21</td><td>Null(·), Row(·) from the SVD; rank test for goal inclusion; orthonormal $T$; crashing index $\cond[\hat J; \hat C]$</td><td><a href="#rank-test">rank-test</a>, <a href="#row-normalization">row-normalization</a></td></tr>
+  </table>
+  <p>Next: deck 03, <i>Derivatives, gradients, and Jacobians</i>. Previous:
+    <a href="01_vectors_and_matrices.html">deck 01</a>.</p>
+  <aside class="notes">Each row names a fact that a later deck recaps in one slide and links back to
+    here. Deck 05 uses the eigenvalue picture of the Hessian to explain why gradient descent
+    zig-zags on ill-conditioned bowls and why Newton's method does not. Deck 06 derives the
+    minimum-norm formula again as the solution of a KKT system and solves KKT systems by block
+    elimination. Deck 07 needs PSD matrices for convexity of quadratics and the PSD cone. Deck 08
+    completes the square at every step of the LQR backward pass. Deck 09 regularizes $Q_{uu}$ until
+    its Cholesky factorization succeeds. Deck 13 returns to the four-legged table with friction.
+    Deck 19 factors the Delassus matrix inside contact solvers. Deck 21 assembles the Hou and Mason
+    algorithms from the rank test, the SVD bases, the orthonormal control axes and the crashing
+    index. Deck 03 is not written yet; its file will be
+    <code>03_derivatives_and_jacobians.html</code>.</aside>
+</section>
+
+</main>
+<!-- SCRIPT -->
+</body>
+</html>

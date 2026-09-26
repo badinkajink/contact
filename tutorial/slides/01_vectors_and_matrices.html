@@ -898,7 +898,751 @@
     a segment of the line $y = 2x$.</aside>
 </section>
 
-<!-- PART-III -->
+<!-- ============================================================ part III -->
+<section class="slide section" id="part-systems">
+  <p class="kicker">Part III</p>
+  <h1>Linear systems, rank, and solution sets</h1>
+  <hr>
+  <p>Solving $A\vx = \vb$ by elimination; the column, row and null spaces of a matrix; and the
+    rank arguments that count velocity commands in hybrid force-velocity control.</p>
+</section>
+
+<!-- ============================================================ row and column pictures -->
+<section class="slide" id="row-and-column-pictures" data-code="00_math_toolkit.py:d01_classify_2x2">
+  <h2>Row picture and column picture of a $2\times 2$ system</h2>
+  <div class="cols">
+    <figure class="bare"><svg id="f-rowpic"></svg></figure>
+    <figure class="bare"><svg id="f-colpic"></svg></figure>
+  </div>
+  <div class="cols">
+    <ul class="tight">
+      <li><b>Row picture</b>: each equation of $x - y = 1$, $x + 3y = 5$ is a line. The
+        solution is the crossing point $(2, 1)$.</li>
+      <li><b>Column picture</b>: $x\vu + y\vw = \vb$. The same numbers are the coefficients
+        that reach $\vb = (1, 5)$: $2\vu + 1\vw = \vb$.</li>
+    </ul>
+    <div>
+      <p class="small">Drag $\vb$ in the right panel. The lines of the left panel move with it.</p>
+      <div class="readout" id="rc-read"></div>
+    </div>
+  </div>
+  <aside class="notes">The system $x - y = 1$, $x + 3y = 5$ is $A\vx = \vb$ with the running matrix
+    $A = [\vu\ \vw]$ and $\vb = (1, 5)$. The two pictures read the same equations in two
+    directions. Across the rows: row $i$ of $A$ dotted with $\vx$ must equal $b_i$, one line per
+    equation in the plane of the unknowns $(x, y)$. Down the columns: $A\vx$ is the combination
+    $x\vu + y\vw$, and the question is which coefficients reach $\vb$ in the plane of the
+    outputs. With $m$ equations in $n$ unknowns, the row picture has $m$ lines, planes or
+    hyperplanes in $\R^n$, and the column picture has $n$ arrows in $\R^m$. Because
+    $\det A = 4 \ne 0$, every $\vb$ has exactly one solution, $\vx = A^{-1}\vb$; dragging $\vb$
+    moves both lines and never makes them parallel. Replacing an equation by an inequality,
+    row $i$ of $A$ dotted with $\vx$ at most $b_i$, turns its line into a half-plane; a stack of such
+    rows, $A\vz \le \vb$, describes the feasible regions of the linear programs in deck 07.</aside>
+</section>
+
+<!-- ============================================================ three outcomes -->
+<section class="slide" id="three-outcomes" data-code="00_math_toolkit.py:d01_classify_2x2">
+  <h2>One solution, no solution, or infinitely many solutions</h2>
+  <div class="cols mid">
+    <figure>
+      <svg id="f-three"></svg>
+      <figcaption>Blue: $x + y = 2$. Green: $x + ky = c$. Red dot: the solution.</figcaption>
+    </figure>
+    <div>
+      <ul class="tight">
+        <li>$\det\begin{bmatrix} 1 & 1 \\ 1 & k \end{bmatrix} = k - 1$.</li>
+        <li>$k \ne 1$: the lines cross once. One solution; at $k = 3$, $c = 4$ it is $(1, 1)$.</li>
+        <li>$k = 1$, $c \ne 2$: parallel lines. No solution: the system is
+          <b>inconsistent</b>.</li>
+        <li>$k = 1$, $c = 2$: one line written twice. Infinitely many solutions.</li>
+      </ul>
+      <div class="controls">
+        <label>$k$ = <input type="range" class="short" id="three-k" min="-1" max="3" step="0.25" value="3">
+          <span id="three-k-out"></span></label>
+        <label>$c$ = <input type="range" class="short" id="three-c" min="0" max="4" step="0.5" value="4">
+          <span id="three-c-out"></span></label>
+      </div>
+      <div class="readout" id="three-read"></div>
+    </div>
+  </div>
+  <aside class="notes">A system is <b>consistent</b> when it has at least one solution and
+    <b>inconsistent</b> when it has none. For two equations in two unknowns the three cases are
+    visible: two lines cross once, never, or everywhere. No linear system has exactly two
+    solutions. If $\vx$ and $\vy$ both solve $A\vx = \vb$, then so does every point
+    $\vx + s(\vy - \vx)$ of the line through them, because
+    $A(\vx + s(\vy - \vx)) = \vb + s(\vb - \vb) = \vb$. Worked case $k = 3$, $c = 4$: subtract the
+    first equation from the second to get $2y = 2$, so $y = 1$ and $x = 1$. At $k = 1$ the same
+    subtraction gives $0 = c - 2$, which is true for $c = 2$ (the second equation adds nothing)
+    and false otherwise. The readout prints the ranks of $A$ and of $[A \mid \vb]$; slide
+    <a href="#consistency">consistency</a> turns their comparison into a test that works for any
+    size. For the infinite case the readout shows the shortest solution, which deck 02 computes
+    with the pseudoinverse.</aside>
+</section>
+
+<!-- ============================================================ gaussian elimination -->
+<section class="slide" id="gaussian-elimination" data-code="00_math_toolkit.py:d01_rref_steps">
+  <h2>Gaussian elimination on a $3\times 3$ system</h2>
+  <p>$x + y + z = 6$, $\ 2x + 3y + z = 11$, $\ x - y + 2z = 5$, written as the augmented matrix $[A \mid \vb]$:</p>
+  <div class="cols three">
+    <div>
+      $$\left[\begin{array}{rrr|r} 1 & 1 & 1 & 6 \\ 2 & 3 & 1 & 11 \\ 1 & -1 & 2 & 5 \end{array}\right]$$
+    </div>
+    <div class="step" data-step="1">
+      <p class="small center">$R_2 \leftarrow R_2 - 2R_1$, $\ R_3 \leftarrow R_3 - R_1$</p>
+      $$\left[\begin{array}{rrr|r} 1 & 1 & 1 & 6 \\ 0 & 1 & -1 & -1 \\ 0 & -2 & 1 & -1 \end{array}\right]$$
+    </div>
+    <div class="step" data-step="2">
+      <p class="small center">$R_3 \leftarrow R_3 + 2R_2$</p>
+      $$\left[\begin{array}{rrr|r} 1 & 1 & 1 & 6 \\ 0 & 1 & -1 & -1 \\ 0 & 0 & -1 & -3 \end{array}\right]$$
+    </div>
+  </div>
+  <div class="cols">
+    <div>
+      <p class="step" data-step="3">Back substitution, bottom row first:</p>
+      <ol class="tight">
+        <li class="step" data-step="3">$-z = -3$, so $z = 3$.</li>
+        <li class="step" data-step="4">$y - z = -1$, so $y = 2$.</li>
+        <li class="step" data-step="5">$x + y + z = 6$, so $x = 1$.</li>
+      </ol>
+    </div>
+    <div class="box step" data-step="6">Each row operation is undone by another one (swap back;
+      divide by the factor; subtract the multiple added), so no operation changes the solution
+      set. Check: $(1, 2, 3)$ satisfies all three original equations.</div>
+  </div>
+  <aside class="notes">Elimination uses three <b>row operations</b>: swap two rows, multiply a row by
+    a nonzero number, and add a multiple of one row to another. A row operation on the augmented
+    matrix is the same operation on the equations, so any $\vx$ that satisfied the old equations
+    satisfies the new ones; because each operation can be reversed, the converse holds too.
+    Forward elimination clears the entries below each pivot, column by column, until the
+    matrix is upper triangular; back substitution then solves from the bottom row up. Check of
+    the answer: $1 + 2 + 3 = 6$, $2 + 6 + 3 = 11$, $1 - 2 + 6 = 5$. Gauss-Jordan elimination
+    also clears the entries above each pivot and scales each pivot to 1, which replaces back
+    substitution by more row operations; <code>d01_rref_steps</code> and the stepper on the next
+    slide perform its seven operations on this system and end with the column $(1, 2, 3)$ next to
+    the identity matrix. Numerical codes add partial pivoting (swapping the largest entry into
+    the pivot position) to control rounding error; decks 02 and 06 use library solvers that do
+    this.</aside>
+</section>
+
+<!-- ============================================================ rref -->
+<section class="slide" id="rref-and-pivots" data-code="00_math_toolkit.py:d01_rref_steps">
+  <h2>Reduced row echelon form and pivots</h2>
+  <div class="cols">
+    <div>
+      <ul class="tight">
+        <li>The <b>pivot</b> of a row is its first nonzero entry. In <b>echelon form</b> each pivot
+          sits to the right of the pivot above it, and zero rows are at the bottom.</li>
+        <li><b>Reduced</b> row echelon form (RREF): every pivot is 1 and is the only nonzero entry
+          of its column.</li>
+        <li>Columns with a pivot are <b>pivot columns</b>; the others are <b>free columns</b>. The
+          number of pivots is the <b>rank</b>.</li>
+        <li>Every matrix has exactly one RREF.</li>
+      </ul>
+    </div>
+    <div>
+      <figure class="bare"><svg id="f-rref"></svg></figure>
+      <div class="controls">
+        <select id="rref-mat">
+          <option value="A34">A34 (3 by 4)</option>
+          <option value="S3">the 3 by 3 system [A | b]</option>
+          <option value="Mb">M with b = (1, 2, 4)</option>
+          <option value="swap">a matrix that needs a swap</option>
+          <option value="table">table E with (100, 0, 0)</option>
+        </select>
+        <label>step <input type="range" class="short" id="rref-k" min="0" max="3" step="1" value="3">
+          <span id="rref-k-out"></span></label>
+      </div>
+    </div>
+  </div>
+  <aside class="notes">The stepper runs Gauss-Jordan elimination with the hand rule: in each column,
+    take the first row at or below the current one with a nonzero entry, swap it up, scale the
+    pivot to 1, and subtract multiples of the pivot row from every other row. The yellow cell is
+    the pivot in use and the gray row is the row the operation changed; at the last step every
+    pivot is outlined. For $A_{34} = \begin{bmatrix} 1 & 2 & 0 & 1 \\ 2 & 4 & 1 & 4 \\ 3 & 6 & 1 & 5
+    \end{bmatrix}$ the operations are $R_2 - 2R_1$, $R_3 - 3R_1$, $R_3 - R_2$. Column 2 gets no
+    pivot, because after the first step its entries below row 1 are all zero, so $x_2$ is free;
+    the pivots land in columns 1 and 3 and the rank is 2. Different sequences of row operations
+    reach the same RREF, which is why the rank and the pivot columns belong to the matrix and
+    not to the method. The "table E" option is the equilibrium system of slide
+    <a href="#four-legged-table">four-legged-table</a>; it needs a swap in column 2. The same
+    rule is <code>Num.rref</code> in <code>lib/num.js</code>, checked against
+    <code>d01_rref_steps</code> by the twin tests.</aside>
+</section>
+
+<!-- ============================================================ consistency -->
+<section class="slide" id="consistency" data-code="00_math_toolkit.py:d01_consistency">
+  <h2>Consistent and inconsistent systems</h2>
+  <div class="cols">
+    <div>
+      <ul class="tight">
+        <li>Elimination can end with a row $[0\ \cdots\ 0 \mid c]$. With $c \ne 0$ that row reads
+          $0 = c$, and the system has no solution.</li>
+        <li>Such a row adds a pivot to $[A \mid \vb]$ that $A$ does not have.</li>
+      </ul>
+      <div class="box">$A\vx = \vb$ is consistent exactly when $\rank A = \rank\,[A \mid \vb]$.</div>
+      <p class="step" data-step="2">A block on a table cannot move down: $v_y = 0$. A command to
+        move down at 0.1 m/s adds $v_y = -0.1$:</p>
+      <p class="step" data-step="2">$$\left[\begin{array}{rr|r} 0 & 1 & 0 \\ 0 & 1 & -0.1 \end{array}\right]
+        \to \left[\begin{array}{rr|r} 0 & 1 & 0 \\ 0 & 0 & -0.1 \end{array}\right]$$</p>
+    </div>
+    <div>
+      <p>$M = \begin{bmatrix} 1 & 0 & 1 \\ 0 & 1 & 1 \\ 1 & 1 & 2 \end{bmatrix}$ has third row equal
+        to the sum of the first two. $R_3 \leftarrow R_3 - R_1 - R_2$ on $[M \mid \vb]$ with
+        $\vb = (1, 2, b_3)$:</p>
+      $$\left[\begin{array}{rrr|c} 1 & 0 & 1 & 1 \\ 0 & 1 & 1 & 2 \\ 0 & 0 & 0 & b_3 - 3 \end{array}\right]$$
+      <ul class="tight step" data-step="1">
+        <li>$b_3 = 3$: $\rank M = \rank\,[M \mid \vb] = 2$. Consistent.</li>
+        <li>$b_3 = 4$: the last row says $0 = 1$; $\rank M = 2$, $\rank\,[M \mid \vb] = 3$.
+          Inconsistent.</li>
+      </ul>
+    </div>
+  </div>
+  <aside class="notes">The rank test works because elimination brings $[A \mid \vb]$ to echelon form
+    without changing either rank. If the last column has no pivot, every pivot sits in the $A$
+    part, the two ranks agree, and back substitution produces a solution (choose any values for
+    the free variables). If the last column has a pivot, that pivot row is $[0\ \cdots\ 0 \mid 1]$
+    after scaling, the equation $0 = 1$ has no solution, and $\rank\,[A \mid \vb]$ exceeds
+    $\rank A$ by one. For $M$, subtracting rows 1 and 2 from row 3 gives $b_3 - 1 - 2$ in the last
+    column. The block example is Hou and Mason's infeasible case (2019, Fig. 1, right): a velocity
+    command that pushes into a table contradicts the table's constraint. In the matrix the two
+    rows $(0, 1)$ are identical, so $\rank A = 1$, while $\rank\,[A \mid \vb] = 2$. Deck 02 shows a
+    second failure: rows that are nearly parallel make a consistent system fragile, so that a
+    small error in $\vb$ produces a large change in $\vx$.</aside>
+</section>
+
+<!-- ============================================================ check systems -->
+<section class="slide" id="check-systems">
+  <h2>Check yourself: systems and elimination</h2>
+  <ol>
+    <li>Compute the RREF of $\begin{bmatrix} 2 & 4 \\ 1 & 3 \end{bmatrix}$ and its rank.
+      <details><summary>answer</summary><div>$R_1 \leftarrow \tfrac12 R_1$ gives $(1, 2)$;
+        $R_2 \leftarrow R_2 - R_1$ gives $(0, 1)$; $R_1 \leftarrow R_1 - 2R_2$ gives $(1, 0)$. The
+        RREF is $I$ and the rank is 2.</div></details></li>
+    <li>What is the rank of $\begin{bmatrix} 1 & 2 & 3 \\ 2 & 4 & 6 \end{bmatrix}$?
+      <details><summary>answer</summary><div>1: $R_2 \leftarrow R_2 - 2R_1$ leaves a zero row.</div></details></li>
+    <li>Is $x + y = 1$, $2x + 2y = 3$ consistent?
+      <details><summary>answer</summary><div>No. $R_2 \leftarrow R_2 - 2R_1$ gives $0 = 1$;
+        $\rank A = 1$ and $\rank\,[A \mid \vb] = 2$.</div></details></li>
+    <li>Can swapping two rows change the solution set?
+      <details><summary>answer</summary><div>No. Swapping the same two rows again restores the
+        system, so both systems have the same solutions.</div></details></li>
+  </ol>
+  <aside class="notes">Question 1: the RREF of an invertible $n\times n$ matrix is always $I$,
+    because each of the $n$ columns receives a pivot. Question 2: the second row is twice the
+    first, so the rows span a line and the rank is 1; the column picture agrees, since every
+    column is a multiple of $(1, 2)$. Question 3 is the pair of parallel lines of slide
+    <a href="#three-outcomes">three-outcomes</a>: $x + y = 1$ and $x + y = 1.5$. Question 4: the
+    other two operations are also reversible, by scaling with $1/k$ and by subtracting the multiple
+    that was added. Multiplying a row by 0 is not allowed, because it cannot be undone and it
+    deletes an equation. The function <code>d01_rref_steps</code> in the notebook prints the
+    operations for any matrix; try it on these three.</aside>
+</section>
+
+<!-- ============================================================ column space -->
+<section class="slide" id="column-space" data-code="00_math_toolkit.py:d01_consistency">
+  <h2>The column space</h2>
+  <div class="cols mid">
+    <figure>
+      <svg id="f-colspace"></svg>
+      <figcaption>Yellow: $\Col(M)$, the plane $z = x + y$. Gray arrows: the columns of $M$.
+        Dot: $\vb = (1, 2, b_3)$.</figcaption>
+    </figure>
+    <div>
+      <ul class="tight">
+        <li>A <b>subspace</b> contains $\vzero$ and is closed under addition and scaling: a line
+          or plane through the origin, $\{\vzero\}$, or the whole space.</li>
+        <li>The <b>column space</b> $\Col(A) = \{A\vx\}$ is the span of the columns: a subspace of
+          $\R^m$.</li>
+        <li>$A\vx = \vb$ is consistent exactly when $\vb \in \Col(A)$.</li>
+        <li>$\Col(M)$ is the plane $z = x + y$: $(1, 2, b_3)$ is on it only for $b_3 = 3$.</li>
+      </ul>
+      <div class="controls">
+        <label>$b_3$ = <input type="range" class="short" id="cs-b3" min="1.5" max="4.5" step="0.1" value="4">
+          <span id="cs-b3-out"></span></label>
+        <label>view <input type="range" class="short" id="cs-az" min="-160" max="-100" step="1" value="-128"></label>
+      </div>
+      <div class="readout" id="cs-read"></div>
+    </div>
+  </div>
+  <aside class="notes">$M\vx$ is the combination $x_1\vv_1 + x_2\vv_2 + x_3(\vv_1 + \vv_2)$ of its
+    columns, so the set of all outputs is the span of the columns. The third column adds nothing:
+    $\Col(M) = \Span\{\vv_1, \vv_2\}$, the plane $z = x + y$ of slide <a href="#span">span</a>.
+    A basis of $\Col(A)$ is the set of pivot columns <b>of $A$ itself</b>. Row operations change
+    the columns (the RREF of $M$ has columns in the plane $z = 0$), but they keep every relation
+    among them: $A\vx = \vzero$ exactly when $R\vx = \vzero$. In the RREF the pivot columns are
+    independent and every free column is a combination of them, so the same holds for the
+    columns of $A$ in the same positions. For $M$ the pivot columns are 1 and 2, the basis is
+    $\vv_1, \vv_2$, and $\dim\Col(M) = 2 = \rank M$. The readout computes $b_3 - 3$, the height of
+    $\vb$ above the plane, which is the last entry of the eliminated system on slide
+    <a href="#consistency">consistency</a>. Deck 02 finds the point of the plane closest to an
+    unreachable $\vb$ (least squares).</aside>
+</section>
+
+<!-- ============================================================ null space -->
+<section class="slide" id="null-space" data-code="00_math_toolkit.py:d01_null_basis">
+  <h2>The null space</h2>
+  <div class="cols mid">
+    <figure>
+      <svg id="f-null"></svg>
+      <figcaption>Red: $\Null(A_{23})$, the line $t(-1, -1, 1)$. Yellow: the plane of the two rows
+        of $A_{23}$ (gray arrows).</figcaption>
+    </figure>
+    <div>
+      <ul class="tight">
+        <li>The <b>null space</b> $\Null(A) = \{\vx : A\vx = \vzero\}$ is a subspace of $\R^n$:
+          if $A\vx = A\vy = \vzero$, then $A(\vx + c\vy) = \vzero$.</li>
+        <li>$A_{23}\vx = \vzero$ says $x + z = 0$ and $y + z = 0$, so $\Null(A_{23})$ is the line
+          $t(-1, -1, 1)$.</li>
+        <li>Each row of $A$ dotted with a null vector gives 0: the rows are perpendicular to
+          $\Null(A)$.</li>
+        <li class="step">A contact that allows no motion along its normal gives
+          $J_c\vv = \vzero$; the allowed velocities are $\Null(J_c)$ (decks 18, 21).</li>
+      </ul>
+      <div class="controls">
+        <label>$t$ = <input type="range" class="short" id="ns-t" min="-1.5" max="1.5" step="0.05" value="1">
+          <span id="ns-t-out"></span></label>
+        <label>view <input type="range" class="short" id="ns-az" min="-160" max="-100" step="1" value="-128"></label>
+      </div>
+      <div class="readout" id="ns-read"></div>
+    </div>
+  </div>
+  <aside class="notes">The null space collects the inputs that a matrix sends to zero: the
+    directions the map loses. For $A_{23}$ these are the points of the line through $\vzero$ in
+    direction $(-1, -1, 1)$, the same direction that slide
+    <a href="#wide-matrix-flattens">wide-matrix-flattens</a> saw collapse onto a single point. The
+    closure proof on the slide uses linearity: $A(\vx + c\vy) = A\vx + cA\vy = \vzero + c\vzero$.
+    Entry $i$ of $A\vx$ is row $i$ dotted with $\vx$, so $A\vx = \vzero$ says that $\vx$ is
+    perpendicular to every row, and then to every combination of rows. In the figure the red
+    line meets the yellow plane of the rows at a right angle; deck 02 proves that the null space
+    and the row space are orthogonal complements. The matrix $M$ has the same null space as
+    $A_{23}$: its first two rows are those of $A_{23}$, and its third row is their sum, which adds
+    no new condition. In decks 18 and 21 the constraint Jacobian plays the role of $A$, and the
+    velocities that keep every contact closed form its null space.</aside>
+</section>
+
+<!-- ============================================================ null space basis -->
+<section class="slide" id="null-space-basis" data-code="00_math_toolkit.py:d01_null_basis">
+  <h2>A basis of the null space from the RREF</h2>
+  $$A_{34} = \begin{bmatrix} 1 & 2 & 0 & 1 \\ 2 & 4 & 1 & 4 \\ 3 & 6 & 1 & 5 \end{bmatrix}
+    \ \xrightarrow{\ R_2 - 2R_1,\ R_3 - 3R_1,\ R_3 - R_2\ }\
+    R = \begin{bmatrix} 1 & 2 & 0 & 1 \\ 0 & 0 & 1 & 2 \\ 0 & 0 & 0 & 0 \end{bmatrix}$$
+  <ol class="tight">
+    <li class="step">Pivots in columns 1 and 3. The variables $x_2$ and $x_4$ are free.</li>
+    <li class="step">$R\vx = \vzero$ reads $x_1 + 2x_2 + x_4 = 0$ and $x_3 + 2x_4 = 0$, so
+      $x_1 = -2x_2 - x_4$ and $x_3 = -2x_4$.</li>
+    <li class="step">One free variable 1, the other 0: $(x_2, x_4) = (1, 0)$ gives
+      $\vn_1 = (-2, 1, 0, 0)$, and $(0, 1)$ gives $\vn_2 = (-1, 0, -2, 1)$.</li>
+    <li class="step">Every null vector is $\vx = x_2\vn_1 + x_4\vn_2$: $\vn_1, \vn_2$ are a basis
+      and $\dim\Null(A_{34}) = 2$.</li>
+  </ol>
+  <div class="box step">Check: $A_{34}\vn_1 = (-2 + 2,\ -4 + 4,\ -6 + 6) = \vzero$ and
+    $A_{34}\vn_2 = (-1 + 1,\ -2 - 2 + 4,\ -3 - 2 + 5) = \vzero$.</div>
+  <aside class="notes">$A\vx = \vzero$ and $R\vx = \vzero$ have the same solutions, because row
+    operations do not change solution sets, so the null space can be read off the RREF. Each
+    nonzero row of $R$ expresses one pivot variable in terms of the free variables; the free
+    variables can take any values. The vectors $\vn_1$ and $\vn_2$ are called the <b>special
+    solutions</b>. They are independent: in entry 2 only $\vn_1$ is nonzero, and in entry 4 only
+    $\vn_2$ is, so $c_1\vn_1 + c_2\vn_2 = \vzero$ forces $c_1 = c_2 = 0$. They span the null space,
+    because any null vector $\vx$ equals $x_2\vn_1 + x_4\vn_2$: both sides have the same free
+    entries, and the pivot entries are fixed by the free ones. The same recipe works for any
+    matrix: one special solution per free column. These bases are not orthonormal;
+    <code>Num.nullspace</code> in <code>lib/num.js</code> returns an orthonormal basis of the same
+    subspace, the convention Hou and Mason use, and deck 02 builds it.</aside>
+</section>
+
+<!-- ============================================================ row space and rank -->
+<section class="slide" id="row-space-and-rank" data-code="00_math_toolkit.py:d01_four_subspaces">
+  <h2>The row space and the rank</h2>
+  <ul class="tight">
+    <li>The <b>row space</b> $\Row(A)$ is the span of the rows of $A$, a subspace of $\R^n$. It
+      equals $\Col(A^\T)$.</li>
+    <li>A row operation replaces a row by a combination of rows and can be undone, so it does
+      not change the row space.</li>
+    <li>A basis of $\Row(A_{34})$: the nonzero rows of $R$, $(1, 2, 0, 1)$ and $(0, 0, 1, 2)$.</li>
+    <li>A basis of $\Col(A_{34})$: columns 1 and 3 of $A_{34}$, $(1, 2, 3)$ and $(0, 1, 1)$.</li>
+  </ul>
+  <div class="box">$\dim\Row(A) = \dim\Col(A) = $ number of pivots $= \rank A$. For $A_{34}$ all
+    three equal 2.</div>
+  <p class="step">Rows are perpendicular to null vectors:
+    $(1, 2, 0, 1)\cdot(-2, 1, 0, 0) = 0$, $(1, 2, 0, 1)\cdot(-1, 0, -2, 1) = 0$,
+    $(0, 0, 1, 2)\cdot(-2, 1, 0, 0) = 0$, $(0, 0, 1, 2)\cdot(-1, 0, -2, 1) = 0$.</p>
+  <aside class="notes">The nonzero rows of the RREF are independent: each has a 1 in a pivot
+    column where the other rows have 0. They span the row space, which row operations do not
+    change, so they are a basis, and $\dim\Row(A)$ is the number of pivots. The column space has
+    the pivot columns of $A$ as a basis (slide <a href="#column-space">column-space</a>), so
+    $\dim\Col(A)$ is the same number. That common number is the <b>rank</b>, and
+    $\rank A = \rank A^\T$ follows. A fourth subspace completes the set: the left null space
+    $\Null(A^\T)$, the combinations of rows that give zero. For $A_{34}$ it is spanned by
+    $(-1, -1, 1)$, because row 3 equals row 1 plus row 2; its dimension is $m - \rank A = 1$.
+    <code>d01_four_subspaces</code> returns bases of all four. The dot products on the slide
+    illustrate the fact of slide <a href="#null-space">null-space</a>: every row, hence every
+    vector of the row space, is perpendicular to every null vector. Deck 02 proves the stronger
+    statement that the row space contains every vector perpendicular to the null space, and Hou
+    and Mason's rank tests for goal inclusion (2021, eq. 11-13) rest on it.</aside>
+</section>
+
+<!-- ============================================================ rank-nullity -->
+<section class="slide" id="rank-nullity" data-code="00_math_toolkit.py:d01_rank_nullity_table">
+  <h2>The rank-nullity theorem</h2>
+  <div class="cols">
+    <div>
+      <div class="box">For an $m\times n$ matrix, $\rank A + \dim\Null(A) = n$.</div>
+      <ol class="tight">
+        <li class="step">Each of the $n$ columns of the RREF is a pivot column or a free column.</li>
+        <li class="step">There are $\rank A$ pivot columns, so $n - \rank A$ free columns.</li>
+        <li class="step">Each free column gives one special solution. These are a basis of
+          $\Null(A)$ (previous slide), so $\dim\Null(A) = n - \rank A$.</li>
+      </ol>
+      <p class="step">A wide matrix ($n &gt; m$) has $\rank A \le m &lt; n$, so its null space
+        contains a nonzero vector. Hence more than $m$ vectors in $\R^m$ are dependent.</p>
+    </div>
+    <div>
+      <table class="small">
+        <tr><th>matrix</th><th>shape</th><th class="num">rank</th><th class="num">$\dim\Null$</th></tr>
+        <tr><td>$A_{23}$</td><td>$2\times 3$</td><td class="num">2</td><td class="num">1</td></tr>
+        <tr><td>$M$</td><td>$3\times 3$</td><td class="num">2</td><td class="num">1</td></tr>
+        <tr><td>$A_{34}$</td><td>$3\times 4$</td><td class="num">2</td><td class="num">2</td></tr>
+        <tr><td>$A_{23}^\T$</td><td>$3\times 2$</td><td class="num">2</td><td class="num">0</td></tr>
+        <tr><td>$I$</td><td>$3\times 3$</td><td class="num">3</td><td class="num">0</td></tr>
+        <tr><td>table $E$</td><td>$3\times 4$</td><td class="num">3</td><td class="num">1</td></tr>
+      </table>
+    </div>
+  </div>
+  <aside class="notes">The theorem splits the $n$ input directions of a map into two counts: the
+    rank counts the independent directions that reach the output, and the nullity
+    $\dim\Null(A)$ counts the directions that are lost. The proof counts columns of the RREF:
+    every column either holds a pivot or it does not, and the special solutions of slide
+    <a href="#null-space-basis">null-space-basis</a> are one per free column. The rank is at most
+    the number of rows and at most the number of columns, because each pivot uses one of each.
+    The consequence at the bottom proves the claim of slide
+    <a href="#linear-independence">linear-independence</a>: put $k &gt; m$ vectors of $\R^m$ as the
+    columns of an $m\times k$ matrix; its null space contains some $\vc \ne \vzero$, and
+    $c_1\vv_1 + \dots + c_k\vv_k = \vzero$ is a dependency. The table's rows are computed by
+    <code>d01_rank_nullity_table</code>. A tall matrix of full column rank, such as $A_{23}^\T$,
+    has nullity 0, so it never sends two different inputs to the same output. Hou and Mason's
+    maximum number of velocity commands, $n - \rank N = \dim\Null(N)$ (2019, eq. 9), is this
+    theorem applied to the constraint matrix $N$.</aside>
+</section>
+
+<!-- ============================================================ solution set -->
+<section class="slide" id="solution-set" data-code="00_math_toolkit.py:d01_solution_set 00_math_toolkit.py:d01_min_norm_solution">
+  <h2>Solution set of $A\vx = \vb$ as a particular solution plus the null space</h2>
+  <div class="cols mid">
+    <figure>
+      <svg id="f-solset"></svg>
+      <figcaption>Gray dashed: $\Null(A_{23})$. Red: the solutions of $A_{23}\vx = \vb$. Open
+        circle: the shortest solution.</figcaption>
+    </figure>
+    <div>
+      <div class="box">If $A\vx_p = \vb$, the solutions of $A\vx = \vb$ are exactly the vectors
+        $\vx_p + \vn$ with $\vn \in \Null(A)$.</div>
+      <ul class="tight">
+        <li class="step">Each is a solution: $A(\vx_p + \vn) = \vb + \vzero = \vb$.</li>
+        <li class="step">Each solution $\vx$ has this form: $A(\vx - \vx_p) = \vb - \vb = \vzero$.</li>
+        <li class="step">$A_{23}\vx = (2, 1)$: $\vx_p = (2, 1, 0)$, so
+          $\vx = (2, 1, 0) + t(-1, -1, 1)$. At $t = 1$, $(1, 0, 1)$ has length
+          $\sqrt 2 = 1.414$, the shortest.</li>
+      </ul>
+      <div class="controls">
+        <label>$b_1$ <input type="range" class="short" id="ss-b1" min="-1" max="3" step="0.1" value="2"></label>
+        <label>$b_2$ <input type="range" class="short" id="ss-b2" min="-1" max="3" step="0.1" value="1"></label><br>
+        <label>$t$ = <input type="range" class="short" id="ss-t" min="-1.5" max="3" step="0.05" value="0">
+          <span id="ss-t-out"></span></label>
+      </div>
+      <div class="readout" id="ss-read"></div>
+    </div>
+  </div>
+  <aside class="notes">The particular solution $\vx_p$ comes from the RREF of $[A \mid \vb]$ with
+    every free variable set to 0: for $A_{23}$ the free variable is $z$, and $z = 0$ gives
+    $x = 2$, $y = 1$. Any other particular solution works as well, since two particular solutions
+    differ by a null vector. The solution set is a copy of the null space shifted by $\vx_p$: a
+    line parallel to the gray one, which the sliders $b_1$ and $b_2$ move sideways. The length
+    of $\vx(t)$ is $\sqrt{(b_1 - t)^2 + (b_2 - t)^2 + t^2}$; setting the derivative of its square
+    to zero gives $t = (b_1 + b_2)/3$, which is $t = 1$ for $\vb = (2, 1)$, with length
+    $\sqrt 2$ against $\sqrt 5 = 2.236$ at $t = 0$. The shortest solution is the one
+    perpendicular to the null space: $(1, 0, 1)\cdot(-1, -1, 1) = 0$. Deck 02 computes it for any
+    matrix with the pseudoinverse (<code>d01_min_norm_solution</code> here calls
+    <code>numpy.linalg.pinv</code>), and Hou and Mason use this choice to pick one force
+    distribution out of many (2019, Algorithm 2).</aside>
+</section>
+
+<!-- ============================================================ four-legged table -->
+<section class="slide" id="four-legged-table" data-code="00_math_toolkit.py:d01_table_legs">
+  <h2>Leg forces of a four-legged table</h2>
+  <div class="cols">
+    <div>
+      <figure class="bare"><svg id="f-table"></svg></figure>
+      <div class="controls">
+        <label>$t$ = <input type="range" class="short" id="tb-t" min="-35" max="35" step="1" value="10">
+          <span id="tb-t-out"></span> N</label>
+        <label>view <input type="range" class="short" id="tb-az" min="-150" max="-100" step="1" value="-122"></label>
+      </div>
+      <div class="readout" id="tb-read"></div>
+    </div>
+    <div>
+      <ul class="tight">
+        <li>A 100 N load sits at the centre of a square table with legs at $(\pm 0.5, \pm 0.5)$ m.
+          The unknowns are the four leg forces $f_1, \dots, f_4$ (N, up).</li>
+        <li>Equilibrium: the forces sum to 100 N, and the moments about the $x$ and $y$ axes vanish:
+          $$\begin{bmatrix} 1 & 1 & 1 & 1 \\ 0.5 & 0.5 & -0.5 & -0.5 \\ 0.5 & -0.5 & -0.5 & 0.5 \end{bmatrix}\vf
+            = \begin{bmatrix} 100 \\ 0 \\ 0 \end{bmatrix}$$</li>
+        <li>$\rank E = 3$, so $\dim\Null(E) = 1$:
+          $\vf = 25(1, 1, 1, 1) + t(1, -1, 1, -1)$ N.</li>
+        <li>Legs push only for $\abs{t} \le 25$ N. Statics cannot fix $t$: the table is
+          <b>statically indeterminate</b>.</li>
+      </ul>
+    </div>
+  </div>
+  <aside class="notes">Legs 1 to 4 stand at $(0.5, 0.5)$, $(-0.5, 0.5)$, $(-0.5, -0.5)$ and
+    $(0.5, -0.5)$ m. A vertical force $f_i$ at $(x_i, y_i)$ has moment $y_i f_i$ about the $x$ axis
+    and $-x_i f_i$ about the $y$ axis, so the second and third rows of $E$ hold the $y_i$ and the
+    $x_i$. Four unknowns and three independent equations leave one free direction,
+    $(1, -1, 1, -1)$: the diagonal pairs trade load, and $E(1, -1, 1, -1) = \vzero$ because the
+    pairs balance in every row. The particular solution $25(1, 1, 1, 1)$ is the even split. With
+    $t = 10$: $\vf = (35, 15, 35, 15)$ N, and $E\vf = (100, 0, 0)$. A leg can push but not pull,
+    so the physical solutions are $-25 \le t \le 25$; at the ends two diagonal legs carry
+    everything and the table rocks. Which $t$ occurs depends on leg lengths and floor stiffness,
+    which rigid-body statics does not model. Deck 13 returns to this table (statical
+    indeterminacy), deck 02 picks $t = 0$ as the minimum-norm force distribution, and deck 19
+    shows what MuJoCo's soft contact picks.</aside>
+</section>
+
+<!-- ============================================================ homogeneous -->
+<section class="slide" id="homogeneous-systems" data-code="00_math_toolkit.py:d01_solution_set">
+  <h2>Homogeneous and non-homogeneous systems</h2>
+  <div class="cols mid">
+    <figure>
+      <svg id="f-homog"></svg>
+      <figcaption>Blue: the solutions of $M\vx = \vzero$. Red: the solutions of
+        $M\vx = (1, 2, 3)$, the blue line shifted by $\vx_p = (1, 2, 0)$.</figcaption>
+    </figure>
+    <div>
+      <ul class="tight">
+        <li><b>Homogeneous</b>: $A\vx = \vzero$. Always consistent ($\vx = \vzero$ works); the
+          solution set is $\Null(A)$, a subspace.</li>
+        <li><b>Non-homogeneous</b>: $A\vx = \vb$ with $\vb \ne \vzero$. The solution set is empty
+          or $\vx_p + \Null(A)$, which does not contain $\vzero$.</li>
+      </ul>
+      <table class="small">
+        <tr><th>system</th><th>solutions</th></tr>
+        <tr><td>$M\vx = \vzero$</td><td>$t(-1, -1, 1)$</td></tr>
+        <tr><td>$M\vx = (1, 2, 3)$</td><td>$(1, 2, 0) + t(-1, -1, 1)$</td></tr>
+        <tr><td>$M\vx = (1, 2, 4)$</td><td>none</td></tr>
+      </table>
+      <p class="small step">Rank $r$, $n$ unknowns: $r = n$ gives at most one solution;
+        $r &lt; n$ gives none or a family with $n - r$ free parameters.</p>
+      <div class="controls">
+        <label>view <input type="range" class="short" id="hg-az" min="-160" max="-100" step="1" value="-128"></label>
+      </div>
+    </div>
+  </div>
+  <aside class="notes">A homogeneous system always has the solution $\vx = \vzero$, so the only
+    question is whether it has others; it does exactly when $\rank A &lt; n$. A non-homogeneous
+    system can fail to have any solution (slide <a href="#consistency">consistency</a>); when it
+    has one, it has as many as the homogeneous system, shifted. So the homogeneous system decides
+    how many solutions there are and the right-hand side decides whether there are any. The
+    solution set of a non-homogeneous system is not a subspace: it misses $\vzero$, and the sum of
+    two solutions solves $A\vx = 2\vb$ instead. Such a shifted subspace is called an <b>affine</b>
+    set. Hou and Mason use both kinds. Their natural constraints are homogeneous, $N\vv = \vzero$,
+    and their goals and velocity commands are non-homogeneous, $G\vv = \vb_G$ and
+    $C\vv = \vb_C$ (2019, Sec. IV-A). They first make the homogeneous systems
+    $[N; C]\vv = \vzero$ and $[N; G]\vv = \vzero$ share their solutions and then choose $\vb_C$
+    from one particular solution, which is this slide's theorem used twice.</aside>
+</section>
+
+<!-- ============================================================ identity strictest goal -->
+<section class="slide" id="identity-strictest-goal" data-code="00_math_toolkit.py:d01_goal_dims">
+  <h2>The identity as the strictest velocity goal</h2>
+  <div class="cols mid">
+    <figure>
+      <svg id="f-goal"></svg>
+      <figcaption>Velocity space $(v_x, \omega, v_y)$, ticks at 0.1. Blue plane, line and red point:
+        the solution sets of the three goals, all through $\vv^*$.</figcaption>
+    </figure>
+    <div>
+      <ul class="tight">
+        <li>A velocity goal is $G\vv = \vb_G$ (Hou 2019, eq. 1). Here $\vv = (v_x, v_y, \omega)$ is
+          the velocity of a block in the plane; the target is $\vv^* = (0.1, 0, 0)$ and
+          $\vb_G = G\vv^*$.</li>
+        <li>The goal holds on a set of dimension $3 - \rank G$.</li>
+      </ul>
+      <table class="small">
+        <tr><th>$G$</th><th>fixes</th><th class="num">$\rank G$</th><th>solution set</th></tr>
+        <tr><td>$[1\ 0\ 0]$</td><td>$v_x$</td><td class="num">1</td><td>plane</td></tr>
+        <tr><td>$\left[\begin{smallmatrix} 1 & 0 & 0 \\ 0 & 0 & 1 \end{smallmatrix}\right]$</td><td>$v_x$, $\omega$</td><td class="num">2</td><td>line</td></tr>
+        <tr><td>$I$</td><td>all</td><td class="num">3</td><td>the point $\vv^*$</td></tr>
+      </table>
+      <div class="box step">$G = I$ allows only $\vv^*$, and $\vv^*$ satisfies every goal
+        $G\vv = G\vv^*$: the identity is the strictest goal.</div>
+      <div class="controls">
+        <select id="goal-g">
+          <option value="1">G = [1 0 0]</option>
+          <option value="2">G = [1 0 0; 0 0 1]</option>
+          <option value="3" selected>G = I</option>
+        </select>
+        <label>view <input type="range" class="short" id="goal-az" min="-160" max="-100" step="1" value="-125"></label>
+      </div>
+    </div>
+  </div>
+  <aside class="notes">Hou and Mason (2019, Sec. III-B) state the goal of each control step as an
+    affine constraint on the generalized velocity. The goal can be a whole desired velocity, in
+    which case $G = I$, or it can involve only some entries, which leaves the others free for the
+    controller to choose. In the example the block should slide right at 0.1 m/s. Asking only for
+    $v_x = 0.1$ leaves $v_y$ and $\omega$ free: a plane. Asking also for $\omega = 0$ leaves a line
+    along $v_y$. Asking for all three leaves the one point $\vv^*$. Each added independent row
+    raises the rank by one and removes one dimension, by rank-nullity, and each solution set sits
+    inside the one before it. The identity has the largest possible rank, $n$, so its solution
+    set has dimension 0: it pins every entry of the velocity. In a system with $n$ velocity
+    entries, $G = I$ therefore asks the controller for the most, and slide
+    <a href="#velocity-command-count">velocity-command-count</a> shows that it needs the largest
+    number of velocity commands. The select box highlights one goal; the figure always draws all
+    three sets. In the select boxes a semicolon separates rows: $[1\ 0\ 0;\ 0\ 0\ 1]$ is the
+    $2\times 3$ matrix of the table.</aside>
+</section>
+
+<!-- ============================================================ stacked constraints -->
+<section class="slide" id="stacked-constraints" data-code="00_math_toolkit.py:d01_stacked_ranks">
+  <h2>A contact constraint stacked with a velocity goal</h2>
+  <div class="cols mid">
+    <figure>
+      <svg id="f-stack"></svg>
+      <figcaption>Yellow: $\mathrm{Sol}(N)$, the plane $v_y = 0$. Blue: $\mathrm{Sol}(G)$. Red:
+        $\mathrm{Sol}(N \,\&\, G)$.</figcaption>
+    </figure>
+    <div>
+      <ul class="tight">
+        <li>The table stops the block from moving down: $N\vv = \vzero$ with $N = [0\ 1\ 0]$.</li>
+        <li>Contact and goal together: $\begin{bmatrix} N \\ G \end{bmatrix}\vv =
+          \begin{bmatrix} \vzero \\ \vb_G \end{bmatrix}$.</li>
+        <li>Consistent exactly when the stacked matrix and its augmented matrix have equal rank.
+          Then $\dim\mathrm{Sol}(N \,\&\, G) = 3 - \rank\begin{bmatrix} N \\ G \end{bmatrix}$.</li>
+        <li>$G = I$ with $b_y &lt; 0$ asks the block to move into the table: inconsistent.</li>
+      </ul>
+      <div class="controls">
+        <select id="st-g">
+          <option value="1">G = [1 0 0], v_x = 0.1</option>
+          <option value="2">G = [1 0 0; 0 0 1]</option>
+          <option value="3" selected>G = I, v = (0.1, b_y, 0)</option>
+          <option value="4">G = [0 1 0], v_y = b_y</option>
+        </select>
+        <label>$b_y$ = <input type="range" class="short" id="st-by" min="-0.1" max="0.1" step="0.01" value="-0.05">
+          <span id="st-by-out"></span></label>
+      </div>
+      <div class="readout" id="st-read"></div>
+    </div>
+  </div>
+  <aside class="notes">Hou and Mason write the contact as a natural constraint $N\vv = \vzero$, where
+    $N = J_\Phi\Omega$ comes from differentiating the holonomic constraint $\Phi(q) = 0$ (2019,
+    eq. 3; deck 03 derives it). Here the block keeps contact with the table, so its vertical
+    velocity is zero. The velocities that meet both the contact and the goal solve the stacked
+    system, written $\mathrm{Sol}(N \,\&\, G)$ in the paper. The four goals in the select box give
+    four cases, all computed by <code>d01_stacked_ranks</code>. $G = [1\ 0\ 0]$: ranks 1 and 2, a line
+    ($\omega$ free). $G = [1\ 0\ 0;\ 0\ 0\ 1]$: rank 3, the point $(0.1, 0, 0)$. $G = I$: rank 3;
+    consistent only for $b_y = 0$, because the augmented matrix has rank 4 otherwise.
+    $G = [0\ 1\ 0]$ with $b_y = 0$ repeats the contact: the stacked rank stays 1 and the solution
+    set is the whole plane; with $b_y \ne 0$ the two planes are parallel and the system is
+    inconsistent. No velocity satisfies an inconsistent system, and Hou and Mason (2019, Fig. 1,
+    right) call such a system infeasible. The notation $[N; G]$ means $N$ stacked above $G$.</aside>
+</section>
+
+<!-- ============================================================ velocity command count -->
+<section class="slide" id="velocity-command-count" data-code="00_math_toolkit.py:d01_stacked_ranks">
+  <h2>The number of velocity commands from two ranks</h2>
+  <div class="cols">
+    <div>
+      <p>The controller adds $n_{av}$ velocity commands $C\vv = \vb_C$. Requirement (Hou 2019,
+        eq. 7): $\mathrm{Sol}(N \,\&\, C) \subseteq \mathrm{Sol}(N \,\&\, G)$.</p>
+      <ol class="tight">
+        <li class="step">A set inside another has no more dimensions:
+          $n - \rank\begin{bmatrix} N \\ C \end{bmatrix} \le n - \rank\begin{bmatrix} N \\ G \end{bmatrix}$.</li>
+        <li class="step">Stacked rows add at most their own number to the rank:
+          $\rank\begin{bmatrix} N \\ C \end{bmatrix} \le \rank N + n_{av}$.</li>
+      </ol>
+      <div class="box step">$n_{av} \ge \rank\begin{bmatrix} N \\ G \end{bmatrix} - \rank N$
+        (Hou 2019, eq. 8).</div>
+    </div>
+    <div>
+      <table class="small">
+        <tr><th>goal $G$</th><th class="num">$\rank\left[\begin{smallmatrix} N \\ G \end{smallmatrix}\right]$</th><th class="num">$\rank N$</th><th class="num">commands</th></tr>
+        <tr><td>$[1\ 0\ 0]$</td><td class="num">2</td><td class="num">1</td><td class="num">1</td></tr>
+        <tr><td>$[1\ 0\ 0;\ 0\ 0\ 1]$</td><td class="num">3</td><td class="num">1</td><td class="num">2</td></tr>
+        <tr><td>$I$</td><td class="num">3</td><td class="num">1</td><td class="num">2</td></tr>
+        <tr><td>$[0\ 1\ 0]$</td><td class="num">1</td><td class="num">1</td><td class="num">0</td></tr>
+      </table>
+      <p class="step">$G = I$ gives $n - \rank N = \dim\Null(N)$, the largest count any goal can
+        require (eq. 9): every direction the contact leaves free needs a velocity command.</p>
+    </div>
+  </div>
+  <aside class="notes">The two steps combine: step 1 gives
+    $\rank[N; C] \ge \rank[N; G]$, and step 2 gives $\rank[N; C] \le \rank N + n_{av}$, so
+    $\rank N + n_{av} \ge \rank[N; G]$. Step 1 uses rank-nullity: both solution sets are shifted
+    copies of null spaces, of dimension $n$ minus the rank of the stacked matrix, and a subspace
+    inside another cannot have more independent directions. Step 2 holds because the rows of
+    $[N; C]$ are the rows of $N$ together with the $n_{av}$ rows of $C$, so a basis of its row
+    space needs at most $\rank N + n_{av}$ vectors. For the block ($n = 3$, $\rank N = 1$): the
+    goal $v_x = 0.1$ needs one command; the goal $[1\ 0\ 0;\ 0\ 0\ 1]$ and the full goal $G = I$ need
+    two; the goal $v_y = 0$ needs none, because the table already enforces it. Hou and Mason choose
+    exactly the minimum, $n_{av} = \rank[N; G] - \rank N$ (eq. 10), which leaves the remaining
+    directions free for force control. Deck 21 builds the commands $C$ themselves, and deck 02
+    supplies the row-space tools for checking the inclusion.</aside>
+</section>
+
+<!-- ============================================================ check subspaces -->
+<section class="slide" id="check-subspaces">
+  <h2>Check yourself: subspaces, rank, and solution sets</h2>
+  <ol class="tight">
+    <li>A $3\times 5$ matrix has rank 3. What is $\dim\Null(A)$?
+      <details><summary>answer</summary><div>$5 - 3 = 2$ (rank-nullity).</div></details></li>
+    <li>What is $\Null(I)$?
+      <details><summary>answer</summary><div>$\{\vzero\}$: $I\vx = \vx = \vzero$.</div></details></li>
+    <li>$A\vx = \vb$ has the solution $(1, 0)$, and $\Null(A)$ is spanned by $(1, -1)$. Does
+      $(3, -2)$ solve it?
+      <details><summary>answer</summary><div>Yes: $(3, -2) = (1, 0) + 2(1, -1)$.</div></details></li>
+    <li>$\vv \in \R^6$ and $\rank G = 4$. What dimension does the solution set of a consistent goal
+      $G\vv = \vb_G$ have? What if $G = I$?
+      <details><summary>answer</summary><div>$6 - 4 = 2$; for $G = I$, $6 - 6 = 0$, a single point.</div></details></li>
+    <li>$\rank N = 2$ and $\rank\,[N; G] = 5$. How many velocity commands are needed at least?
+      <details><summary>answer</summary><div>$5 - 2 = 3$.</div></details></li>
+  </ol>
+  <aside class="notes">Question 1 uses rank-nullity with $n = 5$ columns; a $3\times 5$ matrix
+    always has a null space of dimension at least 2. Question 2: the identity loses no direction,
+    so its null space is the zero subspace, and by rank-nullity its rank is $n$. Question 3 applies
+    the solution-set theorem: $(3, -2) - (1, 0) = (2, -2) = 2(1, -1)$ lies in the null space.
+    Question 4 is the dimension count of slide
+    <a href="#identity-strictest-goal">identity-strictest-goal</a> in $\R^6$, for example the
+    velocity of a rigid body in space. Question 5 is Hou and Mason's eq. 8. The study plan's
+    week 1 exam asks this kind of question; the notebook functions <code>d01_goal_dims</code> and
+    <code>d01_stacked_ranks</code> compute the answers for any matrices.</aside>
+</section>
+
+<!-- ============================================================ results -->
+<section class="slide" id="results-later-decks">
+  <h2>Results used in later decks</h2>
+  <ul class="small tight">
+    <li>Dot product, perpendicular vectors, the shadow length $\va\cdot\vb/\norm{\vb}$, and
+      $\Row(A) \perp \Null(A)$: projections and orthogonal complements (deck 02).</li>
+    <li>The rank test for consistency, and the shortest solution $(1, 0, 1)$ of
+      $A_{23}\vx = (2, 1)$: least squares and the pseudoinverse (deck 02).</li>
+    <li>Column $j$ of the matrix of a linear map is the image of $\ve_j$: the Jacobian (deck 03).</li>
+    <li>Decision vectors in $\R^n$, the 1-, 2- and $\infty$-norms, and rows of constraints
+      $A\vz \le \vb$ (decks 05-07).</li>
+    <li>Composition of maps, as in $\vx_{k+1} = A\vx_k + B\vu_k$ (deck 08).</li>
+    <li>$\vf = 25(1, 1, 1, 1) + t(1, -1, 1, -1)$: a nonzero null space of the equilibrium matrix is
+      statical indeterminacy (deck 13).</li>
+    <li>$(A\vx)\cdot\vy = \vx\cdot(A^\T\vy)$, which gives $\vtau = J^\T\vlambda$; allowed velocities
+      form $\Null(J_c)$ (decks 17, 18).</li>
+    <li>$\dim\mathrm{Sol} = n - \rank$, consistency of $[N; G]$, $n_{av} \ge \rank[N; G] - \rank N$,
+      and $G = I$ as the strictest goal (deck 21).</li>
+  </ul>
+  <p>Next: <a href="02_eigenvalues_and_least_squares.html">deck 02, Eigenvalues, singular values,
+    and least squares</a>.</p>
+  <aside class="notes">Each line names a fact built in this deck and the deck that uses it. Deck 02
+    continues with projections onto lines and subspaces, orthonormal bases and Gram-Schmidt, the
+    orthogonal complement and Hou and Mason's rank test for goal inclusion, eigenvalues, the
+    singular value decomposition and the condition number, least squares, and the minimum-norm
+    solution. The notebook cells for this deck (section &ldquo;Deck 01&rdquo; of
+    <code>tutorial/00_math_toolkit.py</code>) recompute every number shown here; the tex covers
+    the same material in lines 1100-1130.</aside>
+</section>
 
 </main>
 <script>
@@ -1364,7 +2108,340 @@
     draw();
   }
 
-  // PART-III-SCRIPT
+  // ================================================================ Part III helpers
+  // The line a x + b y = c across the box xl x yl (null when a = b = 0).
+  function line2(G, a, b, c, xl, yl, o) {
+    let p, q;
+    if (Math.abs(b) >= Math.abs(a)) {
+      if (Math.abs(b) < 1e-12) return null;
+      p = [xl[0], (c - a * xl[0]) / b]; q = [xl[1], (c - a * xl[1]) / b];
+    } else {
+      p = [(c - b * yl[0]) / a, yl[0]]; q = [(c - b * yl[1]) / a, yl[1]];
+    }
+    G.line(p, q, o);
+    return [p, q];
+  }
+  // Label a x + b y = c at its rightmost point inside the box, above the line.
+  function lineLabel(G, a, b, c, xl, yl, s, o) {
+    for (let x = xl[1]; x >= xl[0]; x -= 0.05) {
+      if (Math.abs(b) < 1e-12) break;
+      const y = (c - a * x) / b;
+      if (y >= yl[0] && y <= yl[1]) return G.text([x, y], s, Object.assign({ size: 19, anchor: "end", dy: -14 }, o));
+    }
+    return null;
+  }
+  // A 3D view with a scale factor S applied to every point (vector units -> figure units).
+  function in3s(F, view, S) {
+    const T = F.in3(view), sc = (p) => p.map((x) => x * S);
+    return {
+      view, S, p: (q) => T.p(sc(q)),
+      line: (a, b, o) => T.line(sc(a), sc(b), o),
+      arrow: (a, b, o) => T.arrow(sc(a), sc(b), o),
+      poly: (pts, o) => T.poly(pts.map(sc), o),
+      dot: (a, o) => T.dot(sc(a), o),
+      label: (a, s, o) => T.label(sc(a), s, o),
+      text: (a, s, o) => T.text(sc(a), s, o),
+      axes: (len, o) => F.axes3(view, Object.assign({ len: len.map((x) => x * S), color: "#777777", width: 1.2, lsize: 19 }, o || {})),
+    };
+  }
+  // Matrix entries: at most 3 decimals, a true minus sign.
+  const fe = (v) => { let s = (Math.round(v * 1000) / 1000).toString(); if (s === "-0") s = "0"; return s.replace("-", "−"); };
+  const A2 = [[1, -1], [1, 3]];
+
+  // ---------------------------------------------------------------- row and column pictures
+  {
+    const xr = [-2.3, 4.3], yr = [-1.7, 2.7];
+    const FR = Fig("#f-rowpic", { w: 560, h: 320, xlim: xr, ylim: yr });
+    const xc = [-3.2, 5.6], yc = [-2.3, 6.5];
+    const FC = Fig("#f-colpic", { w: 560, h: 320, xlim: xc, ylim: yc });
+    const base = FC.group(), top = FC.group();
+    const u = [1, 1], w = [-1, 3];
+    let b = [1, 5];
+    function draw() {
+      const r = LM.classify2(A2, b), x = r.x;
+      FR.clear();
+      plane(FR, [-2.3, 4.6], [-1.7, 2.7]);
+      line2(FR, 1, -1, b[0], [-3, 5.5], [-3, 3.5], { color: C.normal, width: 3 });
+      line2(FR, 1, 3, b[1], [-3, 5.5], [-3, 3.5], { color: C.green, width: 3 });
+      FR.text([-2.8, 2.45], "row picture", { size: 20 });
+      // labels at the right edge of the box, on each line
+      lineLabel(FR, 1, -1, b[0], [-2.2, 4.3], [-1.5, 2.4], "x − y = " + fx(b[0], 2).replace("-", "−"), { color: C.normal });
+      lineLabel(FR, 1, 3, b[1], [-2.2, 4.3], [-1.5, 2.4], "x + 3y = " + fx(b[1], 2).replace("-", "−"), { color: C.green });
+      FR.dot(x, { rpx: 7, color: C.force });
+      FR.text(x, vs(x, 2), { size: 20, color: C.force, dx: 12, dy: 16 });
+      base.clear();
+      plane(base, [-6.4, 8.8], yc, { ticks: false });
+      const xu = mul(u, x[0]);
+      base.arrow([0, 0], u, { color: C.normal, width: 1.5, opacity: 0.5 });
+      base.arrow([0, 0], w, { color: C.green, width: 1.5, opacity: 0.5 });
+      if (Math.abs(x[0]) > 0.05) base.arrow([0, 0], xu, Object.assign({ color: C.normal, label: fx(x[0], 2) + "u", lpos: "mid", loff: [34, 12] }, vlab));
+      if (Math.abs(x[1]) > 0.05) base.arrow(xu, b, Object.assign({ color: C.green, label: fx(x[1], 2) + "w", lpos: "mid", loff: [-40, 0] }, vlab));
+      base.arrow([0, 0], b, Object.assign({ color: C.force, width: 2, label: "b", loff: [14, -4] }, vlab));
+      base.text([-6.1, 6.1], "column picture", { size: 20 });
+      $("rc-read").textContent = "b = " + vs(b, 2) + "\nsolution (x, y) = " + vs(x, 2) +
+        "\n" + fx(x[0], 2) + " u + " + fx(x[1], 2) + " w = " + vs(add(mul(u, x[0]), mul(w, x[1])), 2);
+    }
+    handle(FC, top, "h-rc-b", b, (q) => { b = snap(clamp2(q, [-2, 3], [-1, 6]), 0.25); draw(); return b; }, { color: C.force });
+    draw();
+  }
+
+  // ---------------------------------------------------------------- three outcomes
+  {
+    const xl = [-2.3, 4.6], yl = [-2.3, 4.3];
+    const F = Fig("#f-three", { w: 540, h: 440, xlim: xl, ylim: yl });
+    const kEl = $("three-k"), cEl = $("three-c");
+    function draw() {
+      const k = +kEl.value, c = +cEl.value;
+      const r = LM.classify2([[1, 1], [1, k]], [2, c]);
+      F.clear();
+      plane(F, xl, yl);
+      line2(F, 1, 1, 2, [-3, 5], [-3, 5], { color: C.normal, width: 4 });
+      const same = r.status === "infinite";
+      line2(F, 1, k, c, [-3, 5], [-3, 5], { color: C.green, width: 3, dash: same ? "10 8" : null });
+      if (r.status === "one") {
+        F.dot(r.x, { rpx: 7, color: C.force });
+        F.text(r.x, vs(r.x, 2), { size: 20, color: C.force, dx: 12, dy: -14 });
+      }
+      $("three-k-out").textContent = fx(k, 2);
+      $("three-c-out").textContent = fx(c, 1);
+      $("three-read").textContent = "det = k - 1 = " + fx(k - 1, 2) + "\nrank A = " + r.rankA + "   rank [A | b] = " + r.rankAb +
+        "\n" + (r.status === "one" ? "one solution " + vs(r.x, 2) : r.status === "none" ? "no solution (inconsistent)" : "infinitely many; shortest " + vs(r.x, 2));
+    }
+    on(kEl, draw); on(cEl, draw);
+    draw();
+  }
+
+  // ---------------------------------------------------------------- RREF stepper
+  {
+    const W = 560, H = 330;
+    const F = Fig("#f-rref", { w: W, h: H, xlim: [0, W], ylim: [0, H] });
+    const P = (x, y) => [x, H - y]; // pixel-style coordinates, y down
+    const MATS = {
+      A34: { A: [[1, 2, 0, 1], [2, 4, 1, 4], [3, 6, 1, 5]], aug: false },
+      S3: { A: [[1, 1, 1, 6], [2, 3, 1, 11], [1, -1, 2, 5]], aug: true },
+      Mb: { A: [[1, 0, 1, 1], [0, 1, 1, 2], [1, 1, 2, 4]], aug: true },
+      swap: { A: [[0, 2, 4], [1, 1, 1], [2, 4, 6]], aug: false },
+      table: { A: [[1, 1, 1, 1, 100], [0.5, 0.5, -0.5, -0.5, 0], [0.5, -0.5, -0.5, 0.5, 0]], aug: true },
+    };
+    const sel = $("rref-mat"), kEl = $("rref-k");
+    let cur = null;
+    function load() {
+      const m = MATS[sel.value];
+      cur = Object.assign({ r: LM.rrefSteps(m.A) }, m);
+      kEl.max = cur.r.steps.length;
+      kEl.value = cur.r.steps.length;
+    }
+    function draw() {
+      const r = cur.r, k = +kEl.value, n = cur.A[0].length, m = cur.A.length;
+      const M = k === 0 ? cur.A : r.matrices[k - 1];
+      const s = k === 0 ? null : r.steps[k - 1], pv = k === 0 ? null : r.pivotAt[k - 1];
+      const cw = Math.min(92, 470 / n), rh = 62, x0 = (W - cw * n) / 2, y0 = 70;
+      F.clear();
+      F.text(P(W / 2, 28), k === 0 ? "the matrix" : "step " + k + " of " + r.steps.length + ":  " + s[4], { size: 22, anchor: "middle" });
+      const shade = (i) => F.poly([P(x0 - 6, y0 + i * rh), P(x0 + cw * n + 6, y0 + i * rh), P(x0 + cw * n + 6, y0 + (i + 1) * rh), P(x0 - 6, y0 + (i + 1) * rh)], { fill: "#e4e4e4", stroke: "none" });
+      if (s) { shade(s[1]); if (s[0] === "swap") shade(s[2]); }
+      if (pv) F.poly([P(x0 + pv[1] * cw + 4, y0 + pv[0] * rh + 6), P(x0 + (pv[1] + 1) * cw - 4, y0 + pv[0] * rh + 6), P(x0 + (pv[1] + 1) * cw - 4, y0 + (pv[0] + 1) * rh - 6), P(x0 + pv[1] * cw + 4, y0 + (pv[0] + 1) * rh - 6)], { fill: C.cone, color: "#bba000", width: 1 });
+      const done = k === r.steps.length;
+      if (done) r.pivots.forEach((c, i) => F.poly([P(x0 + c * cw + 4, y0 + i * rh + 6), P(x0 + (c + 1) * cw - 4, y0 + i * rh + 6), P(x0 + (c + 1) * cw - 4, y0 + (i + 1) * rh - 6), P(x0 + c * cw + 4, y0 + (i + 1) * rh - 6)], { fill: "none", color: C.force, width: 2 }));
+      // brackets
+      const yb0 = y0 - 4, yb1 = y0 + m * rh + 4, xl0 = x0 - 12, xr0 = x0 + cw * n + 12;
+      F.path([P(xl0 + 10, yb0), P(xl0, yb0), P(xl0, yb1), P(xl0 + 10, yb1)], { width: 2 });
+      F.path([P(xr0 - 10, yb0), P(xr0, yb0), P(xr0, yb1), P(xr0 - 10, yb1)], { width: 2 });
+      if (cur.aug) F.line(P(x0 + cw * (n - 1), yb0 + 4), P(x0 + cw * (n - 1), yb1 - 4), { width: 1.5 });
+      M.forEach((row, i) => row.forEach((v, j) => F.text(P(x0 + (j + 0.5) * cw, y0 + (i + 0.5) * rh), fe(v), { size: 26, anchor: "middle" })));
+      const pc = r.pivots.map((c) => c + 1);
+      const inc = cur.aug && r.pivots.includes(n - 1);
+      F.text(P(W / 2, y0 + m * rh + 44), done ? "pivot columns " + pc.join(", ") + ";  rank " + r.rank + (inc ? " (pivot in b: inconsistent)" : "") : "", { size: 21, anchor: "middle", color: done ? C.force : C.ink });
+      $("rref-k-out").textContent = k + " / " + r.steps.length;
+    }
+    on(sel, () => { load(); draw(); });
+    on(kEl, draw);
+    load();
+    draw();
+  }
+
+  // ---------------------------------------------------------------- column space (3D)
+  {
+    const F = Fig("#f-colspace", { w: 540, h: 460, xlim: [-2.3, 2.3], ylim: [-1.3, 2.75] });
+    const bEl = $("cs-b3"), azEl = $("cs-az");
+    const Mm = [[1, 0, 1], [0, 1, 1], [1, 1, 2]];
+    const pl = (x, y) => [x, y, x + y];
+    function draw() {
+      const b3 = +bEl.value, T = in3s(F, Fig.view3(d(+azEl.value), d(18)), 0.5);
+      const b = [1, 2, b3], inP = Math.abs(b3 - 3) < 1e-9;
+      const r = LM.consistency(Mm, b);
+      F.clear();
+      T.axes([2.2, 2.9, 4.6], { labels: ["x", "y", "z"] });
+      T.poly([pl(-0.6, -0.6), pl(1.8, -0.6), pl(1.8, 2.5), pl(-0.6, 2.5)], { fill: C.cone, fillOpacity: 0.6, color: "#bba000", width: 1 });
+      [[1, 0, 1], [0, 1, 1], [1, 1, 2]].forEach((c, i) => T.arrow([0, 0, 0], c, { color: "#555555", width: 2.2, label: "m_" + (i + 1), lsize: 19, loff: [i === 1 ? -14 : 14, 0] }));
+      T.line([1, 2, 3], b, { color: C.force, dash: true, width: 1.5 });
+      T.dot([1, 2, 3], { rpx: 3, color: "#bba000" });
+      T.dot(b, { rpx: 7, color: inP ? C.green : C.force });
+      T.label(b, "b", { size: 22, bold: true, dx: 16, color: inP ? C.green : C.force });
+      $("cs-b3-out").textContent = fx(b3, 1);
+      $("cs-read").textContent = "b = " + vs(b, 1) + "   b3 - 3 = " + fx(b3 - 3, 1) +
+        "\nrank M = " + r.rankA + "   rank [M | b] = " + r.rankAb + "\n" + (r.consistent ? "consistent: b is in Col(M)" : "inconsistent: b is off the plane");
+    }
+    on(bEl, draw); on(azEl, draw);
+    draw();
+  }
+
+  // ---------------------------------------------------------------- null space (3D)
+  {
+    const F = Fig("#f-null", { w: 540, h: 440, xlim: [-2.2, 2.2], ylim: [-1.5, 2.1] });
+    const tEl = $("ns-t"), azEl = $("ns-az");
+    const n = [-1, -1, 1], r1 = [1, 0, 1], r2 = [0, 1, 1];
+    const pl = (x, y) => [x, y, x + y];
+    function draw() {
+      const t = +tEl.value, T = in3s(F, Fig.view3(d(+azEl.value), d(18)), 0.72);
+      const x = mul(n, t);
+      F.clear();
+      T.axes([1.8, 1.8, 2.2], { labels: ["x", "y", "z"] });
+      T.line(mul(n, -1.7), [0, 0, 0], { color: C.force, width: 3, opacity: 0.85 });
+      T.poly([pl(-1, -1), pl(1.3, -1), pl(1.3, 1.3), pl(-1, 1.3)], { fill: C.cone, fillOpacity: 0.6, color: "#bba000", width: 1 });
+      T.line([0, 0, 0], mul(n, 1.7), { color: C.force, width: 3, opacity: 0.85 });
+      T.arrow([0, 0, 0], r1, { color: "#555555", width: 2.2, label: "row 1", lsize: 18, upright: true, loff: [26, 6] });
+      T.arrow([0, 0, 0], r2, { color: "#555555", width: 2.2, label: "row 2", lsize: 18, upright: true, loff: [-24, 6] });
+      T.dot(x, { rpx: 7, color: C.force });
+      T.label(x, "x", { size: 22, bold: true, dx: 16, color: C.force });
+      $("ns-t-out").textContent = fx(t, 2);
+      $("ns-read").textContent = "x = t(-1, -1, 1) = " + vs(x, 2) + "\nA23 x = " + vs(Num.matvec([r1, r2], x), 2) +
+        "\nrow 1 . x = " + fx(Num.dot(r1, x), 2) + "   row 2 . x = " + fx(Num.dot(r2, x), 2);
+    }
+    on(tEl, draw); on(azEl, draw);
+    draw();
+  }
+
+  // ---------------------------------------------------------------- solution set (3D)
+  {
+    const F = Fig("#f-solset", { w: 540, h: 450, xlim: [-2.4, 2.4], ylim: [-1.6, 2.4] });
+    const b1El = $("ss-b1"), b2El = $("ss-b2"), tEl = $("ss-t");
+    const n = [-1, -1, 1], view = Fig.view3(d(-128), d(20));
+    function draw() {
+      const b = [+b1El.value, +b2El.value], t = +tEl.value, T = in3s(F, view, 0.52);
+      const s = LM.solutionSet([[1, 0, 1], [0, 1, 1]], b), xp = s.particular;
+      const xm = LM.minNormSolution([[1, 0, 1], [0, 1, 1]], b), tm = xm[2]; // x_p has z = 0, so t = z
+      const x = add(xp, mul(n, t));
+      F.clear();
+      T.axes([3.6, 3.6, 3.3], { labels: ["x", "y", "z"] });
+      T.line(mul(n, -1.6), mul(n, 3), { color: "#777777", dash: "7 5", width: 1.6 });
+      T.line(add(xp, mul(n, -1.6)), add(xp, mul(n, 3.2)), { color: C.force, width: 3 });
+      T.arrow([0, 0, 0], xp, { color: C.purple, width: 2, label: "x_p", loff: [16, 10], lbold: true });
+      T.dot(xm, { rpx: 7, color: "#ffffff" });
+      F.circle(T.p(xm), 7 / F.s, { color: C.force, width: 2 });
+      T.dot(x, { rpx: 7, color: C.force });
+      T.label(x, "x", { size: 22, bold: true, dx: -16, dy: -8, color: C.force });
+      $("ss-t-out").textContent = fx(t, 2);
+      $("ss-read").textContent = "b = " + vs(b, 1) + "   x_p = " + vs(xp, 1) + "\nx = " + vs(x, 2) + "   A23 x = " + vs(Num.matvec([[1, 0, 1], [0, 1, 1]], x), 2) +
+        "\n|x| = " + fx(LM.length(x), 3) + "   shortest at t = " + fx(tm, 2) + ": " + fx(LM.length(xm), 3);
+    }
+    on(b1El, draw); on(b2El, draw); on(tEl, draw);
+    draw();
+  }
+
+  // ---------------------------------------------------------------- four-legged table (3D)
+  {
+    const F = Fig("#f-table", { w: 560, h: 330, xlim: [-1.25, 1.25], ylim: [-0.62, 0.95] });
+    const tEl = $("tb-t"), azEl = $("tb-az");
+    const h = 0.5, H = 0.62, k = 0.0105; // top height (m), arrow length per newton (m/N)
+    const legs = [[h, h], [-h, h], [-h, -h], [h, -h]];
+    function draw() {
+      const t = +tEl.value, T = in3s(F, Fig.view3(d(+azEl.value), d(20)), 1);
+      const r = LM.tableLegs(100, t);
+      F.clear();
+      T.poly([[-0.85, -0.85, 0], [0.85, -0.85, 0], [0.85, 0.85, 0], [-0.85, 0.85, 0]], { fill: "#eeeeee", color: "#bbbbbb", width: 1 });
+      legs.forEach(([x, y], i) => {
+        T.line([x, y, 0], [x, y, H], { color: "#999999", width: 7 });
+        const f = r.f[i];
+        if (Math.abs(f) > 0.5) T.arrow([x, y, 0], [x, y, f * k], { color: f >= 0 ? C.force : C.orange, width: 4, dash: f >= 0 ? null : "6 4" });
+        T.text([x * 1.5, y * 1.5, 0], "f" + "₁₂₃₄"[i] + " = " + fx(f, 0), { size: 19, anchor: "middle", color: f >= 0 ? C.force : C.orange });
+      });
+      T.poly([[-0.62, -0.62, H], [0.62, -0.62, H], [0.62, 0.62, H], [-0.62, 0.62, H]], { fill: "#c8a878", fillOpacity: 0.55, color: "#6b4f2a", width: 1.5 });
+      T.arrow([0, 0, H + 100 * k * 0.3], [0, 0, H], { color: C.ink, width: 3 });
+      T.text([0, 0, H + 100 * k * 0.3], "100 N", { size: 19, dx: 10, dy: -4 });
+      const pull = r.f.map((f, i) => (f < 0 ? i + 1 : 0)).filter(Boolean);
+      $("tb-t-out").textContent = fx(t, 0);
+      $("tb-read").textContent = "f = " + vs(r.f, 0) + " N\nE f = " + vs(add(r.residual, [100, 0, 0]), 1) +
+        "\n" + (pull.length ? "legs " + pull.join(" and ") + " would have to pull" : "all four legs push");
+    }
+    on(tEl, draw); on(azEl, draw);
+    draw();
+  }
+
+  // ---------------------------------------------------------------- homogeneous vs non-homogeneous (3D)
+  {
+    const F = Fig("#f-homog", { w: 540, h: 450, xlim: [-2.3, 2.3], ylim: [-1.5, 2.3] });
+    const azEl = $("hg-az");
+    const n = [-1, -1, 1], xp = [1, 2, 0];
+    function draw() {
+      const T = in3s(F, Fig.view3(d(+azEl.value), d(20)), 0.6);
+      F.clear();
+      T.axes([2.6, 3.0, 2.4], { labels: ["x", "y", "z"] });
+      T.line(mul(n, -1.3), mul(n, 2), { color: C.normal, width: 3 });
+      T.line(add(xp, mul(n, -1.3)), add(xp, mul(n, 2)), { color: C.force, width: 3 });
+      T.arrow([0, 0, 0], xp, { color: C.purple, width: 2, dash: "6 4", label: "x_p", loff: [14, 12], lbold: true });
+      T.dot([0, 0, 0], { rpx: 5, color: C.normal });
+      T.dot(xp, { rpx: 5, color: C.force });
+      T.label(mul(n, 2), "Null(M)", { size: 19, dx: 34, color: C.normal, italic: false });
+      T.label(add(xp, mul(n, 2)), "x_p + Null(M)", { size: 19, dx: 58, color: C.force, italic: false });
+    }
+    on(azEl, draw);
+    draw();
+  }
+
+  // ---------------------------------------------------------------- velocity space: goals and the contact
+  // Display coordinates: X = v_x, Y = omega, Z = v_y, in units of 0.1 (m/s or rad/s).
+  function vaxes(T) {
+    T.axes([2.3, 1.7, 1.7], { labels: ["v_x", "ω", "v_y"], neg: 0.75 });
+    T.text([1, 0, 0], "0.1", { size: 17, dy: 14, anchor: "middle", color: "#555555" });
+  }
+  {
+    const F = Fig("#f-goal", { w: 540, h: 420, xlim: [-2.2, 2.2], ylim: [-1.45, 1.75] });
+    const gEl = $("goal-g"), azEl = $("goal-az");
+    function draw() {
+      const g = +gEl.value, T = in3s(F, Fig.view3(d(+azEl.value), d(20)), 0.85);
+      F.clear();
+      vaxes(T);
+      T.poly([[1, -1.3, -1.2], [1, 1.3, -1.2], [1, 1.3, 1.2], [1, -1.3, 1.2]], { fill: "#c9d3f2", fillOpacity: g === 1 ? 0.75 : 0.25, color: C.normal, width: g === 1 ? 2 : 0.8 });
+      T.line([1, 0, -1.3], [1, 0, 1.3], { color: C.normal, width: g === 2 ? 5 : 2, opacity: g === 2 ? 1 : 0.5 });
+      T.dot([1, 0, 0], { rpx: g === 3 ? 9 : 5, color: C.force });
+      T.label([1, 0, 0], "v*", { size: 22, bold: true, dx: 18, dy: 14, color: C.force });
+    }
+    on(gEl, draw); on(azEl, draw);
+    draw();
+  }
+  {
+    const F = Fig("#f-stack", { w: 540, h: 420, xlim: [-2.2, 2.2], ylim: [-1.45, 1.75] });
+    const gEl = $("st-g"), bEl = $("st-by");
+    const GS = { 1: [[1, 0, 0]], 2: [[1, 0, 0], [0, 0, 1]], 3: [[1, 0, 0], [0, 1, 0], [0, 0, 1]], 4: [[0, 1, 0]] };
+    function draw() {
+      const g = +gEl.value, by = +bEl.value, Z = by / 0.1, T = in3s(F, Fig.view3(d(-125), d(20)), 0.85);
+      const bG = { 1: [0.1], 2: [0.1, 0], 3: [0.1, by, 0], 4: [by] }[g];
+      const r = LM.stacked([[0, 1, 0]], GS[g], bG);
+      const RED = { color: C.force, width: 5 };
+      F.clear();
+      vaxes(T);
+      T.poly([[-1, -1.3, 0], [2, -1.3, 0], [2, 1.3, 0], [-1, 1.3, 0]], { fill: C.cone, fillOpacity: 0.6, color: "#bba000", width: 1 });
+      if (g === 1) {
+        T.poly([[1, -1.3, -1.2], [1, 1.3, -1.2], [1, 1.3, 1.2], [1, -1.3, 1.2]], { fill: "#c9d3f2", fillOpacity: 0.5, color: C.normal, width: 1.2 });
+        T.line([1, -1.3, 0], [1, 1.3, 0], RED);
+      } else if (g === 2) {
+        T.line([1, 0, -1.3], [1, 0, 1.3], { color: C.normal, width: 3 });
+        T.dot([1, 0, 0], { rpx: 8, color: C.force });
+      } else if (g === 3) {
+        if (Math.abs(Z) > 1e-9) T.line([1, 0, 0], [1, 0, Z], { color: C.normal, dash: true, width: 1.4 });
+        T.dot([1, 0, Z], { rpx: 8, color: r.consistent ? C.force : C.normal });
+      } else {
+        const fillB = r.consistent ? "#f4c4c4" : "#c9d3f2";
+        T.poly([[-1, -1.3, Z], [2, -1.3, Z], [2, 1.3, Z], [-1, 1.3, Z]], { fill: fillB, fillOpacity: 0.5, color: r.consistent ? C.force : C.normal, width: 1.5 });
+      }
+      $("st-by-out").textContent = fx(by, 2);
+      $("st-read").textContent = "rank N = " + r.rankN + "   rank [N; G] = " + r.rankNG + "   augmented: " + r.rankAug +
+        "\n" + (r.consistent ? "consistent, dim Sol(N & G) = " + r.dimSol : "inconsistent: no velocity meets both");
+    }
+    on(gEl, draw); on(bEl, draw);
+    draw();
+  }
 })();
 </script>
 </body>

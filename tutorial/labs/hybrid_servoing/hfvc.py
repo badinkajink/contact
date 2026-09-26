@@ -295,12 +295,20 @@ def complete_axes(C, n_u):
     return R_a, block_diag(np.eye(n_u), R_a)
 
 
-def alg1_cost(K, M, form="paper"):
+ALG1_FORMS = ("paper", "squared", "code")
+
+
+def alg1_cost(K, M, form="code"):
     """Cost of 2019 eq. 15 for coefficients K (n_c x n_av), c_i = B_c k_i with B_c orthonormal.
 
     form='paper':   sum_{i!=j} |c_i^T c_j| - sum_i ||Null(N)^T c_i||      (eq. 15 as printed)
-    form='squared': sum_{i!=j} (c_i^T c_j)^2 - sum_i ||Null(N)^T c_i||^2   (authors' MATLAB code)
-    M = B_c^T Null(N)^T Null(N) B_c, so ||Null(N)^T c_i||^2 = k_i^T M k_i."""
+    form='squared': sum_{i!=j} (c_i^T c_j)^2 - sum_i ||Null(N)^T c_i||^2
+    form='code':    sum_{i<j} (c_i^T c_j)^2 - sum_i ||Null(N)^T c_i||^2    (authors' MATLAB code)
+    M = B_c^T Null(N)^T Null(N) B_c, so ||Null(N)^T c_i||^2 = k_i^T M k_i.
+
+    The authors' code sums (c_i^T c_j)^2 over i != j but differentiates it with the factor 2 of
+    a single pair, so the descent direction it follows is the gradient of the 'code' cost, which
+    counts each unordered pair once. The cost value it prints is the 'squared' one."""
     Gram = K.T @ K
     off = Gram - np.diag(np.diag(Gram))
     quad = np.einsum("ji,jk,ki->i", K, M, K)
@@ -308,14 +316,16 @@ def alg1_cost(K, M, form="paper"):
         return float(np.abs(off).sum() - np.sqrt(np.maximum(quad, 0.0)).sum())
     if form == "squared":
         return float((off**2).sum() - quad.sum())
+    if form == "code":
+        return float(0.5 * (off**2).sum() - quad.sum())
     raise ValueError(form)
 
 
-def alg1_grad(K, M, form="paper"):
+def alg1_grad(K, M, form="code"):
     """Gradient of alg1_cost with respect to K (same shape as K).
 
     Each unordered pair {i, j} appears twice in sum_{i!=j}, which gives the factor 2 ('paper')
-    and 4 ('squared'); the authors' code uses 2 in the squared form."""
+    and 4 ('squared'); 'code' counts each pair once, factor 2, as in the authors' code."""
     Gram = K.T @ K
     off = Gram - np.diag(np.diag(Gram))
     MK = M @ K
@@ -324,19 +334,25 @@ def alg1_grad(K, M, form="paper"):
         return 2.0 * K @ np.sign(off) - MK / np.sqrt(quad)
     if form == "squared":
         return 4.0 * K @ off - 2.0 * MK
+    if form == "code":
+        return 2.0 * K @ off - 2.0 * MK
     raise ValueError(form)
 
 
-def alg1_basis(prob: HFVCProblem):
+def alg1_basis(prob: HFVCProblem, check=True):
     """Steps 1-3 of 2019 Algorithm 1: ranks, n_av (eq. 10), B_c (eq. 13) and Null(N).
 
     Returns dict with r_N, r_NG, n_av, sigma (rows sigma_i^T), Bc (n x n_c, orthonormal columns),
-    NullN (rows: orthonormal basis of null(N)) and M = B_c^T Null(N)^T Null(N) B_c."""
+    NullN (rows: orthonormal basis of null(N)) and M = B_c^T Null(N)^T Null(N) B_c.
+    check=False skips eq. 14, so the basis also exists for underactuated problems.
+
+    The columns of B_c span S = ROW([N; G]) intersected with {c : c_u = 0}: every goal-inclusive
+    velocity-command row lies in S (2021 eq. 11-13), so Algorithm 1 and OCHS search one space."""
     N, G, n, n_u = prob.J, prob.G, prob.n, prob.n_u
     n_a = n - n_u
     NG = np.vstack([N, G])
     r_N, r_NG = svd_rank(N), svd_rank(NG)
-    if r_N + n_a < n:  # eq. 14 (the authors' code asserts the strict version)
+    if check and r_N + n_a < n:  # eq. 14 (the authors' code asserts the strict version)
         raise Infeasible(f"eq. 14 fails: r_N + n_a = {r_N + n_a} < n = {n}")
     n_av = r_NG - r_N  # eq. 10
     sigma = null_rows(NG)  # rows sigma_i^T, i = 1..n - r_NG
@@ -347,7 +363,41 @@ def alg1_basis(prob: HFVCProblem):
     return dict(r_N=r_N, r_NG=r_NG, n_av=n_av, n_c=Bc.shape[1], sigma=sigma, Bc=Bc, NullN=NullN, M=M)
 
 
-def alg1_pgd(M, n_av, K0, t=10.0, iters=50, form="paper", tol=0.0, record=False):
+def crash_bound(prob: HFVCProblem):
+    """The smallest crashing index any goal-inclusive C with n_av = r_NG - r_N rows can have.
+
+    For a C with orthonormal rows spanning W, the singular values of [J_hat; C] are 1 and
+    sqrt(1 +- cos theta_i), theta_i the principal angles between W and ROW(J), so the crashing
+    index is sqrt((1 + c) / (1 - c)) with c = cos(smallest angle). A unit row w of S has
+    NULL(J) component |P_N w|^2 = k^T M k (w = B_c k), so the best W is the span of the top n_av
+    eigenvectors of M (Courant-Fischer) and c^2 = 1 - lambda_{n_av}(M). OCHS attains this bound:
+    S splits orthogonally into span(U_bar) ∩ ROW([J; G]), where M is positive definite, and
+    {c_u = 0} ∩ ROW(J), where M vanishes. Returns (bound, eigenvalues of M in decreasing order,
+    B_c times the top n_av eigenvectors, as rows)."""
+    b = alg1_basis(prob, check=False)
+    n_av = b["n_av"]
+    lam, V = np.linalg.eigh(b["M"])
+    lam, V = lam[::-1], V[:, ::-1]
+    if n_av == 0:
+        return 1.0, lam, np.zeros((0, prob.n))
+    if n_av > lam.size:
+        return math.inf, lam, np.zeros((0, prob.n))
+    c2 = min(max(1.0 - lam[n_av - 1], 0.0), 1.0)
+    c = math.sqrt(c2)
+    bound = math.inf if 1.0 - c <= 1e-15 else math.sqrt((1.0 + c) / (1.0 - c))
+    return bound, lam, (b["Bc"] @ V[:, :n_av]).T
+
+
+def random_valid_C(prob: HFVCProblem, rng=None, rows=None):
+    """A random velocity-command matrix whose rows lie in S = span(B_c) (goal-inclusive for
+    almost every draw when rows = n_av): the search space shared by Algorithm 1 and OCHS."""
+    rng = np.random.default_rng(rng)
+    b = alg1_basis(prob, check=False)
+    k = b["n_av"] if rows is None else rows
+    return (b["Bc"] @ rng.standard_normal((b["n_c"], k))).T
+
+
+def alg1_pgd(M, n_av, K0, t=10.0, iters=50, form="code", tol=0.0, record=False):
     """Projected gradient descent of 2019 Sec. IV-A on unit-length columns of K.
 
     Steps: k <- k - t grad; k_i <- k_i / ||B_c k_i|| (= ||k_i|| since B_c is orthonormal).
@@ -369,25 +419,30 @@ def alg1_pgd(M, n_av, K0, t=10.0, iters=50, form="paper", tol=0.0, record=False)
     return K, last, hist
 
 
-def alg1_velocity(prob: HFVCProblem, Ns=3, t=10.0, iters=50, form="paper", rng=None, tol=0.0):
+def alg1_velocity(prob: HFVCProblem, Ns=3, t=10.0, iters=50, form="code", rng=None, tol=0.0,
+                  init="uniform"):
     """2019 Algorithm 1: n_av, C (via eq. 13 and 15), R_a (eq. 16), T, v* and w_av.
 
-    Ns random initializations (standard normal columns; the authors' code draws U[0, 1)) are
-    each run through alg1_pgd; the lowest final cost wins."""
+    Ns random initializations (init='uniform': entries U[0, 1), as the authors' code draws them;
+    init='normal': standard normal) are each run through alg1_pgd; the lowest final cost wins.
+    The defaults (form='code', t = 10, 50 iterations, uniform starts) reproduce the authors'
+    MATLAB; form='paper' is eq. 15 as printed (see alg1_cost)."""
     rng = np.random.default_rng(rng)
     b = alg1_basis(prob)
     n, n_u, n_av = prob.n, prob.n_u, b["n_av"]
     n_a = n - n_u
     if b["n_c"] < n_av:
         raise Infeasible(f"n_c = {b['n_c']} < n_av = {n_av}")
+
+    def start():
+        shape = (b["n_c"], n_av)
+        return rng.uniform(size=shape) if init == "uniform" else rng.standard_normal(shape)
+
     if n_av == 0:
         C = np.zeros((0, n))
         costs, best = [0.0], 0
     else:
-        results = [
-            alg1_pgd(b["M"], n_av, rng.standard_normal((b["n_c"], n_av)), t, iters, form, tol)
-            for _ in range(Ns)
-        ]
+        results = [alg1_pgd(b["M"], n_av, start(), t, iters, form, tol) for _ in range(Ns)]
         costs = [r[1] for r in results]
         best = int(np.argmin(costs))
         C = (b["Bc"] @ results[best][0]).T
@@ -401,7 +456,7 @@ def alg1_velocity(prob: HFVCProblem, Ns=3, t=10.0, iters=50, form="paper", rng=N
     if res > 1e-7 * (1 + np.linalg.norm(prob.b_G)):
         raise Infeasible(f"goal inconsistent with the constraints (residual {res:.2e})")
     return VelocityControl(
-        n_av, n_a - n_av, C, R_a, T, C @ v_star, v_star, f"alg1(Ns={Ns},{form})",
+        n_av, n_a - n_av, C, R_a, T, C @ v_star, v_star, f"alg1(Ns={Ns},{form},{init})",
         dict(costs=costs, best=best, r_N=b["r_N"], r_NG=b["r_NG"], n_c=b["n_c"]),
     )
 
@@ -537,7 +592,9 @@ def ochs_velocity(prob: HFVCProblem, maximal=False):
         n_av = n_min
         Z = null_rows(np.vstack([J, G]), n)
         K = null_rows(Z @ Ubar.T, Ubar.shape[0])  # eq. 24
-        info["K"] = K
+        info["K"], info["Z"] = K, Z
+        # rows(K) = dim(span(U_bar) ∩ ROW([J; G])) <= n_av always, because span(U_bar) meets
+        # ROW(J) only at 0; eq. 25 therefore holds with equality whenever it holds.
         if K.shape[0] < n_av:  # eq. 25
             raise Infeasible(f"eq. 25 fails: rows(K) = {K.shape[0]} < n_av = {n_av}")
         C = K[:n_av] @ Ubar
@@ -1096,6 +1153,10 @@ def world_commands(vel: VelocityControl, force: Optional[ForceControl], n_u):
 #     drawn from the projection of ROW(U_bar) onto NULL(J), plus a random ROW(J) component that
 #     changes no solution set, and b_G = G v_g for a random v_g in NULL(J). Every goal is
 #     therefore feasible for the velocity part;
+#   goal='object': n_G random combinations of the object's velocity coordinates only (the kind
+#     of goal of 2019 eq. 30 and 2021 Sec. IV-B), n_G uniform in 1..(object DOF the contacts
+#     leave free), b_G = G v_g as above. The robot may be unable to produce such a motion, so
+#     OCHS rejects some of these problems at eq. 25 (underactuated) and Algorithm 1 at eq. 14;
 #   load='feasible' (default): the external wrench on the object is F_u = -(J'_u)^T lambda* for
 #     a contact force lambda* strictly inside the guard set (normal force n_min + U[1, 2],
 #     tangential force at most half the friction bound), so a force distribution that satisfies
@@ -1170,11 +1231,21 @@ def random_problem(rng=None, dim=2, env="f", hand=1, fingers=1, goal="min", load
         Ubar = row_rows(US)
         if Ubar.shape[0] == 0:
             continue
-        W0 = row_rows(Ubar @ U.T @ U)  # projection of ROW(U_bar) onto NULL(J)
-        nG = int(rng.integers(1, W0.shape[0] + 1)) if goal == "min" else W0.shape[0]
-        G = rng.standard_normal((nG, W0.shape[0])) @ W0
-        if J.shape[0]:
-            G = G + rng.standard_normal((nG, J.shape[0])) @ J
+        if goal in ("min", "max"):
+            W0 = row_rows(Ubar @ U.T @ U)  # projection of ROW(U_bar) onto NULL(J)
+            nG = int(rng.integers(1, W0.shape[0] + 1)) if goal == "min" else W0.shape[0]
+            G = rng.standard_normal((nG, W0.shape[0])) @ W0
+            if J.shape[0]:
+                G = G + rng.standard_normal((nG, J.shape[0])) @ J
+        elif goal == "object":
+            Eu = np.hstack([np.eye(n_u), np.zeros((n_u, n - n_u))])
+            d = svd_rank(np.vstack([J, Eu])) - svd_rank(J)  # object DOF the contacts leave free
+            if d == 0:
+                continue
+            nG = int(rng.integers(1, d + 1))
+            G = rng.standard_normal((nG, n_u)) @ Eu
+        else:
+            raise ValueError(goal)
         v_g = U.T @ rng.standard_normal(U.shape[0])
         F = np.zeros(n)
         if load == "feasible":
@@ -1250,9 +1321,13 @@ def solve_ochs(prob: HFVCProblem, maximal=False):
                   lambda p: ochs_velocity(p, maximal), ochs_force)
 
 
-def solve_hs(prob: HFVCProblem, Ns=3, rng=None, form="paper", t=10.0, iters=50, objective="l1"):
-    """The 2019 method (2021 calls it HS3 / HS10 by Ns): Algorithm 1, then Algorithm 2."""
-    return _solve(prob, f"HS{Ns}", lambda p: alg1_velocity(p, Ns, t, iters, form, rng),
+def solve_hs(prob: HFVCProblem, Ns=3, rng=None, form="code", t=10.0, iters=50, objective="l1",
+             init="uniform"):
+    """The 2019 method (2021 calls it HS3 / HS10 by Ns): Algorithm 1, then Algorithm 2.
+
+    Defaults follow the authors' MATLAB (cost form 'code', t = 10, 50 iterations, U[0, 1)
+    starts); 2021 Sec. VI-B also runs 50 iterations per start."""
+    return _solve(prob, f"HS{Ns}", lambda p: alg1_velocity(p, Ns, t, iters, form, rng, 0.0, init),
                   lambda p, v: alg2_force(p, v, objective))
 
 
@@ -1279,7 +1354,7 @@ def time_call(fn, *args, repeat=1, **kwargs):
 
 def table2(problems, solvers, ill=100.0):
     """Table II-style summary: for each named solver (name -> fn(prob) -> HFVCSolution) the
-    number solved, mean crashing index over solved problems, the number with crashing index
+    number solved, mean and median crashing index over solved problems, the number with crashing index
     above `ill` (our threshold; 2021 does not state one), and mean / worst velocity and force
     times in ms. Also returns the per-problem solutions."""
     per = {name: [fn(p) for p in problems] for name, fn in solvers.items()}
@@ -1291,6 +1366,7 @@ def table2(problems, solvers, ill=100.0):
         tf = np.array([s.t_force for s in ok]) * 1e3
         rows[name] = dict(total=len(sols), solved=len(ok),
                           mean_crash=float(np.mean(cr[np.isfinite(cr)])) if cr.size else math.nan,
+                          median_crash=float(np.median(cr)) if cr.size else math.nan,
                           ill=int(np.sum(cr > ill)), t_vel_mean=float(np.mean(tv)),
                           t_vel_worst=float(np.max(tv)),
                           t_force_mean=float(np.mean(tf)) if tf.size else math.nan,

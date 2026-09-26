@@ -1,0 +1,682 @@
+{
+ "notebook": "00_math_toolkit.py",
+ "py_setup": "import numpy as np",
+ "scripts": [
+  "lib/num.js",
+  "lib/algo/03_derivatives.js"
+ ],
+ "cases": [
+  {
+   "name": "quartic derivs z = -1.0",
+   "py": "d03_quartic_derivs(-1.0)",
+   "js": "Derivatives.quarticDerivs(-1.0)",
+   "tol": 1e-12
+  },
+  {
+   "name": "quartic derivs z = 0.0",
+   "py": "d03_quartic_derivs(0.0)",
+   "js": "Derivatives.quarticDerivs(0.0)",
+   "tol": 1e-12
+  },
+  {
+   "name": "quartic derivs z = 1.0",
+   "py": "d03_quartic_derivs(1.0)",
+   "js": "Derivatives.quarticDerivs(1.0)",
+   "tol": 1e-12
+  },
+  {
+   "name": "quartic derivs z = 2.0",
+   "py": "d03_quartic_derivs(2.0)",
+   "js": "Derivatives.quarticDerivs(2.0)",
+   "tol": 1e-12
+  },
+  {
+   "name": "quartic derivs z = -1.37",
+   "py": "d03_quartic_derivs(-1.37)",
+   "js": "Derivatives.quarticDerivs(-1.37)",
+   "tol": 1e-12
+  },
+  {
+   "name": "quartic derivs z = 0.815",
+   "py": "d03_quartic_derivs(0.815)",
+   "js": "Derivatives.quarticDerivs(0.815)",
+   "tol": 1e-12
+  },
+  {
+   "name": "secant slope z0 = 1, h = 0.5",
+   "py": "d03_secant_slope(1.0, 0.5)",
+   "js": "Derivatives.secantSlope(1.0, 0.5)",
+   "tol": 1e-12
+  },
+  {
+   "name": "secant slope z0 = -0.4, h = -0.3",
+   "py": "d03_secant_slope(-0.4, -0.3)",
+   "js": "Derivatives.secantSlope(-0.4, -0.3)",
+   "tol": 1e-12
+  },
+  {
+   "name": "secant table z0 = 1",
+   "py": "d03_secant_table()",
+   "js": "Derivatives.secantTable()",
+   "tol": 1e-12
+  },
+  {
+   "name": "secant table z0 = 0.3",
+   "py": "d03_secant_table(0.3, (0.2, 0.02))",
+   "js": "Derivatives.secantTable(0.3, [0.2, 0.02])",
+   "tol": 1e-12
+  },
+  {
+   "name": "stationary points",
+   "py": "d03_stationary_points()",
+   "js": "Derivatives.stationaryPoints()",
+   "tol": 1e-12
+  },
+  {
+   "name": "inflection points",
+   "py": "d03_inflection_points()",
+   "js": "Derivatives.inflectionPoints()",
+   "tol": 1e-14
+  },
+  {
+   "name": "taylor coeffs z0 = 1.0",
+   "py": "d03_taylor_coeffs(1.0)",
+   "js": "Derivatives.taylorCoeffs(1.0)",
+   "tol": 1e-12
+  },
+  {
+   "name": "taylor coeffs z0 = 0.0",
+   "py": "d03_taylor_coeffs(0.0)",
+   "js": "Derivatives.taylorCoeffs(0.0)",
+   "tol": 1e-12
+  },
+  {
+   "name": "taylor coeffs z0 = 2.0",
+   "py": "d03_taylor_coeffs(2.0)",
+   "js": "Derivatives.taylorCoeffs(2.0)",
+   "tol": 1e-12
+  },
+  {
+   "name": "taylor coeffs z0 = -1.3",
+   "py": "d03_taylor_coeffs(-1.3)",
+   "js": "Derivatives.taylorCoeffs(-1.3)",
+   "tol": 1e-12
+  },
+  {
+   "name": "taylor poly z0 = 1.0, delta = 0.1, n = 1",
+   "py": "d03_taylor_poly(1.0, 0.1, 1)",
+   "js": "Derivatives.taylorPoly(1.0, 0.1, 1)",
+   "tol": 1e-12
+  },
+  {
+   "name": "taylor poly z0 = 1.0, delta = 0.1, n = 2",
+   "py": "d03_taylor_poly(1.0, 0.1, 2)",
+   "js": "Derivatives.taylorPoly(1.0, 0.1, 2)",
+   "tol": 1e-12
+  },
+  {
+   "name": "taylor poly z0 = 1.0, delta = 0.3, n = 4",
+   "py": "d03_taylor_poly(1.0, 0.3, 4)",
+   "js": "Derivatives.taylorPoly(1.0, 0.3, 4)",
+   "tol": 1e-12
+  },
+  {
+   "name": "taylor poly z0 = 0.0, delta = 0.7, n = 2",
+   "py": "d03_taylor_poly(0.0, 0.7, 2)",
+   "js": "Derivatives.taylorPoly(0.0, 0.7, 2)",
+   "tol": 1e-12
+  },
+  {
+   "name": "taylor poly z0 = -1.2, delta = -0.5, n = 3",
+   "py": "d03_taylor_poly(-1.2, -0.5, 3)",
+   "js": "Derivatives.taylorPoly(-1.2, -0.5, 3)",
+   "tol": 1e-12
+  },
+  {
+   "name": "taylor poly z0 = 2.0, delta = -1.1, n = 2",
+   "py": "d03_taylor_poly(2.0, -1.1, 2)",
+   "js": "Derivatives.taylorPoly(2.0, -1.1, 2)",
+   "tol": 1e-12
+  },
+  {
+   "name": "taylor error table z0 = 1",
+   "py": "d03_taylor_error_table()",
+   "js": "Derivatives.taylorErrorTable()",
+   "tol": 1e-09
+  },
+  {
+   "name": "taylor error table z0 = -0.6",
+   "py": "d03_taylor_error_table(-0.6, (0.4, 0.2, 0.1))",
+   "js": "Derivatives.taylorErrorTable(-0.6, [0.4, 0.2, 0.1])",
+   "tol": 1e-09
+  },
+  {
+   "name": "sin cos check 30 deg",
+   "py": "d03_sincos_check(np.radians(30.0))",
+   "js": "Derivatives.sincosCheck(30 * Math.PI / 180)",
+   "tol": 1e-09
+  },
+  {
+   "name": "sin cos check 200 deg",
+   "py": "d03_sincos_check(np.radians(200.0))",
+   "js": "Derivatives.sincosCheck(200 * Math.PI / 180)",
+   "tol": 1e-09
+  },
+  {
+   "name": "rotation derivative 30 deg",
+   "py": "d03_rotation_derivative(np.radians(30.0))",
+   "js": "Derivatives.rotationDerivative(30 * Math.PI / 180)",
+   "tol": 1e-12
+  },
+  {
+   "name": "rotation derivative 250 deg",
+   "py": "d03_rotation_derivative(np.radians(250.0))",
+   "js": "Derivatives.rotationDerivative(250 * Math.PI / 180)",
+   "tol": 1e-12
+  },
+  {
+   "name": "valley, grad, hess at [0.0, 1.0]",
+   "py": "[d03_valley([0.0, 1.0]), d03_valley_grad([0.0, 1.0]), d03_valley_hess([0.0, 1.0])]",
+   "js": "[Derivatives.valley([0.0, 1.0]), Derivatives.valleyGrad([0.0, 1.0]), Derivatives.valleyHess([0.0, 1.0])]",
+   "tol": 1e-12
+  },
+  {
+   "name": "valley, grad, hess at [1.0, 0.0]",
+   "py": "[d03_valley([1.0, 0.0]), d03_valley_grad([1.0, 0.0]), d03_valley_hess([1.0, 0.0])]",
+   "js": "[Derivatives.valley([1.0, 0.0]), Derivatives.valleyGrad([1.0, 0.0]), Derivatives.valleyHess([1.0, 0.0])]",
+   "tol": 1e-12
+  },
+  {
+   "name": "valley, grad, hess at [1.0, 1.0]",
+   "py": "[d03_valley([1.0, 1.0]), d03_valley_grad([1.0, 1.0]), d03_valley_hess([1.0, 1.0])]",
+   "js": "[Derivatives.valley([1.0, 1.0]), Derivatives.valleyGrad([1.0, 1.0]), Derivatives.valleyHess([1.0, 1.0])]",
+   "tol": 1e-12
+  },
+  {
+   "name": "valley, grad, hess at [2.0, 1.0]",
+   "py": "[d03_valley([2.0, 1.0]), d03_valley_grad([2.0, 1.0]), d03_valley_hess([2.0, 1.0])]",
+   "js": "[Derivatives.valley([2.0, 1.0]), Derivatives.valleyGrad([2.0, 1.0]), Derivatives.valleyHess([2.0, 1.0])]",
+   "tol": 1e-12
+  },
+  {
+   "name": "valley, grad, hess at [-1.3, 0.45]",
+   "py": "[d03_valley([-1.3, 0.45]), d03_valley_grad([-1.3, 0.45]), d03_valley_hess([-1.3, 0.45])]",
+   "js": "[Derivatives.valley([-1.3, 0.45]), Derivatives.valleyGrad([-1.3, 0.45]), Derivatives.valleyHess([-1.3, 0.45])]",
+   "tol": 1e-12
+  },
+  {
+   "name": "valley, grad, hess at [0.7, -1.9]",
+   "py": "[d03_valley([0.7, -1.9]), d03_valley_grad([0.7, -1.9]), d03_valley_hess([0.7, -1.9])]",
+   "js": "[Derivatives.valley([0.7, -1.9]), Derivatives.valleyGrad([0.7, -1.9]), Derivatives.valleyHess([0.7, -1.9])]",
+   "tol": 1e-12
+  },
+  {
+   "name": "valley stationary points",
+   "py": "d03_valley_stationary()",
+   "js": "Derivatives.valleyStationary()",
+   "tol": 1e-10
+  },
+  {
+   "name": "partial slices (0, 1)",
+   "py": "d03_partial_slices([0.0, 1.0])",
+   "js": "Derivatives.partialSlices([0.0, 1.0])",
+   "tol": 1e-09
+  },
+  {
+   "name": "partial slices (1.3, -0.4)",
+   "py": "d03_partial_slices([1.3, -0.4])",
+   "js": "Derivatives.partialSlices([1.3, -0.4])",
+   "tol": 1e-09
+  },
+  {
+   "name": "directional derivative at [0.0, 1.0], phi = 53.13010235415598",
+   "py": "d03_directional_derivative([0.0, 1.0], 53.13010235415598)",
+   "js": "Derivatives.directional([0.0, 1.0], 53.13010235415598)",
+   "tol": 1e-08
+  },
+  {
+   "name": "directional derivative at [0.0, 1.0], phi = 126.86989764584402",
+   "py": "d03_directional_derivative([0.0, 1.0], 126.86989764584402)",
+   "js": "Derivatives.directional([0.0, 1.0], 126.86989764584402)",
+   "tol": 1e-08
+  },
+  {
+   "name": "directional derivative at [1.0, 0.0], phi = 200.0",
+   "py": "d03_directional_derivative([1.0, 0.0], 200.0)",
+   "js": "Derivatives.directional([1.0, 0.0], 200.0)",
+   "tol": 1e-08
+  },
+  {
+   "name": "directional derivative at [-0.8, 0.3], phi = -35.0",
+   "py": "d03_directional_derivative([-0.8, 0.3], -35.0)",
+   "js": "Derivatives.directional([-0.8, 0.3], -35.0)",
+   "tol": 1e-08
+  },
+  {
+   "name": "steepest directions at [0.0, 1.0]",
+   "py": "d03_steepest_directions([0.0, 1.0])",
+   "js": "Derivatives.steepest([0.0, 1.0])",
+   "tol": 1e-10
+  },
+  {
+   "name": "steepest directions at [1.0, 0.0]",
+   "py": "d03_steepest_directions([1.0, 0.0])",
+   "js": "Derivatives.steepest([1.0, 0.0])",
+   "tol": 1e-10
+  },
+  {
+   "name": "steepest directions at [-1.2, 0.7]",
+   "py": "d03_steepest_directions([-1.2, 0.7])",
+   "js": "Derivatives.steepest([-1.2, 0.7])",
+   "tol": 1e-10
+  },
+  {
+   "name": "steepest directions at [0.5, -1.5]",
+   "py": "d03_steepest_directions([0.5, -1.5])",
+   "js": "Derivatives.steepest([0.5, -1.5])",
+   "tol": 1e-10
+  },
+  {
+   "name": "level tangent at [0.0, 1.0]",
+   "py": "d03_level_tangent([0.0, 1.0])",
+   "js": "Derivatives.levelTangent([0.0, 1.0])",
+   "tol": 1e-10
+  },
+  {
+   "name": "level tangent at [1.5, -0.5]",
+   "py": "d03_level_tangent([1.5, -0.5])",
+   "js": "Derivatives.levelTangent([1.5, -0.5])",
+   "tol": 1e-10
+  },
+  {
+   "name": "level tangent at [-1.0, 0.2]",
+   "py": "d03_level_tangent([-1.0, 0.2])",
+   "js": "Derivatives.levelTangent([-1.0, 0.2])",
+   "tol": 1e-10
+  },
+  {
+   "name": "slice curvature at [1.0, 0.0], phi = 45.0",
+   "py": "d03_slice_curvature([1.0, 0.0], 45.0)",
+   "js": "Derivatives.sliceCurvature([1.0, 0.0], 45.0)",
+   "tol": 1e-06
+  },
+  {
+   "name": "slice curvature at [1.0, 0.0], phi = 135.0",
+   "py": "d03_slice_curvature([1.0, 0.0], 135.0)",
+   "js": "Derivatives.sliceCurvature([1.0, 0.0], 135.0)",
+   "tol": 1e-06
+  },
+  {
+   "name": "slice curvature at [0.0, 1.0], phi = 120.0",
+   "py": "d03_slice_curvature([0.0, 1.0], 120.0)",
+   "js": "Derivatives.sliceCurvature([0.0, 1.0], 120.0)",
+   "tol": 1e-06
+  },
+  {
+   "name": "slice curvature at [-1.4, 0.9], phi = 10.0",
+   "py": "d03_slice_curvature([-1.4, 0.9], 10.0)",
+   "js": "Derivatives.sliceCurvature([-1.4, 0.9], 10.0)",
+   "tol": 1e-06
+  },
+  {
+   "name": "hessian eigen at [1.0, 0.0]",
+   "py": "d03_hessian_eigen([1.0, 0.0])",
+   "js": "Derivatives.hessianEigen([1.0, 0.0])",
+   "tol": 1e-10
+  },
+  {
+   "name": "hessian eigen at [0.0, 1.0]",
+   "py": "d03_hessian_eigen([0.0, 1.0])",
+   "js": "Derivatives.hessianEigen([0.0, 1.0])",
+   "tol": 1e-10
+  },
+  {
+   "name": "hessian eigen at [0.5, 0.5]",
+   "py": "d03_hessian_eigen([0.5, 0.5])",
+   "js": "Derivatives.hessianEigen([0.5, 0.5])",
+   "tol": 1e-10
+  },
+  {
+   "name": "hessian eigen at [-1.47, 3.0]",
+   "py": "d03_hessian_eigen([-1.47, 3.0])",
+   "js": "Derivatives.hessianEigen([-1.47, 3.0])",
+   "tol": 1e-10
+  },
+  {
+   "name": "valley models at [1.0, 0.0], delta [0.1, 0.1]",
+   "py": "d03_valley_models([1.0, 0.0], [0.1, 0.1])",
+   "js": "Derivatives.valleyModels([1.0, 0.0], [0.1, 0.1])",
+   "tol": 1e-12
+  },
+  {
+   "name": "valley models at [0.0, 1.0], delta [0.1, 0.1]",
+   "py": "d03_valley_models([0.0, 1.0], [0.1, 0.1])",
+   "js": "Derivatives.valleyModels([0.0, 1.0], [0.1, 0.1])",
+   "tol": 1e-12
+  },
+  {
+   "name": "valley models at [1.0, 0.0], delta [0.2, -0.1]",
+   "py": "d03_valley_models([1.0, 0.0], [0.2, -0.1])",
+   "js": "Derivatives.valleyModels([1.0, 0.0], [0.2, -0.1])",
+   "tol": 1e-12
+  },
+  {
+   "name": "valley models at [-1.2, -0.6], delta [0.5, 0.4]",
+   "py": "d03_valley_models([-1.2, -0.6], [0.5, 0.4])",
+   "js": "Derivatives.valleyModels([-1.2, -0.6], [0.5, 0.4])",
+   "tol": 1e-12
+  },
+  {
+   "name": "grad of b^T x",
+   "py": "d03_grad_linear([2.0, -1.0], [3.0, 1.0])",
+   "js": "Derivatives.gradLinear([2.0, -1.0], [3.0, 1.0])",
+   "tol": 1e-08
+  },
+  {
+   "name": "grad of x^T A x, A not symmetric",
+   "py": "d03_grad_quadratic([[1.0, 2.0], [0.0, 3.0]], [1.0, 1.0])",
+   "js": "Derivatives.gradQuadratic([[1.0, 2.0], [0.0, 3.0]], [1.0, 1.0])",
+   "tol": 1e-08
+  },
+  {
+   "name": "grad of x^T A x, 3x3",
+   "py": "d03_grad_quadratic([[2.0, -1.0, 0.5], [0.0, 1.0, 3.0], [1.0, 0.0, -2.0]], [0.3, -1.2, 0.8])",
+   "js": "Derivatives.gradQuadratic([[2.0, -1.0, 0.5], [0.0, 1.0, 3.0], [1.0, 0.0, -2.0]], [0.3, -1.2, 0.8])",
+   "tol": 1e-08
+  },
+  {
+   "name": "least squares line fit at (0, 1)",
+   "py": "d03_grad_least_squares([[1.0, 1.0], [1.0, 2.0], [1.0, 3.0]], [1.0, 2.0, 2.0], [0.0, 1.0])",
+   "js": "Derivatives.gradLeastSquares([[1.0, 1.0], [1.0, 2.0], [1.0, 3.0]], [1.0, 2.0, 2.0], [0.0, 1.0])",
+   "tol": 1e-08
+  },
+  {
+   "name": "least squares 4x3",
+   "py": "d03_grad_least_squares([[1.0, 0.0, 2.0], [0.5, 1.0, 0.0], [0.0, -1.0, 1.0], [2.0, 1.0, 1.0]], [1.0, 0.0, 2.0, -1.0], [0.2, 0.4, -0.3])",
+   "js": "Derivatives.gradLeastSquares([[1.0, 0.0, 2.0], [0.5, 1.0, 0.0], [0.0, -1.0, 1.0], [2.0, 1.0, 1.0]], [1.0, 0.0, 2.0, -1.0], [0.2, 0.4, -0.3])",
+   "tol": 1e-08
+  },
+  {
+   "name": "arm fk and jacobian at [0.0, np.pi / 2]",
+   "py": "[d03_arm_fk([0.0, np.pi / 2]), d03_arm_jacobian([0.0, np.pi / 2])]",
+   "js": "[Derivatives.armFK([0.0, Math.PI / 2]), Derivatives.armJacobian([0.0, Math.PI / 2])]",
+   "tol": 1e-12
+  },
+  {
+   "name": "arm fk and jacobian at [np.radians(30.0), np.radians(60.0)]",
+   "py": "[d03_arm_fk([np.radians(30.0), np.radians(60.0)]), d03_arm_jacobian([np.radians(30.0), np.radians(60.0)])]",
+   "js": "[Derivatives.armFK([(30 * Math.PI / 180), (60 * Math.PI / 180)]), Derivatives.armJacobian([(30 * Math.PI / 180), (60 * Math.PI / 180)])]",
+   "tol": 1e-12
+  },
+  {
+   "name": "arm fk and jacobian at [0.3, 0.0]",
+   "py": "[d03_arm_fk([0.3, 0.0]), d03_arm_jacobian([0.3, 0.0])]",
+   "js": "[Derivatives.armFK([0.3, 0.0]), Derivatives.armJacobian([0.3, 0.0])]",
+   "tol": 1e-12
+  },
+  {
+   "name": "arm fk and jacobian at [-1.1, 2.4]",
+   "py": "[d03_arm_fk([-1.1, 2.4]), d03_arm_jacobian([-1.1, 2.4])]",
+   "js": "[Derivatives.armFK([-1.1, 2.4]), Derivatives.armJacobian([-1.1, 2.4])]",
+   "tol": 1e-12
+  },
+  {
+   "name": "arm jacobian l = (0.7, 0.4)",
+   "py": "d03_arm_jacobian([0.5, 1.0], (0.7, 0.4))",
+   "js": "Derivatives.armJacobian([0.5, 1.0], [0.7, 0.4])",
+   "tol": 1e-12
+  },
+  {
+   "name": "arm first order (0.01, 0.02)",
+   "py": "d03_arm_first_order([0.0, np.pi / 2], [0.01, 0.02])",
+   "js": "Derivatives.armFirstOrder([0.0, Math.PI / 2], [0.01, 0.02])",
+   "tol": 1e-12
+  },
+  {
+   "name": "arm first order (0.1, 0.2)",
+   "py": "d03_arm_first_order([0.0, np.pi / 2], [0.1, 0.2])",
+   "js": "Derivatives.armFirstOrder([0.0, Math.PI / 2], [0.1, 0.2])",
+   "tol": 1e-12
+  },
+  {
+   "name": "arm distance gradient",
+   "py": "d03_arm_distance_gradient([0.0, np.pi / 2], [0.5, 1.5])",
+   "js": "Derivatives.armDistanceGradient([0.0, Math.PI / 2], [0.5, 1.5])",
+   "tol": 1e-08
+  },
+  {
+   "name": "arm distance gradient 2",
+   "py": "d03_arm_distance_gradient([0.4, 1.9], [-0.3, 1.2])",
+   "js": "Derivatives.armDistanceGradient([0.4, 1.9], [-0.3, 1.2])",
+   "tol": 1e-08
+  },
+  {
+   "name": "pendulum step",
+   "py": "d03_pendulum_step([0.5, -0.3], 1.2)",
+   "js": "Derivatives.pendulumStep([0.5, -0.3], 1.2)",
+   "tol": 1e-12
+  },
+  {
+   "name": "pendulum step h = 0.05",
+   "py": "d03_pendulum_step([2.5, 1.0], -0.4, 0.05)",
+   "js": "Derivatives.pendulumStep([2.5, 1.0], -0.4, 0.05)",
+   "tol": 1e-12
+  },
+  {
+   "name": "pendulum A, B at [0.0, 0.0]",
+   "py": "d03_pendulum_AB([0.0, 0.0])",
+   "js": "Derivatives.pendulumAB([0.0, 0.0])",
+   "tol": 1e-12
+  },
+  {
+   "name": "pendulum A, B at [np.pi, 0.0]",
+   "py": "d03_pendulum_AB([np.pi, 0.0])",
+   "js": "Derivatives.pendulumAB([Math.PI, 0.0])",
+   "tol": 1e-12
+  },
+  {
+   "name": "pendulum A, B at [0.5, 0.0]",
+   "py": "d03_pendulum_AB([0.5, 0.0])",
+   "js": "Derivatives.pendulumAB([0.5, 0.0])",
+   "tol": 1e-12
+  },
+  {
+   "name": "pendulum rollouts 5.0 deg about 0.0 deg, T = 2.0",
+   "py": "d03_pendulum_rollouts(5.0, 0.0, 2.0)",
+   "js": "Derivatives.pendulumRollouts(5.0, 0.0, 2.0)",
+   "tol": 1e-09
+  },
+  {
+   "name": "pendulum rollouts 45.0 deg about 0.0 deg, T = 2.0",
+   "py": "d03_pendulum_rollouts(45.0, 0.0, 2.0)",
+   "js": "Derivatives.pendulumRollouts(45.0, 0.0, 2.0)",
+   "tol": 1e-09
+  },
+  {
+   "name": "pendulum rollouts 90.0 deg about 0.0 deg, T = 2.0",
+   "py": "d03_pendulum_rollouts(90.0, 0.0, 2.0)",
+   "js": "Derivatives.pendulumRollouts(90.0, 0.0, 2.0)",
+   "tol": 1e-09
+  },
+  {
+   "name": "pendulum rollouts 1.0 deg about 180.0 deg, T = 1.0",
+   "py": "d03_pendulum_rollouts(1.0, 180.0, 1.0)",
+   "js": "Derivatives.pendulumRollouts(1.0, 180.0, 1.0)",
+   "tol": 1e-09
+  },
+  {
+   "name": "pendulum rollouts 150.0 deg about 0.0 deg, T = 2.0",
+   "py": "d03_pendulum_rollouts(150.0, 0.0, 2.0)",
+   "js": "Derivatives.pendulumRollouts(150.0, 0.0, 2.0)",
+   "tol": 1e-09
+  },
+  {
+   "name": "bead constraint tangent",
+   "py": "d03_bead_constraint([0.6, 0.8], [-0.8, 0.6])",
+   "js": "Derivatives.beadConstraint([0.6, 0.8], [-0.8, 0.6])",
+   "tol": 1e-12
+  },
+  {
+   "name": "bead constraint (1, 0)",
+   "py": "d03_bead_constraint([0.6, 0.8], [1.0, 0.0])",
+   "js": "Derivatives.beadConstraint([0.6, 0.8], [1.0, 0.0])",
+   "tol": 1e-12
+  },
+  {
+   "name": "pivot jacobian at 0.0",
+   "py": "d03_pivot_jacobian(0.0)",
+   "js": "Derivatives.pivotJacobian(0.0)",
+   "tol": 1e-12
+  },
+  {
+   "name": "pivot pose and constraint at 0.0",
+   "py": "[d03_pivot_pose(0.0), d03_pivot_constraint(d03_pivot_pose(0.0))]",
+   "js": "[Derivatives.pivotPose(0.0), Derivatives.pivotConstraint(Derivatives.pivotPose(0.0))]",
+   "tol": 1e-12
+  },
+  {
+   "name": "pivot jacobian at np.radians(30.0)",
+   "py": "d03_pivot_jacobian(np.radians(30.0))",
+   "js": "Derivatives.pivotJacobian((30 * Math.PI / 180))",
+   "tol": 1e-12
+  },
+  {
+   "name": "pivot pose and constraint at np.radians(30.0)",
+   "py": "[d03_pivot_pose(np.radians(30.0)), d03_pivot_constraint(d03_pivot_pose(np.radians(30.0)))]",
+   "js": "[Derivatives.pivotPose((30 * Math.PI / 180)), Derivatives.pivotConstraint(Derivatives.pivotPose((30 * Math.PI / 180)))]",
+   "tol": 1e-12
+  },
+  {
+   "name": "pivot jacobian at 1.1",
+   "py": "d03_pivot_jacobian(1.1)",
+   "js": "Derivatives.pivotJacobian(1.1)",
+   "tol": 1e-12
+  },
+  {
+   "name": "pivot pose and constraint at 1.1",
+   "py": "[d03_pivot_pose(1.1), d03_pivot_constraint(d03_pivot_pose(1.1))]",
+   "js": "[Derivatives.pivotPose(1.1), Derivatives.pivotConstraint(Derivatives.pivotPose(1.1))]",
+   "tol": 1e-12
+  },
+  {
+   "name": "pivot constraint off the pose",
+   "py": "d03_pivot_constraint([0.3, -0.1, 0.7])",
+   "js": "Derivatives.pivotConstraint([0.3, -0.1, 0.7])",
+   "tol": 1e-12
+  },
+  {
+   "name": "pivot residual at 0 for [1.0, 0.0, 0.0]",
+   "py": "d03_pivot_residual(0.0, [1.0, 0.0, 0.0])",
+   "js": "Derivatives.pivotResidual(0.0, [1.0, 0.0, 0.0])",
+   "tol": 1e-12
+  },
+  {
+   "name": "pivot residual at 0 for [0.0, 1.0, 0.0]",
+   "py": "d03_pivot_residual(0.0, [0.0, 1.0, 0.0])",
+   "js": "Derivatives.pivotResidual(0.0, [0.0, 1.0, 0.0])",
+   "tol": 1e-12
+  },
+  {
+   "name": "pivot residual at 0 for [0.0, 0.0, 1.0]",
+   "py": "d03_pivot_residual(0.0, [0.0, 0.0, 1.0])",
+   "js": "Derivatives.pivotResidual(0.0, [0.0, 0.0, 1.0])",
+   "tol": 1e-12
+  },
+  {
+   "name": "pivot residual at 0 for [-0.05, 0.1, 1.0]",
+   "py": "d03_pivot_residual(0.0, [-0.05, 0.1, 1.0])",
+   "js": "Derivatives.pivotResidual(0.0, [-0.05, 0.1, 1.0])",
+   "tol": 1e-12
+  },
+  {
+   "name": "pivot residual at 0.4, null vector",
+   "py": "d03_pivot_residual(0.4, d03_pivot_jacobian(0.4)['null'])",
+   "js": "Derivatives.pivotResidual(0.4, Derivatives.pivotJacobian(0.4).null)",
+   "tol": 1e-12
+  },
+  {
+   "name": "fd forward and central at z0 = 1, h = 0.1",
+   "py": "[d03_fd_forward(1.0, 0.1), d03_fd_central(1.0, 0.1)]",
+   "js": "[Derivatives.fdForward(1.0, 0.1), Derivatives.fdCentral(1.0, 0.1)]",
+   "tol": 1e-12
+  },
+  {
+   "name": "fd forward and central at z0 = 1, h = 0.01",
+   "py": "[d03_fd_forward(1.0, 0.01), d03_fd_central(1.0, 0.01)]",
+   "js": "[Derivatives.fdForward(1.0, 0.01), Derivatives.fdCentral(1.0, 0.01)]",
+   "tol": 1e-12
+  },
+  {
+   "name": "fd forward and central at z0 = 1, h = 1e-4",
+   "py": "[d03_fd_forward(1.0, 1e-4), d03_fd_central(1.0, 1e-4)]",
+   "js": "[Derivatives.fdForward(1.0, 1e-4), Derivatives.fdCentral(1.0, 1e-4)]",
+   "tol": 1e-12
+  },
+  {
+   "name": "fd forward and central at z0 = 1, h = 1e-8",
+   "py": "[d03_fd_forward(1.0, 1e-8), d03_fd_central(1.0, 1e-8)]",
+   "js": "[Derivatives.fdForward(1.0, 1e-8), Derivatives.fdCentral(1.0, 1e-8)]",
+   "tol": 1e-12
+  },
+  {
+   "name": "fd forward and central at z0 = 1, h = 1e-12",
+   "py": "[d03_fd_forward(1.0, 1e-12), d03_fd_central(1.0, 1e-12)]",
+   "js": "[Derivatives.fdForward(1.0, 1e-12), Derivatives.fdCentral(1.0, 1e-12)]",
+   "tol": 1e-12
+  },
+  {
+   "name": "fd steps (bit for bit)",
+   "py": "d03_fd_steps()",
+   "js": "Derivatives.fdSteps()",
+   "tol": 0.0
+  },
+  {
+   "name": "fd error curve at z0 = 1.0 (bit for bit)",
+   "py": "d03_fd_error_curve(1.0)",
+   "js": "Derivatives.fdErrorCurve(1.0)",
+   "tol": 0.0
+  },
+  {
+   "name": "fd error curve at z0 = 0.7 (bit for bit)",
+   "py": "d03_fd_error_curve(0.7)",
+   "js": "Derivatives.fdErrorCurve(0.7)",
+   "tol": 0.0
+  },
+  {
+   "name": "fd error curve at z0 = -1.2 (bit for bit)",
+   "py": "d03_fd_error_curve(-1.2)",
+   "js": "Derivatives.fdErrorCurve(-1.2)",
+   "tol": 0.0
+  },
+  {
+   "name": "fd error curve at z0 = 2.0 (bit for bit)",
+   "py": "d03_fd_error_curve(2.0)",
+   "js": "Derivatives.fdErrorCurve(2.0)",
+   "tol": 0.0
+  },
+  {
+   "name": "fd jacobian forward of (x0 x1, sin x0 + x1^2)",
+   "py": "d03_fd_jacobian(lambda v: [v[0] * v[1], np.sin(v[0]) + v[1] * v[1]], [0.4, -1.1], 1e-6).tolist()",
+   "js": "Derivatives.fdJacobian((v) => [v[0] * v[1], Math.sin(v[0]) + v[1] * v[1]], [0.4, -1.1], 1e-6)",
+   "tol": 1e-08
+  },
+  {
+   "name": "fd jacobian central",
+   "py": "d03_fd_jacobian(lambda v: [v[0] * v[1], np.sin(v[0]) + v[1] * v[1]], [0.4, -1.1], 1e-5, True).tolist()",
+   "js": "Derivatives.fdJacobian((v) => [v[0] * v[1], Math.sin(v[0]) + v[1] * v[1]], [0.4, -1.1], 1e-5, true)",
+   "tol": 1e-08
+  },
+  {
+   "name": "fd pendulum A, B at (0.5, 0)",
+   "py": "d03_fd_pendulum_AB([0.5, 0.0])",
+   "js": "Derivatives.fdPendulumAB([0.5, 0.0])",
+   "tol": 1e-08
+  },
+  {
+   "name": "fd pendulum A, B at (0, 0)",
+   "py": "d03_fd_pendulum_AB([0.0, 0.0])",
+   "js": "Derivatives.fdPendulumAB([0.0, 0.0])",
+   "tol": 1e-08
+  }
+ ]
+}

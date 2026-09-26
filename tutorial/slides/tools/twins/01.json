@@ -539,6 +539,78 @@
    "py": "d01_stacked_ranks([[0, 1, 0]], [[0, 2, 0]], [0])",
    "js": "LinearMaps.stacked([[0, 1, 0]], [[0, 2, 0]], [0])",
    "tol": 1e-09
+  },
+  {
+   "name": "min-norm solution A23, b = (2, 1)",
+   "py": "d01_min_norm_solution([[1, 0, 1], [0, 1, 1]], [2, 1])",
+   "js": "LinearMaps.minNormSolution([[1, 0, 1], [0, 1, 1]], [2, 1])",
+   "tol": 1e-09
+  },
+  {
+   "name": "min-norm solution A23, b = (-1.5, 0.25)",
+   "py": "d01_min_norm_solution([[1, 0, 1], [0, 1, 1]], [-1.5, 0.25])",
+   "js": "LinearMaps.minNormSolution([[1, 0, 1], [0, 1, 1]], [-1.5, 0.25])",
+   "tol": 1e-09
+  },
+  {
+   "name": "min-norm solution M, b = (1, 2, 3)",
+   "py": "d01_min_norm_solution([[1, 0, 1], [0, 1, 1], [1, 1, 2]], [1, 2, 3])",
+   "js": "LinearMaps.minNormSolution([[1, 0, 1], [0, 1, 1], [1, 1, 2]], [1, 2, 3])",
+   "tol": 1e-09
+  },
+  {
+   "name": "min-norm solution M, b = (1, 2, 4) (least squares)",
+   "py": "d01_min_norm_solution([[1, 0, 1], [0, 1, 1], [1, 1, 2]], [1, 2, 4])",
+   "js": "LinearMaps.minNormSolution([[1, 0, 1], [0, 1, 1], [1, 1, 2]], [1, 2, 4])",
+   "tol": 1e-09
+  },
+  {
+   "name": "min-norm solution A34, b = (1, 3, 4)",
+   "py": "d01_min_norm_solution([[1, 2, 0, 1], [2, 4, 1, 4], [3, 6, 1, 5]], [1, 3, 4])",
+   "js": "LinearMaps.minNormSolution([[1, 2, 0, 1], [2, 4, 1, 4], [3, 6, 1, 5]], [1, 3, 4])",
+   "tol": 1e-09
+  },
+  {
+   "name": "min-norm solution table E, (100, 0, 0)",
+   "py": "d01_min_norm_solution([[1, 1, 1, 1], [0.5, 0.5, -0.5, -0.5], [0.5, -0.5, -0.5, 0.5]], [100, 0, 0])",
+   "js": "LinearMaps.minNormSolution([[1, 1, 1, 1], [0.5, 0.5, -0.5, -0.5], [0.5, -0.5, -0.5, 0.5]], [100, 0, 0])",
+   "tol": 1e-09
+  },
+  {
+   "name": "stacked ranks N = [0 1 0], G = [[0, 1, 0]], b = [0]",
+   "py": "d01_stacked_ranks([[0, 1, 0]], [[0, 1, 0]], [0])",
+   "js": "LinearMaps.stacked([[0, 1, 0]], [[0, 1, 0]], [0])",
+   "tol": 1e-09
+  },
+  {
+   "name": "stacked ranks N = [0 1 0], G = [[0, 1, 0]], b = [-0.05]",
+   "py": "d01_stacked_ranks([[0, 1, 0]], [[0, 1, 0]], [-0.05])",
+   "js": "LinearMaps.stacked([[0, 1, 0]], [[0, 1, 0]], [-0.05])",
+   "tol": 1e-09
+  },
+  {
+   "name": "stacked ranks N = [0 1 0], G = [[1, 0, 0]], b = [0.1] (slide stacked-constraints)",
+   "py": "d01_stacked_ranks([[0, 1, 0]], [[1, 0, 0]], [0.1])",
+   "js": "LinearMaps.stacked([[0, 1, 0]], [[1, 0, 0]], [0.1])",
+   "tol": 1e-09
+  },
+  {
+   "name": "stacked ranks N = [0 1 0], G = [[1, 0, 0], [0, 0, 1]], b = [0.1, 0] (slide stacked-constraints)",
+   "py": "d01_stacked_ranks([[0, 1, 0]], [[1, 0, 0], [0, 0, 1]], [0.1, 0])",
+   "js": "LinearMaps.stacked([[0, 1, 0]], [[1, 0, 0], [0, 0, 1]], [0.1, 0])",
+   "tol": 1e-09
+  },
+  {
+   "name": "stacked ranks N = [0 1 0], G = [[1, 0, 0], [0, 1, 0], [0, 0, 1]], b = [0.1, 0.07, 0] (slide stacked-constraints)",
+   "py": "d01_stacked_ranks([[0, 1, 0]], [[1, 0, 0], [0, 1, 0], [0, 0, 1]], [0.1, 0.07, 0])",
+   "js": "LinearMaps.stacked([[0, 1, 0]], [[1, 0, 0], [0, 1, 0], [0, 0, 1]], [0.1, 0.07, 0])",
+   "tol": 1e-09
+  },
+  {
+   "name": "rref steps stepper 'swap' matrix",
+   "py": "(lambda r: {'R': r['R'], 'pivots': r['pivots'], 'rank': r['rank'], 'steps': [list(s[:4]) for s in r['steps']], 'matrices': r['matrices']})(d01_rref_steps([[0, 2, 4], [1, 1, 1], [2, 4, 6]]))",
+   "js": "(r => ({R: r.R, pivots: r.pivots, rank: r.rank, steps: r.steps.map(s => s.slice(0, 4)), matrices: r.matrices}))(LinearMaps.rrefSteps([[0, 2, 4], [1, 1, 1], [2, 4, 6]]))",
+   "tol": 1e-09
   }
  ]
 }
