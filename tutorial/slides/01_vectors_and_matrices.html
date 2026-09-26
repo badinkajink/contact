@@ -1,0 +1,1371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vectors, matrices, and linear maps</title>
+<link rel="stylesheet" href="lib/katex/katex.min.css">
+<link rel="stylesheet" href="lib/retro.css">
+<script defer src="lib/katex/katex.min.js"></script>
+<script defer src="lib/katex/contrib/auto-render.min.js"></script>
+<script src="lib/fig.js"></script>
+<script src="lib/plot.js"></script>
+<script src="lib/num.js"></script>
+<script src="lib/algo/01_linear_maps.js"></script>
+<script defer src="lib/deck.js"></script>
+<style>
+  .controls input[type="range"].short { width: 150px; }
+  .controls select { font-family: "Times New Roman", Times, serif; font-size: 20px; }
+  .tight li { margin-bottom: 3px; }
+  .mathcell { min-height: 150px; }
+  .kv { font-family: "Courier New", Courier, monospace; font-size: 0.86em; }
+</style>
+</head>
+<!--
+  Deck 01 of the series. Numbers on the slides come from tutorial/00_math_toolkit.py, section
+  "Deck 01" (functions d01_*); the live figures call lib/algo/01_linear_maps.js (LinearMaps),
+  whose twin cases are tools/twins/01.json.
+-->
+<body data-index="index.html">
+<main class="deck">
+
+<!-- ============================================================ title -->
+<section class="slide title" id="title">
+  <h1>Vectors, matrices, and linear maps</h1>
+  <p class="authors">William Xie</p>
+  <p class="links">[<a href="index.html">index</a>] [<a href="../00_math_toolkit.py">code</a>]
+    [<a href="#" data-action="print">pdf</a>]</p>
+  <hr>
+  <div class="cols l2 mid">
+    <figure>
+      <svg id="f-hero"></svg>
+      <figcaption>The matrix $A = \begin{bmatrix} 1 & -1 \\ 1 & 3 \end{bmatrix}$ maps the gray square grid
+        onto the blue grid of parallelograms. The red and green arrows are its columns.</figcaption>
+    </figure>
+    <div class="small">
+      <p>Deck 01 of 22, Part I (mathematical toolkit).</p>
+      <p>Prerequisites: arithmetic, algebra, and the Pythagorean theorem.</p>
+      <p>Code: every number on these slides is computed in <code>tutorial/00_math_toolkit.py</code>,
+        section &ldquo;Deck 01&rdquo;. Press <kbd>C</kbd> on a slide to see the function.</p>
+      <p>Used by decks 02, 03, 05&ndash;08, 13, 17, 18 and 21.</p>
+    </div>
+  </div>
+  <p class="updated">Last updated September 2026.</p>
+  <aside class="notes">This deck builds the linear algebra that every later deck uses: vectors, the
+    combinations they reach, matrices as maps between spaces, row reduction, and the four
+    subspaces of a matrix. It ends with the rank arguments that Hou and Mason (ICRA 2019) use to
+    count how many velocity commands a hybrid force-velocity controller needs. The tex tutorial
+    covers this material in one page (lines 1100-1130); these slides build it from the ground up.
+    Press R to switch between presenting and this reading view.</aside>
+</section>
+
+<!-- ============================================================ part I -->
+<section class="slide section" id="part-vectors">
+  <p class="kicker">Part I</p>
+  <h1>Vectors, span, and norms</h1>
+  <hr>
+  <p>Arrows and lists of numbers, the combinations of a few vectors, and three ways to measure
+    the size of a vector.</p>
+</section>
+
+<!-- ============================================================ vectors -->
+<section class="slide" id="vectors-arrows-lists" data-code="00_math_toolkit.py:d01_vector_length">
+  <h2>Vectors as arrows and as lists of numbers</h2>
+  <div class="cols mid">
+    <figure>
+      <svg id="f-vec"></svg>
+      <figcaption>Drag the tip. The dashed lines show the two components.</figcaption>
+    </figure>
+    <div>
+      <ul>
+        <li>The arrow from the origin to the point $(3, 2)$ is the vector $\vv = (3, 2)$:
+          3 units right, 2 units up.</li>
+        <li>The same vector is a list of two numbers, its <b>components</b> $v_1 = 3$ and
+          $v_2 = 2$, stacked in a column: $\vv = \begin{bmatrix} 3 \\ 2 \end{bmatrix}$.</li>
+        <li>Length (Pythagoras): $\norm{\vv} = \sqrt{v_1^2 + v_2^2} = \sqrt{13} \approx 3.606$.</li>
+        <li class="step">$\R^n$ is the set of all lists of $n$ real numbers. A planar block's
+          velocity $(v_x, v_y, \omega)$ is in $\R^3$; the joint speeds of a 7-joint arm are in $\R^7$.</li>
+      </ul>
+      <div class="readout" id="vec-read"></div>
+    </div>
+  </div>
+  <aside class="notes">A vector is two things at once: an arrow with a length and a direction, and
+    an ordered list of numbers. Bold lowercase letters ($\vv$, $\vu$, $\vw$) are vectors; plain
+    italic letters are numbers; the $i$-th entry of $\vv$ is $v_i$. Vectors are columns unless
+    said otherwise, which matters once a matrix multiplies them (slide
+    <a href="#matrix-vector-product">matrix-vector-product</a>). In $\R^2$ and $\R^3$ the arrow can
+    be drawn. In $\R^7$ it cannot, but addition, scaling, length and the dot product still work
+    entry by entry, which is why the decks treat them as operations on lists. The length of a
+    vector in $\R^n$ is $\sqrt{v_1^2 + \dots + v_n^2}$: Pythagoras applied $n-1$ times, one new
+    right angle per extra entry. Deck 11 (<a href="11_coulomb_friction.html">Forces and Coulomb
+    friction</a>, &ldquo;Tool #1&rdquo;) introduces forces as arrows more slowly; this deck is the
+    reference. The tex (lines 1107-1108) uses the same column convention and writes matrices in
+    bold capitals; the decks write matrices as italic capitals ($A$, $M$).</aside>
+</section>
+
+<!-- ============================================================ addition -->
+<section class="slide" id="addition-and-scaling">
+  <h2>Vector addition and scalar multiplication</h2>
+  <div class="cols mid">
+    <figure>
+      <svg id="f-add"></svg>
+      <figcaption>Drag the tips of $\vu$ and $\vw$. The purple arrow is $c\vu$.</figcaption>
+    </figure>
+    <div>
+      <ul>
+        <li>Add component by component: $\vu + \vw = (u_1 + w_1,\ u_2 + w_2)$.
+          With $\vu = (1, 1)$ and $\vw = (-1, 3)$: $\vu + \vw = (0, 4)$.</li>
+        <li>Tip to tail: put the tail of $\vw$ on the tip of $\vu$. The sum runs from the start
+          of $\vu$ to the tip of $\vw$.</li>
+        <li>Multiply by a number $c$ (a <b>scalar</b>): $c\vu = (c u_1,\ c u_2)$.
+          $2\vu = (2, 2)$, and $-\vw = (1, -3)$ points the opposite way.</li>
+      </ul>
+      <div class="controls">
+        <label>$c$ = <input type="range" id="add-c" min="-2" max="2" step="0.1" value="2">
+          <span id="add-c-out"></span></label>
+      </div>
+      <div class="readout" id="add-read"></div>
+    </div>
+  </div>
+  <aside class="notes">Addition and scaling are the only two operations a vector space needs, and
+    they obey the rules of ordinary arithmetic: $\vu + \vw = \vw + \vu$;
+    $(\vu + \vw) + \vx = \vu + (\vw + \vx)$; the zero vector $\vzero = (0, 0)$ has
+    $\vu + \vzero = \vu$; $\vu + (-\vu) = \vzero$; $c(\vu + \vw) = c\vu + c\vw$;
+    $(c + d)\vu = c\vu + d\vu$. Subtraction is addition of $-1$ times a vector:
+    $\vu - \vw = \vu + (-1)\vw = (2, -2)$ for the running pair, which is the arrow from the tip
+    of $\vw$ to the tip of $\vu$. In the figure the dashed lines complete the parallelogram with
+    sides $\vu$ and $\vw$; its diagonal is $\vu + \vw$ whichever vector goes first, which is the
+    picture of $\vu + \vw = \vw + \vu$. A scalar $c$ between 0 and 1 shrinks the arrow, $c > 1$
+    stretches it, and $c < 0$ flips it through the origin. Forces add this way (deck 11: the net
+    force on a box is the sum of the arrows acting on it).</aside>
+</section>
+
+<!-- ============================================================ linear combinations -->
+<section class="slide" id="linear-combinations" data-code="00_math_toolkit.py:d01_coords">
+  <h2>Linear combinations of two vectors</h2>
+  <div class="cols mid">
+    <figure>
+      <svg id="f-comb"></svg>
+      <figcaption>Go $c_1$ steps along $\vu$ (blue), then $c_2$ steps along $\vw$ (green).</figcaption>
+    </figure>
+    <div>
+      <ul>
+        <li>A <b>linear combination</b> of $\vu$ and $\vw$ is $c_1\vu + c_2\vw$ for numbers
+          $c_1$, $c_2$.</li>
+        <li>$2\vu + \vw = (2, 2) + (-1, 3) = (1, 5)$.</li>
+        <li>$(0, 4)$ is reached with $c_1 = c_2 = 1$.</li>
+        <li class="step">$(3, 1)$ needs $c_1 - c_2 = 3$ and $c_1 + 3c_2 = 1$. Subtract the first
+          equation from the second: $4c_2 = -2$, so $c_2 = -0.5$ and $c_1 = 2.5$.</li>
+      </ul>
+      <div class="controls">
+        <label>$c_1$ = <input type="range" class="short" id="comb-c1" min="-3" max="3" step="0.1" value="2">
+          <span id="comb-c1-out"></span></label><br>
+        <label>$c_2$ = <input type="range" class="short" id="comb-c2" min="-3" max="3" step="0.1" value="1">
+          <span id="comb-c2-out"></span></label>
+      </div>
+      <div class="readout" id="comb-read"></div>
+    </div>
+  </div>
+  <aside class="notes">A linear combination uses only the two vector operations: scale each vector,
+    then add. The same definition works for any number of vectors in any $\R^n$:
+    $c_1\vv_1 + c_2\vv_2 + \dots + c_k\vv_k$. Finding the coefficients that reach a given point
+    is the first linear system of the series: for $(3, 1)$ the two components give two equations
+    in the two unknowns $c_1, c_2$, and subtracting one equation from the other eliminates $c_1$.
+    Check: $2.5(1, 1) - 0.5(-1, 3) = (2.5 + 0.5,\ 2.5 - 1.5) = (3, 1)$. Part III of this deck
+    solves such systems for any number of unknowns by Gaussian elimination. The function
+    <code>d01_coords</code> solves the $2\times 2$ case with Cramer's rule, and the slide
+    <a href="#basis-and-coordinates">basis-and-coordinates</a> shows that every point of the
+    plane is reached by exactly one pair $(c_1, c_2)$.</aside>
+</section>
+
+<!-- ============================================================ span -->
+<section class="slide" id="span">
+  <h2>The span of a set of vectors</h2>
+  <div class="cols mid">
+    <figure>
+      <svg id="f-span"></svg>
+      <figcaption>Dots: $c_1\vu + c_2\vw$ for whole numbers $c_1, c_2$ from $-4$ to 4.
+        Drag the tip of $\vw$.</figcaption>
+    </figure>
+    <div>
+      <ul>
+        <li>The <b>span</b> of $\vv_1, \dots, \vv_k$ is the set of all their linear combinations.</li>
+        <li>The span of one nonzero vector is a line through $\vzero$.</li>
+        <li>Two vectors in $\R^2$ that are not parallel span the whole plane.
+          Two parallel vectors, such as $(1, 1)$ and $(2, 2)$, span a line.</li>
+        <li class="step">In $\R^3$, $\Span\{(1, 0, 1), (0, 1, 1)\}$ is the plane $z = x + y$
+          through the origin: $x(1, 0, 1) + y(0, 1, 1) = (x,\ y,\ x + y)$.</li>
+      </ul>
+      <div class="controls">
+        <label><input type="checkbox" id="span-par"> set $\vw = 2\vu$</label>
+      </div>
+      <div class="readout" id="span-read"></div>
+    </div>
+  </div>
+  <aside class="notes">The dots in the figure are the combinations with whole-number coefficients;
+    the span also contains every combination with fractional coefficients, which fills the gaps.
+    A span always contains $\vzero$ (take every coefficient 0), and it is closed under addition
+    and scaling: the sum of two combinations is a combination. A set with these properties is
+    called a <b>subspace</b> (slide <a href="#column-space">column-space</a>). For the plane in
+    $\R^3$: every combination $x(1, 0, 1) + y(0, 1, 1)$ has third entry equal to the sum of the
+    first two, and every point with $z = x + y$ is the combination with coefficients $x$ and $y$.
+    So a point such as $(0, 0, 1)$, whose third entry is not the sum of the first two, is outside
+    the span. This plane returns three times in the deck: as the column space of the matrix $M$,
+    as the image of the $3\times 2$ matrix $A_{23}^\T$, and as the row space of $A_{23}$. Drag
+    $\vw$ onto the line of $\vu$ (the handle snaps to multiples of 0.25) to watch the dots
+    collapse onto a line.</aside>
+</section>
+
+<!-- ============================================================ independence -->
+<section class="slide" id="linear-independence" data-code="00_math_toolkit.py:d01_independence_det">
+  <h2>Linear independence</h2>
+  <div class="cols mid">
+    <figure>
+      <svg id="f-indep"></svg>
+      <figcaption>The yellow patch is part of the plane spanned by $\vv_1$ and $\vv_2$.
+        $\vv_3$ (red) sits a height $h$ above it.</figcaption>
+    </figure>
+    <div>
+      <ul>
+        <li>$\vv_1, \dots, \vv_k$ are <b>linearly independent</b> when
+          $c_1\vv_1 + \dots + c_k\vv_k = \vzero$ only for $c_1 = \dots = c_k = 0$.
+          Otherwise they are <b>dependent</b>: one of them is a combination of the others.</li>
+        <li>$(1, 2)$ and $(2, 4)$ are dependent: $2(1, 2) - (2, 4) = \vzero$.</li>
+        <li class="step">$\vv_1 = (1, 0, 1)$, $\vv_2 = (0, 1, 1)$, $\vv_3 = (1, 1, 2 + h)$ are
+          independent exactly when $h \ne 0$. At $h = 0$: $\vv_1 + \vv_2 - \vv_3 = \vzero$.</li>
+        <li class="step">More than $n$ vectors in $\R^n$ are always dependent.</li>
+      </ul>
+      <div class="controls">
+        <label>$h$ = <input type="range" class="short" id="ind-h" min="-1.5" max="1.5" step="0.05" value="0.8">
+          <span id="ind-h-out"></span></label>
+        <label>view <input type="range" class="short" id="ind-az" min="-170" max="-90" step="1" value="-130"></label>
+      </div>
+      <div class="readout" id="ind-read"></div>
+    </div>
+  </div>
+  <aside class="notes">To test independence, solve $c_1\vv_1 + c_2\vv_2 + c_3\vv_3 = \vzero$. The
+    three components give $c_1 + c_3 = 0$, $c_2 + c_3 = 0$ and $c_1 + c_2 + (2 + h)c_3 = 0$.
+    The first two give $c_1 = c_2 = -c_3$; the third becomes $-2c_3 + (2 + h)c_3 = h\,c_3 = 0$.
+    For $h \ne 0$ this forces $c_3 = 0$ and then $c_1 = c_2 = 0$: independent. For $h = 0$ any
+    $c_3$ works, for example $(c_1, c_2, c_3) = (1, 1, -1)$: dependent. The readout also shows
+    the $3\times 3$ determinant of $[\vv_1\ \vv_2\ \vv_3]$, the signed volume of the box with
+    these three edges; it equals $h$, and a zero volume means the three arrows lie in one plane.
+    The $2\times 2$ determinant is built on slide <a href="#determinant-area">determinant-area</a>;
+    the $3\times 3$ one is not needed until deck 02. The rule &ldquo;more than $n$ vectors in
+    $\R^n$ are dependent&rdquo; is proved on slide <a href="#rank-nullity">rank-nullity</a>.
+    Hou and Mason require the rows of their velocity command $C$ to be independent of each other
+    and of the constraint rows $N$ (Hou 2019, Sec. IV-A).</aside>
+</section>
+
+<!-- ============================================================ basis -->
+<section class="slide" id="basis-and-coordinates" data-code="00_math_toolkit.py:d01_coords">
+  <h2>Basis and coordinates</h2>
+  <div class="cols mid">
+    <figure>
+      <svg id="f-basis"></svg>
+      <figcaption>The slanted grid is drawn in steps of $\vu$ and $\vw$. Drag $\vx$; its
+        coordinates are the grid numbers of its position.</figcaption>
+    </figure>
+    <div>
+      <ul>
+        <li>A <b>basis</b> of $\R^n$ is a set of independent vectors that spans $\R^n$. Every
+          basis of $\R^n$ has $n$ vectors; $n$ is the <b>dimension</b>.</li>
+        <li>The standard basis $\ve_1 = (1, 0)$, $\ve_2 = (0, 1)$:
+          $(x_1, x_2) = x_1\ve_1 + x_2\ve_2$.</li>
+        <li>$\vu, \vw$ are also a basis of $\R^2$. The <b>coordinates</b> of $\vx$ in this basis are
+          the $c_1, c_2$ with $c_1\vu + c_2\vw = \vx$. For $\vx = (1, 5)$: $(2, 1)$.</li>
+        <li class="step">Coordinates are unique: $c_1\vu + c_2\vw = d_1\vu + d_2\vw$ gives
+          $(c_1 - d_1)\vu + (c_2 - d_2)\vw = \vzero$, so $c_1 = d_1$ and $c_2 = d_2$.</li>
+      </ul>
+      <div class="readout" id="basis-read"></div>
+    </div>
+  </div>
+  <aside class="notes">Spanning guarantees that every $\vx$ has coordinates; independence guarantees
+    that they are unique (the last bullet uses the definition of independence with the
+    coefficients $c_1 - d_1$ and $c_2 - d_2$). Why every basis of $\R^n$ has exactly $n$
+    vectors: more than $n$ vectors are dependent (slide <a href="#rank-nullity">rank-nullity</a>),
+    and fewer than $n$ cannot span, because a matrix with $k &lt; n$ columns has at most $k$
+    pivots and its column space is smaller than $\R^n$. The same word applies to subspaces: a
+    basis of a subspace is an independent set that spans it, and the dimension of the subspace is
+    the size of any basis. The plane $z = x + y$ in $\R^3$ has the basis $(1, 0, 1)$, $(0, 1, 1)$
+    and dimension 2. Computing coordinates is solving a linear system; slide
+    <a href="#identity-and-inverse">identity-and-inverse</a> computes the coordinates $(2, 1)$ of
+    $(1, 5)$ a second time with the inverse matrix.</aside>
+</section>
+
+<!-- ============================================================ dot product -->
+<section class="slide" id="dot-product" data-code="00_math_toolkit.py:d01_dot_angle">
+  <h2>Dot product, length, and angle</h2>
+  <div class="cols mid">
+    <figure>
+      <svg id="f-dot"></svg>
+      <figcaption>Drag $\va$ and $\vb$. The purple segment is the shadow of $\va$ on the line of
+        $\vb$; its signed length is $\va\cdot\vb / \norm{\vb}$.</figcaption>
+    </figure>
+    <div>
+      <ul>
+        <li>$\va\cdot\vb = a_1 b_1 + a_2 b_2 + \dots + a_n b_n$, a number.</li>
+        <li>Length: $\norm{\va} = \sqrt{\va\cdot\va}$.</li>
+        <li>Angle $\theta$ between $\va$ and $\vb$: $\va\cdot\vb = \norm{\va}\,\norm{\vb}\cos\theta$
+          (derived on the next slide).</li>
+        <li>$\va = (3, 4)$, $\vb = (4, 0)$: $\va\cdot\vb = 12$, $\norm{\va} = 5$, $\norm{\vb} = 4$,
+          $\cos\theta = 12/20 = 0.6$, $\theta = 53.13^\circ$.</li>
+        <li><b>Perpendicular</b> (orthogonal) means $\va\cdot\vb = 0$:
+          $(3, 4)\cdot(4, -3) = 12 - 12 = 0$.</li>
+      </ul>
+      <div class="readout" id="dot-read"></div>
+    </div>
+  </div>
+  <aside class="notes">The dot product multiplies matching entries and adds. Its rules:
+    $\va\cdot\vb = \vb\cdot\va$; $(c\va)\cdot\vb = c(\va\cdot\vb)$;
+    $\va\cdot(\vb + \vc) = \va\cdot\vb + \va\cdot\vc$; $\va\cdot\va \ge 0$, with equality only
+    for $\va = \vzero$. The sign tells the angle: positive below $90^\circ$, zero at $90^\circ$,
+    negative above. Dividing by $\norm{\vb}$ gives the signed length of the shadow of $\va$ on
+    the line of $\vb$: here $12/4 = 3$, the $x$-component of $\va$, because $\vb$ lies on the
+    $x$-axis. Deck 02 turns the shadow into the projection of a vector onto a line and onto a
+    subspace. Deck 11 (&ldquo;Tool #2&rdquo;, <a href="11_coulomb_friction.html">Forces and Coulomb
+    friction</a>) uses the dot product to split a contact force into its normal part
+    $f_n = \vf\cdot\nhat$ and tangential part $f_t = \vf\cdot\that$. In the running pair,
+    $\vu\cdot\vw = -1 + 3 = 2$, $\norm{\vu} = \sqrt 2$, $\norm{\vw} = \sqrt{10}$, so
+    $\cos\theta = 2/\sqrt{20} = 0.447$ and $\theta = 63.43^\circ$.</aside>
+</section>
+
+<!-- ============================================================ angle derivation -->
+<section class="slide" id="dot-product-angle" data-code="00_math_toolkit.py:d01_dot_angle">
+  <h2>Derivation of the angle formula from the law of cosines</h2>
+  <div class="cols r2">
+    <figure>
+      <svg id="f-cos"></svg>
+      <figcaption>The triangle with sides $\va$, $\vb$ and $\va - \vb$.</figcaption>
+    </figure>
+    <div>
+      <ol class="tight">
+        <li class="step">Law of cosines for the triangle:
+          $$\norm{\va - \vb}^2 = \norm{\va}^2 + \norm{\vb}^2 - 2\norm{\va}\norm{\vb}\cos\theta.$$</li>
+        <li class="step">Expand the left side with the dot-product rules:
+          $$\norm{\va - \vb}^2 = (\va - \vb)\cdot(\va - \vb) = \norm{\va}^2 - 2\,\va\cdot\vb + \norm{\vb}^2.$$</li>
+        <li class="step">$\norm{\va}^2$ and $\norm{\vb}^2$ appear on both sides and cancel:
+          $-2\,\va\cdot\vb = -2\norm{\va}\norm{\vb}\cos\theta$.</li>
+        <li class="step">Divide by $-2$: $\ \va\cdot\vb = \norm{\va}\,\norm{\vb}\cos\theta$.</li>
+      </ol>
+      <div class="box step">$\abs{\cos\theta} \le 1$, so $\abs{\va\cdot\vb} \le \norm{\va}\,\norm{\vb}$
+        (the Cauchy-Schwarz inequality).</div>
+      <p class="step small">In $\R^3$: $(1, 0, 1)\cdot(0, 1, 1) = 1$ and both lengths are $\sqrt 2$,
+        so $\cos\theta = 1/2$ and $\theta = 60^\circ$.</p>
+    </div>
+  </div>
+  <aside class="notes">The law of cosines, $c^2 = a^2 + b^2 - 2ab\cos\theta$, generalizes
+    Pythagoras to triangles without a right angle; at $\theta = 90^\circ$ the last term vanishes.
+    Step 2 uses the distributive rule twice: $(\va - \vb)\cdot(\va - \vb) = \va\cdot\va -
+    \va\cdot\vb - \vb\cdot\va + \vb\cdot\vb$, and $\vb\cdot\va = \va\cdot\vb$. In $\R^n$ with
+    $n &gt; 3$ there is no triangle to draw, so the formula becomes the definition of the angle:
+    $\cos\theta = \va\cdot\vb / (\norm{\va}\norm{\vb})$. This is a valid cosine only if the
+    right side lies in $[-1, 1]$, which Cauchy-Schwarz guarantees. A proof that needs no picture:
+    for every number $t$, $\norm{\va - t\vb}^2 \ge 0$, that is
+    $\va\cdot\va - 2t\,\va\cdot\vb + t^2\,\vb\cdot\vb \ge 0$. Choose
+    $t = \va\cdot\vb / \vb\cdot\vb$; the inequality becomes
+    $\norm{\va}^2 - (\va\cdot\vb)^2/\norm{\vb}^2 \ge 0$, which rearranges to
+    $(\va\cdot\vb)^2 \le \norm{\va}^2\norm{\vb}^2$. The $t$ chosen here is the shadow length of
+    the previous slide divided by $\norm{\vb}$; deck 02 reuses it for projection.</aside>
+</section>
+
+<!-- ============================================================ norms -->
+<section class="slide" id="norms" data-code="00_math_toolkit.py:d01_pnorm 00_math_toolkit.py:d01_pnorms">
+  <h2>The 1-, 2- and $\infty$-norms</h2>
+  <div class="cols">
+    <div>
+      <p>A <b>norm</b> measures the size of a vector. Three norms appear in this series:</p>
+      <table class="small">
+        <tr><th>norm</th><th>formula</th><th class="num">$(3, -4)$</th></tr>
+        <tr><td>1-norm</td><td>$\norm{\vx}_1 = \abs{x_1} + \dots + \abs{x_n}$</td><td class="num">7</td></tr>
+        <tr><td>2-norm</td><td>$\norm{\vx}_2 = \sqrt{x_1^2 + \dots + x_n^2}$</td><td class="num">5</td></tr>
+        <tr><td>$\infty$-norm</td><td>$\norm{\vx}_\infty = \max_i \abs{x_i}$</td><td class="num">4</td></tr>
+      </table>
+      <p>The $p$-norm for $p \ge 1$: $\norm{\vx}_p = \bigl(\sum_i \abs{x_i}^p\bigr)^{1/p}$.
+        For $(3, -4)$ it is 4.498 at $p = 3$ and 4.048 at $p = 8$. The $\infty$-norm is its
+        limit as $p \to \infty$.</p>
+      <div class="example small">Used later: the 2-norm in least squares (deck 02) and the
+        circular friction cone (deck 12); the $\infty$-norm in actuator limits
+        $\abs{u_i} \le u_{\max}$ (decks 07-08).</div>
+    </div>
+    <div>
+      <p>A norm satisfies, for all vectors $\vx, \vy$ and numbers $c$:</p>
+      <ol>
+        <li>$\norm{\vx} \ge 0$, and $\norm{\vx} = 0$ only for $\vx = \vzero$;</li>
+        <li>$\norm{c\vx} = \abs{c}\,\norm{\vx}$;</li>
+        <li>$\norm{\vx + \vy} \le \norm{\vx} + \norm{\vy}$ (triangle inequality).</li>
+      </ol>
+      <div class="warn step"><b>Not a norm:</b> the formula with $p = 1/2$ breaks rule 3.
+        $\norm{(1, 1)}_{1/2} = (1 + 1)^2 = 4$, but
+        $\norm{(1, 0)}_{1/2} + \norm{(0, 1)}_{1/2} = 1 + 1 = 2$.</div>
+    </div>
+  </div>
+  <aside class="notes">The 2-norm is the length of the previous slides. The 1-norm adds the sizes
+    of the entries (the distance a taxi drives on a square street grid); the $\infty$-norm keeps
+    only the largest entry. Each has its uses in the series: the 2-norm in least squares (deck 02),
+    in the circular friction cone $\norm{\vf_t}_2 \le \mu f_n$ (deck 12) and in quadratic costs
+    (decks 05-09); the $\infty$-norm in box constraints such as actuator limits
+    $\norm{\vu}_\infty \le u_{\max}$ (decks 07-08); the 1-norm in costs that should drive many
+    entries exactly to zero. The triangle inequality for the 1-norm follows from
+    $\abs{x_i + y_i} \le \abs{x_i} + \abs{y_i}$ entry by entry, and for the 2-norm from
+    Cauchy-Schwarz: $\norm{\vx + \vy}^2 = \norm{\vx}^2 + 2\,\vx\cdot\vy + \norm{\vy}^2 \le
+    (\norm{\vx} + \norm{\vy})^2$. The $p$-norm values come from <code>d01_pnorm</code>, which
+    refuses $p &lt; 1$. The tex (line 1113) stated the $p$-norm without the condition $p \ge 1$
+    and listed $p = \infty$ as a case of the formula; both are corrected there now.</aside>
+</section>
+
+<!-- ============================================================ unit balls -->
+<section class="slide" id="unit-balls" data-code="00_math_toolkit.py:d01_pnorms 00_math_toolkit.py:d01_pnorm">
+  <h2>Unit balls of the 1-, 2- and $\infty$-norms</h2>
+  <div class="cols mid">
+    <figure>
+      <svg id="f-balls"></svg>
+      <figcaption>Orange: $\norm{\vx}_1 = 1$. Blue: $\norm{\vx}_2 = 1$. Green:
+        $\norm{\vx}_\infty = 1$. Purple: $\norm{\vx}_p = 1$ for the slider's $p$. Drag $\vx$.</figcaption>
+    </figure>
+    <div>
+      <ul>
+        <li>The <b>unit ball</b> of a norm is the set of $\vx$ with $\norm{\vx} \le 1$.</li>
+        <li>1-norm: a diamond with corners $(\pm 1, 0)$ and $(0, \pm 1)$. 2-norm: the unit disk.
+          $\infty$-norm: the square $-1 \le x_1, x_2 \le 1$.</li>
+        <li>For every $\vx$: $\norm{\vx}_\infty \le \norm{\vx}_2 \le \norm{\vx}_1$. So the diamond
+          lies inside the disk, and the disk inside the square.</li>
+      </ul>
+      <div class="controls">
+        <label>$p$ = <input type="range" class="short" id="ball-p" min="1" max="10" step="0.1" value="3">
+          <span id="ball-p-out"></span></label>
+        <label><input type="checkbox" id="ball-inf"> $p = \infty$</label>
+      </div>
+      <div class="readout" id="ball-read"></div>
+    </div>
+  </div>
+  <aside class="notes">A larger norm value means a smaller unit ball: the 1-norm is the largest of
+    the three, so its ball, the diamond, is the smallest. Proof of the two inequalities. First,
+    $\norm{\vx}_\infty^2 = \max_i x_i^2 \le x_1^2 + \dots + x_n^2 = \norm{\vx}_2^2$. Second,
+    $\norm{\vx}_1^2 = (\abs{x_1} + \dots + \abs{x_n})^2$ expands into $x_1^2 + \dots + x_n^2$
+    plus the cross terms $2\abs{x_i}\abs{x_j}$, which are never negative, so
+    $\norm{\vx}_1^2 \ge \norm{\vx}_2^2$. At $\vx = (3, -4)$ the three values are 4, 5 and 7.
+    Unit balls reappear as constraint sets: $\norm{\vu}_\infty \le u_{\max}$ is a box of actuator
+    limits (decks 07-08), and $\norm{\vf_t}_2 \le \mu f_n$ is the disk of friction forces that
+    becomes the circular friction cone (deck 12). For $p &lt; 1$ the curve $\norm{\vx}_p = 1$ bends
+    inward between the axes, so the &ldquo;ball&rdquo; is not convex; that is the picture of the
+    failed triangle inequality of the previous slide.</aside>
+</section>
+
+<!-- ============================================================ check vectors -->
+<section class="slide" id="check-vectors">
+  <h2>Check yourself: vectors, span, and norms</h2>
+  <ol>
+    <li>Compute $(2, -1) + 3(0, 1)$.
+      <details><summary>answer</summary><div>$(2, -1) + (0, 3) = (2, 2)$.</div></details></li>
+    <li>Is $(2, 6)$ in $\Span\{(1, 3)\}$?
+      <details><summary>answer</summary><div>Yes: $(2, 6) = 2(1, 3)$.</div></details></li>
+    <li>Are $(1, 2)$, $(3, 4)$, $(5, 6)$ independent?
+      <details><summary>answer</summary><div>No. Three vectors in $\R^2$ are always dependent; here
+        $(1, 2) - 2(3, 4) + (5, 6) = (0, 0)$.</div></details></li>
+    <li>What is the angle between $(1, 0)$ and $(1, 1)$?
+      <details><summary>answer</summary><div>$\cos\theta = 1/(1\cdot\sqrt 2) = 0.707$, so
+        $\theta = 45^\circ$.</div></details></li>
+    <li>Compute the 1-, 2- and $\infty$-norms of $(1, -2, 2)$.
+      <details><summary>answer</summary><div>$1 + 2 + 2 = 5$; $\sqrt{1 + 4 + 4} = 3$; $\max = 2$.</div></details></li>
+  </ol>
+  <aside class="notes">Each answer can be checked by hand. For question 3 the dependency can be
+    found by solving $c_1(1, 2) + c_2(3, 4) + c_3(5, 6) = \vzero$: two equations in three unknowns
+    always leave at least one unknown free (slide <a href="#rank-nullity">rank-nullity</a>), and
+    setting $c_3 = 1$ gives $c_1 = 1$, $c_2 = -2$. For question 4 the angle is also visible
+    without the formula: $(1, 1)$ is the diagonal of the unit square. For question 5 the three
+    norms satisfy the ordering of slide <a href="#unit-balls">unit-balls</a>: $2 \le 3 \le 5$.
+    The numbers of this part are recomputed by the cells after the &ldquo;Deck 01&rdquo; header in
+    <code>tutorial/00_math_toolkit.py</code>.</aside>
+</section>
+
+<!-- ============================================================ part II -->
+<section class="slide section" id="part-maps">
+  <p class="kicker">Part II</p>
+  <h1>Matrices as linear maps</h1>
+  <hr>
+  <p>A matrix is a table of numbers and a function that moves vectors. Products, transposes,
+    inverses and determinants all follow from the second view.</p>
+</section>
+
+<!-- ============================================================ matrix-vector product -->
+<section class="slide" id="matrix-vector-product">
+  <h2>A matrix and its product with a vector</h2>
+  <div class="cols">
+    <div>
+      <ul>
+        <li>An $m \times n$ <b>matrix</b> is a table of numbers with $m$ rows and $n$ columns.
+          The entry $a_{ij}$ sits in row $i$ and column $j$.</li>
+        <li>The running matrix has the columns $\vu = (1, 1)$ and $\vw = (-1, 3)$:
+          $$A = \begin{bmatrix} \vu & \vw \end{bmatrix} = \begin{bmatrix} 1 & -1 \\ 1 & 3 \end{bmatrix}.$$</li>
+        <li>Shape rule: an $m\times n$ matrix times a vector in $\R^n$ gives a vector in $\R^m$.</li>
+      </ul>
+    </div>
+    <div>
+      <p><b>Column view.</b> $A\vx$ is the linear combination of the columns of $A$ with the
+        entries of $\vx$ as coefficients:</p>
+      $$A\begin{bmatrix} 2 \\ 1 \end{bmatrix} = 2\begin{bmatrix} 1 \\ 1 \end{bmatrix}
+        + 1\begin{bmatrix} -1 \\ 3 \end{bmatrix} = \begin{bmatrix} 1 \\ 5 \end{bmatrix}.$$
+      <p class="step"><b>Row view.</b> Entry $i$ of $A\vx$ is (row $i$ of $A$)$\,\cdot\,\vx$:
+        $(1, -1)\cdot(2, 1) = 1$ and $(1, 3)\cdot(2, 1) = 5$.</p>
+      <p class="step">Both views compute $(A\vx)_i = a_{i1}x_1 + a_{i2}x_2 + \dots + a_{in}x_n$.</p>
+    </div>
+  </div>
+  <aside class="notes">The two views perform the same multiplications and additions in a different
+    order, and each answers a different question. The column view answers &ldquo;which vectors can
+    $A\vx$ reach?&rdquo;: exactly the linear combinations of the columns, which is the column space
+    of Part III. The row view answers &ldquo;which $\vx$ satisfy these equations?&rdquo;: each row
+    of $A$ dotted with $\vx$ gives one equation, which is the row picture and the null space of
+    Part III. The formula $(A\vx)_i = \sum_j a_{ij}x_j$ is the row view written out; reading it
+    down a column instead of across a row gives the column view. The shape rule says the number
+    of columns of $A$ must equal the length of $\vx$; a $2\times 3$ matrix accepts vectors in
+    $\R^3$ and returns vectors in $\R^2$ (slide <a href="#wide-matrix-flattens">wide-matrix-flattens</a>).
+    The product $A(2, 1) = (1, 5)$ is the linear combination $2\vu + \vw$ of slide
+    <a href="#linear-combinations">linear-combinations</a>, written with a matrix.</aside>
+</section>
+
+<!-- ============================================================ grid -->
+<section class="slide" id="linear-map-grid" data-code="00_math_toolkit.py:d01_det2">
+  <h2>A $2\times 2$ matrix as a map of the plane</h2>
+  <div class="cols l2 mid">
+    <figure>
+      <svg id="f-grid"></svg>
+      <figcaption>Gray: the square grid. Blue: its image under $A$. Yellow: the image of the unit
+        square.</figcaption>
+    </figure>
+    <div>
+      <ul class="tight">
+        <li>$A$ sends each point $\vx$ of the plane to $A\vx$.</li>
+        <li>Grid lines stay straight, parallel and evenly spaced. The origin stays put.</li>
+        <li>$A\ve_1$ (red) is column 1 and $A\ve_2$ (green) is column 2.</li>
+      </ul>
+      <div class="controls">
+        <select id="g-preset">
+          <option value="A">running A</option>
+          <option value="I">identity</option>
+          <option value="rot">rotation by 30&deg;</option>
+          <option value="shear">shear</option>
+          <option value="stretch">stretch</option>
+          <option value="proj">projection onto the x-axis</option>
+          <option value="refl">reflection in the x-axis</option>
+        </select><br>
+        <label>$a$ <input type="range" class="short" id="g-a" min="-2" max="2" step="0.001" value="1"></label>
+        <label>$b$ <input type="range" class="short" id="g-b" min="-2" max="3" step="0.001" value="-1"></label><br>
+        <label>$c$ <input type="range" class="short" id="g-c" min="-2" max="2" step="0.001" value="1"></label>
+        <label>$d$ <input type="range" class="short" id="g-d" min="-2" max="3" step="0.001" value="3"></label>
+      </div>
+      <div class="readout" id="g-read"></div>
+    </div>
+  </div>
+  <aside class="notes">The figure applies $A = \begin{bmatrix} a & b \\ c & d \end{bmatrix}$ to every
+    line of the square grid. Because $A(\vx + t\vy) = A\vx + t\,A\vy$, a line through $\vx$ with
+    direction $\vy$ maps to a line through $A\vx$ with direction $A\vy$; lines with the same
+    direction stay parallel, and equally spaced lines stay equally spaced. The whole picture is
+    fixed by where the two unit arrows go, which are the two columns. The presets and their
+    determinants (slide <a href="#determinant-area">determinant-area</a>): identity 1; rotation
+    by $30^\circ$, $\begin{bmatrix} 0.866 & -0.5 \\ 0.5 & 0.866 \end{bmatrix}$, 1; shear
+    $\begin{bmatrix} 1 & 1 \\ 0 & 1 \end{bmatrix}$, 1; stretch
+    $\begin{bmatrix} 2 & 0 \\ 0 & 0.5 \end{bmatrix}$, 1; projection
+    $\begin{bmatrix} 1 & 0 \\ 0 & 0 \end{bmatrix}$, 0; reflection
+    $\begin{bmatrix} 1 & 0 \\ 0 & -1 \end{bmatrix}$, $-1$; running $A$, 4. The projection
+    flattens the plane onto the $x$-axis: every point of a vertical line lands on one point, a
+    first example of a nonzero null space (slide <a href="#null-space">null-space</a>).</aside>
+</section>
+
+<!-- ============================================================ linearity -->
+<section class="slide" id="linearity">
+  <h2>Linear maps and their matrices</h2>
+  <ul>
+    <li>A map $T$ from $\R^n$ to $\R^m$ is <b>linear</b> when $T(\vx + \vy) = T(\vx) + T(\vy)$
+      and $T(c\vx) = c\,T(\vx)$ for all vectors $\vx, \vy$ and numbers $c$.</li>
+    <li>Every matrix map $\vx \mapsto A\vx$ is linear: in the column view, $A(\vx + \vy)$ uses the
+      coefficients $x_j + y_j$, which splits into $A\vx + A\vy$.</li>
+  </ul>
+  <p>Every linear map is a matrix map, and column $j$ of its matrix is $T(\ve_j)$:</p>
+  <ol>
+    <li class="step">Write $\vx = x_1\ve_1 + x_2\ve_2 + \dots + x_n\ve_n$.</li>
+    <li class="step">Apply linearity: $T(\vx) = x_1 T(\ve_1) + x_2 T(\ve_2) + \dots + x_n T(\ve_n)$.</li>
+    <li class="step">This is the column view of the product
+      $\begin{bmatrix} T(\ve_1) & T(\ve_2) & \cdots & T(\ve_n) \end{bmatrix}\vx$.</li>
+  </ol>
+  <div class="example step">Rotation by $90^\circ$: $T(\ve_1) = (0, 1)$ and $T(\ve_2) = (-1, 0)$, so
+    $R = \begin{bmatrix} 0 & -1 \\ 1 & 0 \end{bmatrix}$. The shift $T(\vx) = \vx + (1, 0)$ is
+    not linear: $T(\vzero) = (1, 0)$, but a linear map sends $\vzero$ to $\vzero$.</div>
+  <aside class="notes">Linearity is the property that makes a map predictable from a few samples:
+    once the images of the $n$ basis vectors are known, the image of every vector follows by
+    scaling and adding. The three steps are the proof; step 1 uses the standard basis of slide
+    <a href="#basis-and-coordinates">basis-and-coordinates</a>, step 2 uses both linearity rules,
+    and step 3 is the column view of slide <a href="#matrix-vector-product">matrix-vector-product</a>.
+    A linear map always sends $\vzero$ to $\vzero$, because $T(\vzero) = T(0\cdot\vzero) =
+    0\cdot T(\vzero) = \vzero$; the shift fails this test. Deck 03 uses this slide in reverse: a
+    smooth nonlinear map is close to a linear map near any point, and the matrix of that linear
+    map, the Jacobian, has as column $j$ the rate of change of the map along $\ve_j$ (the partial
+    derivatives). Deck 17 builds rotation matrices in $\R^3$ the same way: column $j$ is where the
+    rotation sends $\ve_j$.</aside>
+</section>
+
+<!-- ============================================================ composition -->
+<section class="slide" id="composition" data-code="00_math_toolkit.py:d01_compose">
+  <h2>Matrix multiplication as composition of maps</h2>
+  <div class="cols">
+    <div>
+      <ul class="tight">
+        <li>&ldquo;First $A$, then $B$&rdquo; is $\vx \mapsto B(A\vx)$. Its matrix is the product
+          $BA$; the right factor acts first.</li>
+        <li class="step">Column $j$ of $BA$ is $B$ times column $j$ of $A$, so
+          $(BA)_{ij}$ = (row $i$ of $B$)$\,\cdot\,$(column $j$ of $A$).</li>
+        <li class="step">Shapes: $(m\times n)(n\times p)$ is $m\times p$.
+          $(AB)C = A(BC)$ always; $AB = BA$ rarely.</li>
+      </ul>
+    </div>
+    <div>
+      $$S = \begin{bmatrix} 1 & 1 \\ 0 & 1 \end{bmatrix}\ \text{shear},\quad
+        R = \begin{bmatrix} 0 & -1 \\ 1 & 0 \end{bmatrix}\ \text{rotation}$$
+      $$RS = \begin{bmatrix} 0 & -1 \\ 1 & 1 \end{bmatrix} \ne
+        SR = \begin{bmatrix} 1 & -1 \\ 1 & 0 \end{bmatrix}$$
+      <div class="controls">
+        <select id="comp-order">
+          <option value="RS">shear first, then rotate: $RS$</option>
+          <option value="SR">rotate first, then shear: $SR$</option>
+        </select>
+      </div>
+    </div>
+  </div>
+  <div class="cols three">
+    <figure class="bare"><svg id="f-comp0"></svg></figure>
+    <figure class="bare"><svg id="f-comp1"></svg></figure>
+    <figure class="bare"><svg id="f-comp2"></svg></figure>
+  </div>
+  <aside class="notes">Why column $j$ of $BA$ is $B\va_j$: the product $BA$ must send $\ve_j$ to
+    $B(A\ve_j) = B\va_j$, where $\va_j$ is column $j$ of $A$, and column $j$ of a matrix is where
+    it sends $\ve_j$ (slide <a href="#linearity">linearity</a>). Entry $i$ of $B\va_j$ is row $i$
+    of $B$ dotted with $\va_j$, which gives the entry rule. Worked out:
+    $RS = \begin{bmatrix} 0\cdot 1 + (-1)\cdot 0 & 0\cdot 1 + (-1)\cdot 1 \\ 1\cdot 1 + 0\cdot 0 &
+    1\cdot 1 + 0\cdot 1 \end{bmatrix} = \begin{bmatrix} 0 & -1 \\ 1 & 1 \end{bmatrix}$. The three
+    panels show the letter F, its image after the first map and its image after both, with the
+    images of $\ve_1$ (red) and $\ve_2$ (green); the last panel's arrows are the columns of the
+    product. Associativity holds because both sides are the same composite map &ldquo;first $C$,
+    then $B$, then $A$&rdquo;. Deck 08 composes one map per time step: from
+    $\vx_{k+1} = A\vx_k + B\vu_k$, two steps give $\vx_{k+2} = A^2\vx_k + AB\vu_k + B\vu_{k+1}$.</aside>
+</section>
+
+<!-- ============================================================ transpose -->
+<section class="slide" id="transpose" data-code="00_math_toolkit.py:d01_transpose_check">
+  <h2>The transpose</h2>
+  <div class="cols">
+    <div>
+      <ul>
+        <li>The <b>transpose</b> $A^\T$ swaps rows and columns: $(A^\T)_{ij} = a_{ji}$.
+          An $m \times n$ matrix becomes $n \times m$.
+          $$A_{23} = \begin{bmatrix} 1 & 0 & 1 \\ 0 & 1 & 1 \end{bmatrix},\quad
+            A_{23}^\T = \begin{bmatrix} 1 & 0 \\ 0 & 1 \\ 1 & 1 \end{bmatrix}.$$</li>
+        <li>A dot product is a matrix product: $\va\cdot\vb = \va^\T\vb$, a $1\times n$ row times
+          an $n\times 1$ column.</li>
+        <li>$(AB)^\T = B^\T A^\T$. A matrix with $A^\T = A$ is <b>symmetric</b>.</li>
+      </ul>
+    </div>
+    <div>
+      <p>Moving a matrix to the other side of a dot product transposes it:</p>
+      $$(A\vx)\cdot\vy = \vx\cdot(A^\T\vy).$$
+      <p class="step">Proof: $(A\vx)\cdot\vy = (A\vx)^\T\vy = \vx^\T A^\T\vy = \vx\cdot(A^\T\vy)$.</p>
+      <div class="example step">$\vx = (1, 2, 3)$, $\vy = (1, -1)$:
+        $A_{23}\vx = (4, 5)$ and $(4, 5)\cdot(1, -1) = -1$;
+        $A_{23}^\T\vy = (1, -1, 0)$ and $(1, 2, 3)\cdot(1, -1, 0) = -1$.</div>
+    </div>
+  </div>
+  <aside class="notes">The rule $(AB)^\T = B^\T A^\T$ reverses the order: entry $(i, j)$ of
+    $(AB)^\T$ is entry $(j, i)$ of $AB$, which is row $j$ of $A$ dotted with column $i$ of $B$,
+    which is row $i$ of $B^\T$ dotted with column $j$ of $A^\T$. The proof on the slide applies it
+    to the product of $A$ and the one-column matrix $\vx$. The identity
+    $(A\vx)\cdot\vy = \vx\cdot(A^\T\vy)$ is how forces move between coordinate systems. In deck 17
+    a Jacobian $J$ maps joint velocities $\vv$ to a contact-point velocity $J\vv$; the power of a
+    contact force $\vlambda$ is $(J\vv)\cdot\vlambda = \vv\cdot(J^\T\vlambda)$, so the joint
+    torques that do the same work are $\vtau = J^\T\vlambda$. Symmetric matrices, such as
+    $A^\T A$ and the inertia matrix $M$ of the tex (line 1123), are the subject of deck 02:
+    $(A^\T A)^\T = A^\T (A^\T)^\T = A^\T A$.</aside>
+</section>
+
+<!-- ============================================================ inverse -->
+<section class="slide" id="identity-and-inverse" data-code="00_math_toolkit.py:d01_inv2">
+  <h2>The identity matrix and the inverse</h2>
+  <div class="cols">
+    <div>
+      <ul>
+        <li>The <b>identity</b> $I$ has 1 on the diagonal and 0 elsewhere: $I\vx = \vx$ for every
+          $\vx$, and $AI = IA = A$.</li>
+        <li>The <b>inverse</b> $A^{-1}$ undoes $A$: $A^{-1}A = AA^{-1} = I$. Then $A\vx = \vb$ has the
+          one solution $\vx = A^{-1}\vb$.</li>
+        <li>$(AB)^{-1} = B^{-1}A^{-1}$: the last map is undone first.</li>
+        <li>Only square matrices have inverses. A $2\times 2$ matrix has one exactly when
+          $ad - bc \ne 0$.</li>
+      </ul>
+    </div>
+    <div>
+      $$\begin{bmatrix} a & b \\ c & d \end{bmatrix}^{-1} = \frac{1}{ad - bc}
+        \begin{bmatrix} d & -b \\ -c & a \end{bmatrix}$$
+      <div class="example step">$A = \begin{bmatrix} 1 & -1 \\ 1 & 3 \end{bmatrix}$ has
+        $ad - bc = 3 + 1 = 4$, so
+        $$A^{-1} = \tfrac14\begin{bmatrix} 3 & 1 \\ -1 & 1 \end{bmatrix},\quad
+          A^{-1}\begin{bmatrix} 1 \\ 5 \end{bmatrix} = \tfrac14\begin{bmatrix} 3 + 5 \\ -1 + 5 \end{bmatrix}
+          = \begin{bmatrix} 2 \\ 1 \end{bmatrix}.$$</div>
+      <p class="step small">Check: $\tfrac14\begin{bmatrix} 3 & 1 \\ -1 & 1 \end{bmatrix}
+        \begin{bmatrix} 1 & -1 \\ 1 & 3 \end{bmatrix} = \tfrac14\begin{bmatrix} 4 & 0 \\ 0 & 4 \end{bmatrix} = I$.</p>
+    </div>
+  </div>
+  <aside class="notes">$A^{-1}(1, 5) = (2, 1)$ are the coordinates of $(1, 5)$ in the basis
+    $\vu, \vw$ (slide <a href="#basis-and-coordinates">basis-and-coordinates</a>): the inverse of
+    a matrix whose columns are a basis converts a vector into its coordinates in that basis. The
+    $2\times 2$ formula can be checked by multiplying: $\begin{bmatrix} d & -b \\ -c & a
+    \end{bmatrix}\begin{bmatrix} a & b \\ c & d \end{bmatrix} = \begin{bmatrix} ad - bc & 0 \\ 0 &
+    ad - bc \end{bmatrix}$, so dividing by $ad - bc$ gives $I$. When $ad - bc = 0$ no inverse
+    exists: the map squashes the plane onto a line (slide
+    <a href="#determinant-area">determinant-area</a>), and two different points that land on the
+    same point cannot both be recovered. The reversed order in $(AB)^{-1}$ follows from
+    $(B^{-1}A^{-1})(AB) = B^{-1}(A^{-1}A)B = B^{-1}B = I$. A non-square matrix has no inverse;
+    deck 02 builds the pseudoinverse, which picks the shortest solution when there are many and
+    the best approximate solution when there are none.</aside>
+</section>
+
+<!-- ============================================================ determinant -->
+<section class="slide" id="determinant-area" data-code="00_math_toolkit.py:d01_det2">
+  <h2>The $2\times 2$ determinant as an area scale factor</h2>
+  <div class="cols mid">
+    <figure>
+      <svg id="f-det"></svg>
+      <figcaption>Drag the two columns. Dashed: the unit square. Yellow (positive) or red
+        (negative): its image.</figcaption>
+    </figure>
+    <div>
+      <ul>
+        <li>$\det A = ad - bc$ for $A = \begin{bmatrix} a & b \\ c & d \end{bmatrix}$.</li>
+        <li>$\abs{\det A}$ is the area of the image of the unit square. $A$ multiplies every area
+          by this factor.</li>
+        <li>$\det A &lt; 0$: the image is mirrored (the turn from $A\ve_1$ to $A\ve_2$ is clockwise).</li>
+        <li>$\det A = 0$: the columns are parallel, the plane is squashed onto a line, and $A$ has no
+          inverse.</li>
+        <li>Running $A$: $\det A = 1\cdot 3 - (-1)\cdot 1 = 4$.</li>
+      </ul>
+      <div class="readout" id="det-read"></div>
+    </div>
+  </div>
+  <aside class="notes">The unit square has corners $\vzero$, $\ve_1$, $\ve_1 + \ve_2$, $\ve_2$; its
+    image has corners $\vzero$, $A\ve_1$, $A\ve_1 + A\ve_2$, $A\ve_2$, a parallelogram on the two
+    columns. The next slide derives its area $ad - bc$. Every other region is a limit of small
+    squares, each scaled by the same factor, so every area is multiplied by $\abs{\det A}$. The
+    sign records orientation: for the identity the turn from $\ve_1$ to $\ve_2$ is
+    counter-clockwise and $\det I = 1$; a reflection reverses it and has $\det = -1$. Two rules
+    used later: $\det(AB) = \det A\,\det B$ (the areas are scaled twice), and $\det A \ne 0$
+    exactly when $A$ has an inverse. The $n \times n$ determinant is the signed volume scale
+    factor in $\R^n$; slide <a href="#linear-independence">linear-independence</a> met it as the
+    box volume $h$. The drag handles snap to multiples of 0.25 so that parallel columns, and
+    $\det A = 0$, can be hit exactly.</aside>
+</section>
+
+<!-- ============================================================ determinant derivation -->
+<section class="slide" id="determinant-derivation" data-code="00_math_toolkit.py:d01_parallelogram_area">
+  <h2>Derivation of the parallelogram area $ad - bc$</h2>
+  <div class="cols mid">
+    <figure>
+      <svg id="f-par"></svg>
+      <figcaption>Columns $(a, c) = (3, 1)$ and $(b, d) = (1, 2)$ inside their $4 \times 3$
+        bounding box.</figcaption>
+    </figure>
+    <div>
+      <ol>
+        <li class="step" data-step="1">Box: $(a + b)(c + d) = 4 \cdot 3 = 12$.</li>
+        <li class="step" data-step="2">Two red triangles with legs $a$, $c$: together $ac = 3$.</li>
+        <li class="step" data-step="3">Two blue triangles with legs $b$, $d$: together $bd = 2$.</li>
+        <li class="step" data-step="4">Two green rectangles $b \times c$: together $2bc = 2$.</li>
+      </ol>
+      <div class="box step" data-step="5">$(a + b)(c + d) - ac - bd - 2bc = ad - bc$.
+        Here $12 - 3 - 2 - 2 = 5 = 3\cdot 2 - 1\cdot 1$.</div>
+    </div>
+  </div>
+  <aside class="notes">Expanding the box area: $(a + b)(c + d) = ac + ad + bc + bd$. Subtracting
+    $ac + bd + 2bc$ leaves $ad - bc$. The picture assumes both columns point into the first
+    quadrant with $(a, c)$ below $(b, d)$ and $b \le a$, $c \le d$; the other arrangements cut
+    the box differently and give the same formula up to sign, which is the orientation of the
+    previous slide. The notebook function
+    <code>d01_parallelogram_area(3, 1, 1, 2)</code> returns the box 12, the pieces 3, 2 and 2,
+    and the area 5, equal to $ad - bc$. A second derivation uses shears. Sliding one side of a
+    parallelogram along the direction of the other side keeps its base and height, so it keeps
+    its area. Replace $(b, d)$ by $(b, d) - \tfrac{b}{a}(a, c) = (0,\ d - \tfrac{bc}{a})$, then
+    replace $(a, c)$ by $(a, 0)$ the same way: the result is a rectangle of width $a$ and height
+    $d - bc/a$, with area $ad - bc$ (for $a \ne 0$). The row operations of Part III are shears
+    of this kind.</aside>
+</section>
+
+<!-- ============================================================ wide matrix -->
+<section class="slide" id="wide-matrix-flattens" data-code="00_math_toolkit.py:d01_nonsquare_maps">
+  <h2>A $2\times 3$ matrix flattens space onto the plane</h2>
+  <div class="cols">
+    <figure class="bare"><svg id="f-wide3"></svg></figure>
+    <figure class="bare"><svg id="f-wide2"></svg></figure>
+  </div>
+  <div class="cols">
+    <ul class="tight">
+      <li>$A_{23} = \begin{bmatrix} 1 & 0 & 1 \\ 0 & 1 & 1 \end{bmatrix}$ maps $\R^3$ to $\R^2$:
+        $(x, y, z) \mapsto (x + z,\ y + z)$. The unit cube lands on a hexagon.</li>
+      <li>Every point of the line $(2, 1, 0) + t(-1, -1, 1)$ lands on $(2, 1)$, because
+        $A_{23}(-1, -1, 1) = \vzero$.</li>
+    </ul>
+    <div>
+      <div class="controls">
+        <label>$t$ = <input type="range" class="short" id="wide-t" min="-1" max="2.5" step="0.05" value="1">
+          <span id="wide-t-out"></span></label>
+        <label>view <input type="range" class="short" id="wide-az" min="-170" max="-100" step="1" value="-128"></label>
+      </div>
+      <div class="readout" id="wide-read"></div>
+    </div>
+  </div>
+  <aside class="notes">The columns of $A_{23}$ are the images of the three unit arrows:
+    $\ve_1 \mapsto (1, 0)$, $\ve_2 \mapsto (0, 1)$ and $\ve_3 \mapsto (1, 1)$. The eight corners
+    of the unit cube map to seven distinct points, $(0, 0)$, $(1, 0)$, $(0, 1)$, $(1, 1)$ (twice:
+    from $(1, 1, 0)$ and from $(0, 0, 1)$), $(2, 1)$, $(1, 2)$ and $(2, 2)$, whose outline is the
+    hexagon. A map from $\R^3$ onto a plane must lose one direction; here it loses
+    $(-1, -1, 1)$, and every line with that direction collapses to a single point. The set of
+    vectors that land on $\vzero$ is the null space of slide <a href="#null-space">null-space</a>.
+    The red line in the left panel is the set of solutions of $A_{23}\vx = (2, 1)$; slide
+    <a href="#solution-set">solution-set</a> returns to it, and its point at $t = 1$,
+    $(1, 0, 1)$, is the shortest solution. In robotics a wide matrix appears whenever more joints
+    move than the task measures: a 7-joint arm has a $6\times 7$ Jacobian from joint speeds to
+    hand velocity, which always leaves a line of joint motions that the hand does not
+    feel.</aside>
+</section>
+
+<!-- ============================================================ tall matrix -->
+<section class="slide" id="tall-matrix-embeds" data-code="00_math_toolkit.py:d01_nonsquare_maps">
+  <h2>A $3\times 2$ matrix embeds the plane in space</h2>
+  <div class="cols">
+    <figure class="bare"><svg id="f-tall2"></svg></figure>
+    <figure class="bare"><svg id="f-tall3"></svg></figure>
+  </div>
+  <div class="cols">
+    <ul class="tight">
+      <li>$B = A_{23}^\T = \begin{bmatrix} 1 & 0 \\ 0 & 1 \\ 1 & 1 \end{bmatrix}$ maps $\R^2$ to
+        $\R^3$: $(s_1, s_2) \mapsto (s_1,\ s_2,\ s_1 + s_2)$.</li>
+      <li>The image is the plane $z = x + y$. Different $\vs$ land on different points.</li>
+      <li>$(0, 0, 1)$ is off the plane, so $B\vs = (0, 0, 1)$ has no solution.</li>
+    </ul>
+    <div>
+      <p class="small">Drag $\vs$ in the left panel.</p>
+      <div class="controls">
+        <label>view <input type="range" class="short" id="tall-az" min="-170" max="-100" step="1" value="-128"></label>
+      </div>
+      <div class="readout" id="tall-read"></div>
+    </div>
+  </div>
+  <aside class="notes">The image of $B$ is the span of its two columns $(1, 0, 1)$ and $(0, 1, 1)$,
+    the plane of slide <a href="#span">span</a>. $B$ loses nothing: if $B\vs = B\vs'$ then the
+    first two entries give $s_1 = s_1'$ and $s_2 = s_2'$. What it cannot do is reach most of
+    $\R^3$. The point $(0, 0, 1)$ (marked with a cross) has $z - x - y = 1$, and every point of
+    the image has $z - x - y = 0$, so no $\vs$ reaches it. A tall system such as
+    $B\vs = (0, 0, 1)$, with more equations than unknowns, usually has no solution; deck 02
+    replaces it by the least-squares problem of finding the point of the plane closest to the
+    target. Tall and wide matrices are transposes of each other here: $A_{23}$ flattens $\R^3$
+    onto $\R^2$, and its transpose $B$ lifts $\R^2$ into a plane in $\R^3$. The plane that $B$
+    reaches is the row space of $A_{23}$, the set of vectors perpendicular to $A_{23}$'s lost
+    direction $(-1, -1, 1)$ (slide <a href="#row-space-and-rank">row-space-and-rank</a>).</aside>
+</section>
+
+<!-- ============================================================ check maps -->
+<section class="slide" id="check-maps">
+  <h2>Check yourself: matrices as maps</h2>
+  <ol>
+    <li>$A$ is $2\times 3$ and $B$ is $3\times 4$. What is the shape of $AB$? Is $BA$ defined?
+      <details><summary>answer</summary><div>$AB$ is $2\times 4$. $BA$ is not defined: $B$ has 4
+        columns and $A$ has 2 rows.</div></details></li>
+    <li>What is the matrix of the reflection in the line $y = x$, and its determinant?
+      <details><summary>answer</summary><div>$\ve_1 \mapsto (0, 1)$, $\ve_2 \mapsto (1, 0)$, so
+        $\begin{bmatrix} 0 & 1 \\ 1 & 0 \end{bmatrix}$ with $\det = 0 - 1 = -1$.</div></details></li>
+    <li>What is the inverse of $\begin{bmatrix} 2 & 0 \\ 0 & 4 \end{bmatrix}$?
+      <details><summary>answer</summary><div>$\begin{bmatrix} 1/2 & 0 \\ 0 & 1/4 \end{bmatrix}$.</div></details></li>
+    <li>Can a $2\times 3$ matrix have an inverse?
+      <details><summary>answer</summary><div>No. It sends a whole line of $\R^3$ to $\vzero$, so
+        the map cannot be undone. Only square matrices have inverses.</div></details></li>
+    <li>What is $\det\begin{bmatrix} 1 & 2 \\ 2 & 4 \end{bmatrix}$?
+      <details><summary>answer</summary><div>$4 - 4 = 0$: the columns are parallel, and the matrix
+        has no inverse.</div></details></li>
+  </ol>
+  <aside class="notes">Question 1 uses the shape rule of slide <a href="#composition">composition</a>:
+    the inner sizes must match and the outer sizes give the result. Question 2 uses the rule that
+    column $j$ is the image of $\ve_j$ (slide <a href="#linearity">linearity</a>); a reflection
+    reverses orientation, so its determinant is negative. Question 3 can be checked with the
+    $2\times 2$ formula ($ad - bc = 8$) or by noting that a diagonal matrix scales each axis
+    separately, so its inverse scales back. Question 4 anticipates rank-nullity: every
+    $2\times 3$ matrix has a null space of dimension at least 1. Question 5 is the degenerate
+    case of slide <a href="#determinant-area">determinant-area</a>: the image of the unit square is
+    a segment of the line $y = 2x$.</aside>
+</section>
+
+<!-- PART-III -->
+
+</main>
+<script>
+(function () {
+  "use strict";
+  const C = Fig.C, d = Fig.deg, LM = window.LinearMaps;
+  const $ = (id) => document.getElementById(id);
+  const fx = (x, n) => { const s = (+x).toFixed(n === undefined ? 2 : n); return /^-0\.?0*$/.test(s) ? s.slice(1) : s; };
+  const vs = (v, n) => "(" + v.map((x) => fx(x, n)).join(", ") + ")";
+  const add = (a, b) => a.map((x, i) => x + b[i]);
+  const mul = (a, c) => a.map((x) => x * c);
+  const snap = (p, h) => p.map((x) => Math.round(x / h) * h + 0);
+  const clamp2 = (p, xl, yl) => [Math.max(xl[0], Math.min(xl[1], p[0])), Math.max(yl[0], Math.min(yl[1], p[1]))];
+  const on = (el, f) => { el.addEventListener("input", f); el.addEventListener("change", f); };
+  const LIGHT = "#e8e8e8";
+
+  // A handle in its own layer: the figure redraws underneath while the handle element (and the
+  // pointer capture it holds) survives. move(q) returns the accepted world point.
+  function handle(F, layer, id, p0, move, o) {
+    const h = layer.handle(p0, (q) => {
+      const p = move(q), A = F.px(p);
+      h.setAttribute("cx", A[0]); h.setAttribute("cy", A[1]);
+    }, o);
+    h.id = id;
+    return h;
+  }
+  function place(F, h, p) { const A = F.px(p); h.setAttribute("cx", A[0]); h.setAttribute("cy", A[1]); }
+
+  // Light integer grid and axes for the 2D vector figures.
+  function plane(G, xl, yl, o) {
+    o = o || {};
+    for (let i = Math.ceil(xl[0]); i <= xl[1]; i++) if (i) G.line([i, yl[0]], [i, yl[1]], { color: LIGHT, width: 1 });
+    for (let j = Math.ceil(yl[0]); j <= yl[1]; j++) if (j) G.line([xl[0], j], [xl[1], j], { color: LIGHT, width: 1 });
+    G.arrow([xl[0], 0], [xl[1] - 0.05, 0], { width: 1.2, color: "#555555", headpx: 9 });
+    G.arrow([0, yl[0]], [0, yl[1] - 0.05], { width: 1.2, color: "#555555", headpx: 9 });
+    if (o.ticks !== false) {
+      for (let i = Math.ceil(xl[0]); i <= xl[1] - 0.5; i++) if (i) G.text([i, 0], String(i).replace("-", "−"), { size: 17, anchor: "middle", dy: 14, color: "#555555" });
+      for (let j = Math.ceil(yl[0]); j <= yl[1] - 0.5; j++) if (j) G.text([0, j], String(j).replace("-", "−"), { size: 17, anchor: "end", dx: -6, color: "#555555" });
+    }
+  }
+  const vlab = { lbold: true, lsize: 24 };
+
+  // ---------------------------------------------------------------- title: A as a map
+  {
+    const F = Plot.fig("#f-hero", { w: 620, h: 320, xlim: [-5.2, 5.2], ylim: [-3.4, 3.4], equal: true, margin: 4 });
+    F.grid2([[1, -1], [1, 3]], { original: true, square: true, labels: ["Ae_1", "Ae_2"] });
+  }
+
+  // ---------------------------------------------------------------- vectors as arrows
+  {
+    const xl = [-1.3, 4.7], yl = [-1.3, 3.9];
+    const F = Fig("#f-vec", { w: 540, h: 470, xlim: xl, ylim: yl });
+    const base = F.group(), top = F.group();
+    let v = [3, 2];
+    function draw() {
+      base.clear();
+      plane(base, xl, yl);
+      base.line([v[0], 0], v, { dash: true, color: C.gray, width: 1.3 });
+      base.line([0, v[1]], v, { dash: true, color: C.gray, width: 1.3 });
+      base.arrow([0, 0], v, Object.assign({ color: C.force, label: "v", loff: [12, -8] }, vlab));
+      base.text([v[0] / 2, 0], "v₁ = " + fx(v[0], 1), { size: 19, anchor: "middle", dy: v[1] >= 0 ? 34 : -30, italic: false });
+      base.text([v[0], v[1] / 2], "v₂ = " + fx(v[1], 1), { size: 19, anchor: v[0] >= 0 ? "start" : "end", dx: v[0] >= 0 ? 10 : -10 });
+      base.dot([0, 0], { rpx: 3 });
+      $("vec-read").textContent = "v = " + vs(v, 1) + "\n|v| = sqrt(" + fx(v[0] * v[0] + v[1] * v[1], 2) + ") = " + fx(LM.length(v), 3);
+    }
+    handle(F, top, "h-vec", v, (q) => { v = snap(clamp2(q, [-1, 4.4], [-1, 3.6]), 0.1); draw(); return v; }, { color: C.force });
+    draw();
+  }
+
+  // ---------------------------------------------------------------- addition and scaling
+  {
+    const xl = [-3.3, 3.3], yl = [-3.2, 5.2];
+    const F = Fig("#f-add", { w: 520, h: 470, xlim: xl, ylim: yl });
+    const base = F.group(), top = F.group();
+    let u = [1, 1], w = [-1, 3];
+    const cEl = $("add-c");
+    let hu, hw;
+    function draw() {
+      const c = +cEl.value, s = add(u, w), cu = mul(u, c);
+      base.clear();
+      plane(base, xl, yl, { ticks: false });
+      base.line(u, s, { dash: true, color: C.green, width: 1.3 });
+      base.line(w, s, { dash: true, color: C.normal, width: 1.3 });
+      if (Math.abs(c) > 0.05) base.arrow([0, 0], cu, Object.assign({ color: C.purple, width: 5, opacity: 0.45, label: fx(c, 1) + "u", loff: [16, 14] }, vlab));
+      base.arrow([0, 0], u, Object.assign({ color: C.normal, label: "u", loff: [14, 10] }, vlab));
+      base.arrow([0, 0], w, Object.assign({ color: C.green, label: "w", loff: [-14, -4] }, vlab));
+      base.arrow([0, 0], s, Object.assign({ color: C.force, label: "u + w", lpos: "mid", loff: [34, 0] }, vlab));
+      base.dot([0, 0], { rpx: 3 });
+      $("add-c-out").textContent = fx(c, 1);
+      $("add-read").textContent = "u = " + vs(u, 2) + "   w = " + vs(w, 2) + "\nu + w = " + vs(s, 2) + "\nc u   = " + vs(cu, 2);
+    }
+    hu = handle(F, top, "h-add-u", u, (q) => { u = snap(clamp2(q, [-3, 3], [-2.5, 2.5]), 0.25); draw(); return u; }, { color: C.normal });
+    hw = handle(F, top, "h-add-w", w, (q) => { w = snap(clamp2(q, [-3, 3], [-2.5, 2.7]), 0.25); draw(); return w; }, { color: C.green });
+    on(cEl, draw);
+    draw();
+  }
+
+  // ---------------------------------------------------------------- linear combinations
+  {
+    const xl = [-4.2, 4.2], yl = [-4.2, 6.2];
+    const F = Fig("#f-comb", { w: 500, h: 470, xlim: xl, ylim: yl });
+    const u = [1, 1], w = [-1, 3];
+    const e1 = $("comb-c1"), e2 = $("comb-c2");
+    function draw() {
+      const c1 = +e1.value, c2 = +e2.value, a = mul(u, c1), r = add(a, mul(w, c2));
+      F.clear();
+      plane(F, xl, yl, { ticks: false });
+      F.arrow([0, 0], u, { color: C.normal, width: 1.5, opacity: 0.5 });
+      F.arrow([0, 0], w, { color: C.green, width: 1.5, opacity: 0.5 });
+      if (Math.abs(c1) > 0.05) F.arrow([0, 0], a, Object.assign({ color: C.normal, label: fx(c1, 1) + "u", lpos: "mid", loff: [30, 12] }, vlab));
+      if (Math.abs(c2) > 0.05) F.arrow(a, r, Object.assign({ color: C.green, label: fx(c2, 1) + "w", lpos: "mid", loff: [-34, 0] }, vlab));
+      F.dot(r, { rpx: 6, color: C.force });
+      F.text(r, vs(r, 1), { size: 20, dx: 10, dy: -14, color: C.force });
+      F.dot([0, 0], { rpx: 3 });
+      $("comb-c1-out").textContent = fx(c1, 1);
+      $("comb-c2-out").textContent = fx(c2, 1);
+      $("comb-read").textContent = "c1 u + c2 w = " + vs(r, 2);
+    }
+    on(e1, draw); on(e2, draw);
+    draw();
+  }
+
+  // ---------------------------------------------------------------- span
+  {
+    const xl = [-4.7, 4.7], yl = [-3.9, 3.9];
+    const F = Fig("#f-span", { w: 560, h: 465, xlim: xl, ylim: yl });
+    const base = F.group(), top = F.group();
+    const u = [1, 1];
+    let w = [-1, 2];
+    const par = $("span-par");
+    let hw;
+    function draw() {
+      base.clear();
+      const det = u[0] * w[1] - u[1] * w[0];
+      const indep = Math.abs(det) > 1e-9;
+      if (indep) base.poly([[xl[0], yl[0]], [xl[1], yl[0]], [xl[1], yl[1]], [xl[0], yl[1]]], { fill: C.cone, fillOpacity: 0.45, stroke: "none" });
+      plane(base, xl, yl, { ticks: false });
+      if (!indep) base.line(mul(u, -6), mul(u, 6), { color: "#cc9900", width: 5, opacity: 0.6 });
+      for (let i = -6; i <= 6; i++) for (let j = -6; j <= 6; j++) {
+        const p = add(mul(u, i), mul(w, j));
+        if (p[0] > xl[0] && p[0] < xl[1] && p[1] > yl[0] && p[1] < yl[1]) base.dot(p, { rpx: 3, color: "#444444" });
+      }
+      base.arrow([0, 0], u, Object.assign({ color: C.normal, label: "u", loff: [14, 10] }, vlab));
+      base.arrow([0, 0], w, Object.assign({ color: C.green, label: "w", loff: [-14, -6] }, vlab));
+      $("span-read").textContent = "u = " + vs(u, 2) + "   w = " + vs(w, 2) +
+        "\nu1 w2 - u2 w1 = " + fx(det, 2) + "\nspan{u, w} = " + (indep ? "the whole plane" : (Math.hypot(w[0], w[1]) > 0 ? "a line" : "a line (w = 0)"));
+    }
+    hw = handle(F, top, "h-span-w", w, (q) => { w = snap(clamp2(q, [-4.2, 4.2], [-3.5, 3.5]), 0.25); par.checked = false; draw(); return w; }, { color: C.green });
+    on(par, () => { w = par.checked ? [2, 2] : [-1, 2]; place(F, hw, w); draw(); });
+    draw();
+  }
+
+  // ---------------------------------------------------------------- independence (3D)
+  {
+    const F = Fig("#f-indep", { w: 540, h: 440, xlim: [-2.1, 2.1], ylim: [-0.75, 2.75] });
+    const hEl = $("ind-h"), azEl = $("ind-az");
+    const v1 = [1, 0, 1], v2 = [0, 1, 1];
+    const S = 0.68; // world units per vector unit in the picture
+    const sc = (p) => p.map((x) => x * S);
+    function draw() {
+      const h = +hEl.value, view = Fig.view3(d(+azEl.value), d(22)), T = F.in3(view);
+      const v3 = [1, 1, 2 + h];
+      F.clear();
+      F.axes3(view, { len: [1.7 * S, 1.7 * S, 3.2 * S], labels: ["x", "y", "z"], color: "#777777", width: 1.2, lsize: 19 });
+      const patch = [[-0.35, -0.35], [1.35, -0.35], [1.35, 1.35], [-0.35, 1.35]].map(([s, t]) => sc(add(mul(v1, s), mul(v2, t))));
+      const below = h < 0;
+      const drawV3 = () => {
+        T.line(sc([1, 1, 2]), sc(v3), { dash: true, color: C.force, width: 1.4 });
+        T.arrow([0, 0, 0], sc(v3), Object.assign({ color: C.force, label: "v_3", loff: [14, -4] }, vlab));
+      };
+      if (below) drawV3();
+      T.poly(patch, { fill: C.cone, fillOpacity: 0.7, color: "#bba000", width: 1 });
+      T.arrow([0, 0, 0], sc(v1), Object.assign({ color: C.normal, label: "v_1", loff: [14, 8] }, vlab));
+      T.arrow([0, 0, 0], sc(v2), Object.assign({ color: C.green, label: "v_2", loff: [-4, 18] }, vlab));
+      T.dot(sc([1, 1, 2]), { rpx: 3, color: "#bba000" });
+      if (!below) drawV3();
+      const r = LM.indepDet(h);
+      $("ind-h-out").textContent = fx(h, 2);
+      $("ind-read").textContent = "v3 = " + vs(v3, 2) + "\nv1 + v2 - v3 = " + vs([0, 0, -h], 2) +
+        "\nvolume det[v1 v2 v3] = " + fx(r.det, 2) + "\n" + (r.rank === 3 ? "independent" : "dependent: v3 = v1 + v2");
+    }
+    on(hEl, draw); on(azEl, draw);
+    draw();
+  }
+
+  // ---------------------------------------------------------------- basis and coordinates
+  {
+    const xl = [-4.2, 4.2], yl = [-1.0, 6.0];
+    const F = Fig("#f-basis", { w: 560, h: 465, xlim: xl, ylim: yl });
+    const base = F.group(), top = F.group();
+    const u = [1, 1], w = [-1, 3];
+    let x = [1, 5];
+    const clip = (G, a, b) => G.line(a, b, { color: "#9fb8d8", width: 1 });
+    function draw() {
+      base.clear();
+      plane(base, xl, yl, { ticks: false });
+      for (let k = -8; k <= 8; k++) {
+        clip(base, add(mul(u, k), mul(w, -4)), add(mul(u, k), mul(w, 4)));
+        clip(base, add(mul(w, k), mul(u, -8)), add(mul(w, k), mul(u, 8)));
+      }
+      const c = LM.coords2(u, w, x), a = mul(u, c[0]);
+      base.arrow([0, 0], u, Object.assign({ color: C.normal, width: 3.5, label: "u", loff: [14, 12] }, vlab));
+      base.arrow([0, 0], w, Object.assign({ color: C.green, width: 3.5, label: "w", loff: [-16, 0] }, vlab));
+      base.line([0, 0], a, { color: C.normal, width: 2, dash: "7 5" });
+      base.line(a, x, { color: C.green, width: 2, dash: "7 5" });
+      base.arrow([0, 0], x, Object.assign({ color: C.force, label: "x", loff: [14, -6] }, vlab));
+      $("basis-read").textContent = "x = " + vs(x, 2) + "\ncoordinates (c1, c2) = " + vs(c, 3) + "\nx = " + fx(c[0], 3) + " u + " + fx(c[1], 3) + " w";
+    }
+    // the grid lines run past the figure; clip them with an SVG clip path on the base layer
+    const cp = Fig.el("clipPath", { id: "cp-basis" }, F.svg);
+    Fig.el("rect", { x: 0, y: 0, width: F.w, height: F.h }, cp);
+    base.root.setAttribute("clip-path", "url(#cp-basis)");
+    handle(F, top, "h-basis-x", x, (q) => { x = snap(clamp2(q, [-3.9, 3.9], [-0.8, 5.7]), 0.1); draw(); return x; }, { color: C.force });
+    draw();
+  }
+
+  // ---------------------------------------------------------------- dot product
+  {
+    const xl = [-3.2, 4.8], yl = [-2.6, 4.6];
+    const F = Fig("#f-dot", { w: 520, h: 470, xlim: xl, ylim: yl });
+    const base = F.group(), top = F.group();
+    let a = [3, 4], b = [4, 0];
+    function draw() {
+      base.clear();
+      plane(base, xl, yl);
+      const r = LM.dotAngle(a, b);
+      const bb = r.norm_b * r.norm_b;
+      if (bb > 0) {
+        const p = mul(b, r.dot / bb), ub = mul(b, 1 / r.norm_b);
+        base.line(mul(ub, -8), mul(ub, 8), { color: "#bbbbbb", width: 1 });
+        base.line(a, p, { dash: true, color: C.purple, width: 1.3 });
+        base.line([0, 0], p, { color: C.purple, width: 7, opacity: 0.55 });
+        if (r.norm_a > 0) {
+          const t0 = Math.atan2(b[1], b[0]), t1 = Math.atan2(a[1], a[0]);
+          let dt = t1 - t0; while (dt > Math.PI) dt -= 2 * Math.PI; while (dt < -Math.PI) dt += 2 * Math.PI;
+          base.arc([0, 0], 34, dt >= 0 ? t0 : t1, dt >= 0 ? t1 : t0, { label: "θ", lsize: 21 });
+        }
+      }
+      base.arrow([0, 0], a, Object.assign({ color: C.force, label: "a", loff: [12, -8] }, vlab));
+      base.arrow([0, 0], b, Object.assign({ color: C.normal, label: "b", loff: [10, 16] }, vlab));
+      $("dot-read").textContent = "a = " + vs(a, 1) + "   b = " + vs(b, 1) +
+        "\na.b = " + fx(r.dot, 2) + "   |a| = " + fx(r.norm_a, 3) + "   |b| = " + fx(r.norm_b, 3) +
+        "\ncos theta = " + (r.cos === null ? "undefined" : fx(r.cos, 3)) + "   theta = " + (r.deg === null ? "undefined" : fx(r.deg, 2) + " deg");
+    }
+    handle(F, top, "h-dot-a", a, (q) => { a = snap(clamp2(q, [-3, 4.5], [-2.4, 4.4]), 0.5); draw(); return a; }, { color: C.force });
+    handle(F, top, "h-dot-b", b, (q) => { b = snap(clamp2(q, [-3, 4.5], [-2.4, 4.4]), 0.5); draw(); return b; }, { color: C.normal });
+    draw();
+  }
+
+  // ---------------------------------------------------------------- law of cosines (static)
+  {
+    const F = Fig("#f-cos", { w: 440, h: 380, xlim: [-0.6, 4.4], ylim: [-0.7, 3.6] });
+    const a = [3.6, 0.9], b = [1.2, 2.9];
+    F.arrow([0, 0], a, Object.assign({ color: C.force, label: "a", loff: [0, 22] }, vlab));
+    F.arrow([0, 0], b, Object.assign({ color: C.normal, label: "b", loff: [-16, 0] }, vlab));
+    F.arrow(b, a, Object.assign({ color: C.purple, label: "a − b", lpos: "mid", loff: [40, 4] }, vlab));
+    F.arc([0, 0], 42, Math.atan2(a[1], a[0]), Math.atan2(b[1], b[0]), { label: "θ", lsize: 22 });
+    F.dot([0, 0], { rpx: 3 });
+  }
+
+  // ---------------------------------------------------------------- unit balls
+  {
+    const L = 1.95, M = 1.6;
+    const F = Fig("#f-balls", { w: 560, h: 460, xlim: [-L, L], ylim: [-M, M] });
+    const base = F.group(), top = F.group();
+    const pEl = $("ball-p"), infEl = $("ball-inf");
+    let x = [0.6, 0.8];
+    const curve = (G, p, o) => G.path(LM.unitBall(p, 360), Object.assign({ close: true }, o));
+    function draw() {
+      base.clear();
+      plane(base, [-L, L], [-M, M], { ticks: false });
+      base.text([1, 0], "1", { size: 18, anchor: "start", dx: 12, dy: 14, color: "#555555" });
+      base.text([0, 1], "1", { size: 18, anchor: "end", dx: -8, dy: -16, color: "#555555" });
+      curve(base, Infinity, { color: C.green, width: 2, fill: "#e6f5e6", fillOpacity: 0.6 });
+      curve(base, 2, { color: C.normal, width: 2, fill: "#e0e0f8", fillOpacity: 0.7 });
+      curve(base, 1, { color: C.orange, width: 2, fill: "#fbe3cc", fillOpacity: 0.8 });
+      const inf = infEl.checked, p = inf ? Infinity : +pEl.value;
+      curve(base, p, { color: C.purple, width: 3.5, dash: "9 5" });
+      base.arrow([0, 0], x, Object.assign({ color: C.force, label: "x", loff: [12, -8] }, vlab));
+      const n = LM.pnorms(x), np = LM.pnorm(x, p);
+      $("ball-p-out").textContent = inf ? "inf" : fx(p, 1);
+      $("ball-read").textContent = "x = " + vs(x, 2) + "\n|x|_1 = " + fx(n[0], 3) + "  |x|_2 = " + fx(n[1], 3) + "  |x|_inf = " + fx(n[2], 3) +
+        "\n|x|_p = " + fx(np, 3) + (np <= 1 + 1e-12 ? "  (inside the p-ball)" : "  (outside the p-ball)");
+    }
+    handle(F, top, "h-ball-x", x, (q) => { x = snap(clamp2(q, [-1.8, 1.8], [-1.5, 1.5]), 0.05); draw(); return x; }, { color: C.force });
+    on(pEl, draw); on(infEl, draw);
+    draw();
+  }
+
+  // ---------------------------------------------------------------- 2x2 matrix as a map
+  {
+    const F = Plot.fig("#f-grid", { w: 660, h: 470, xlim: [-3.9, 3.9], ylim: [-2.8, 2.8], equal: true, margin: 4 });
+    const ids = ["a", "b", "c", "d"], inp = ids.map((k) => $("g-" + k)), pre = $("g-preset");
+    const P = { A: [1, -1, 1, 3], I: [1, 0, 0, 1], rot: [0.866, -0.5, 0.5, 0.866], shear: [1, 1, 0, 1],
+      stretch: [2, 0, 0, 0.5], proj: [1, 0, 0, 0], refl: [1, 0, 0, -1] };
+    function draw() {
+      const [a, b, c, dd] = inp.map((e) => +e.value);
+      F.clear();
+      F.grid2([[a, b], [c, dd]], { original: true, square: true, n: 12 });
+      F.dot([0, 0], { rpx: 3 });
+      $("g-read").textContent = "A = [" + fx(a, 3) + "  " + fx(b, 3) + "; " + fx(c, 3) + "  " + fx(dd, 3) + "]" +
+        "\nA e1 = " + vs([a, c], 3) + "\nA e2 = " + vs([b, dd], 3) + "\ndet A = " + fx(LM.det2([[a, b], [c, dd]]), 3);
+    }
+    inp.forEach((e) => on(e, draw));
+    on(pre, () => { P[pre.value].forEach((v, i) => { inp[i].value = v; }); draw(); });
+    draw();
+  }
+
+  // ---------------------------------------------------------------- composition
+  {
+    const xl = [-2.0, 2.7], yl = [-0.35, 2.75];
+    const Fs = ["#f-comp0", "#f-comp1", "#f-comp2"].map((s) => Fig(s, { w: 368, h: 245, xlim: xl, ylim: yl }));
+    const S = [[1, 1], [0, 1]], R = [[0, -1], [1, 0]];
+    const shape = [[0, 0], [0.25, 0], [0.25, 0.7], [0.65, 0.7], [0.65, 0.95], [0.25, 0.95], [0.25, 1.3],
+      [0.85, 1.3], [0.85, 1.55], [0, 1.55]];
+    const mv = (M, p) => [M[0][0] * p[0] + M[0][1] * p[1], M[1][0] * p[0] + M[1][1] * p[1]];
+    const sel = $("comp-order");
+    function panel(F, M, title) {
+      F.clear();
+      plane(F, xl, yl, { ticks: false });
+      F.poly(shape.map((p) => mv(M, p)), { fill: "#dddddd", color: C.ink, width: 1.5 });
+      F.arrow([0, 0], mv(M, [1, 0]), { color: C.force, width: 3 });
+      F.arrow([0, 0], mv(M, [0, 1]), { color: C.green, width: 3 });
+      F.text([xl[0] + 0.08, yl[1] - 0.22], title, { size: 21 });
+    }
+    function draw() {
+      const first = sel.value === "RS" ? S : R, second = sel.value === "RS" ? R : S;
+      const P = LM.compose(second, first);
+      const n1 = sel.value === "RS" ? "S" : "R", n2 = sel.value === "RS" ? "R" : "S";
+      panel(Fs[0], [[1, 0], [0, 1]], "x");
+      panel(Fs[1], first, n1 + " x");
+      panel(Fs[2], P, n2 + n1 + " x = [" + P[0].join(" ") + "; " + P[1].join(" ") + "] x");
+    }
+    on(sel, draw);
+    draw();
+  }
+
+  // ---------------------------------------------------------------- determinant as area
+  {
+    const xl = [-3.2, 3.6], yl = [-1.3, 4.4];
+    const F = Fig("#f-det", { w: 560, h: 470, xlim: xl, ylim: yl });
+    const base = F.group(), top = F.group();
+    let c1 = [1, 1], c2 = [-1, 3];
+    function draw() {
+      base.clear();
+      plane(base, xl, yl, { ticks: false });
+      const det = LM.det2([[c1[0], c2[0]], [c1[1], c2[1]]]);
+      base.poly([[0, 0], c1, add(c1, c2), c2], { fill: det >= 0 ? C.cone : "#f6c4c4", fillOpacity: 0.85, color: "#999999", width: 1 });
+      base.poly([[0, 0], [1, 0], [1, 1], [0, 1]], { fill: "none", color: C.ink, width: 1.3, dash: "5 4" });
+      base.arrow([0, 0], c1, { color: C.force, label: "Ae_1", loff: [18, 14], lsize: 21 });
+      base.arrow([0, 0], c2, { color: C.green, label: "Ae_2", loff: [-22, -4], lsize: 21 });
+      base.dot([0, 0], { rpx: 3 });
+      $("det-read").textContent = "A = [" + fx(c1[0], 2) + "  " + fx(c2[0], 2) + "; " + fx(c1[1], 2) + "  " + fx(c2[1], 2) + "]" +
+        "\ndet A = ad - bc = " + fx(det, 3) + "\narea of image = " + fx(Math.abs(det), 3) +
+        "\n" + (Math.abs(det) < 1e-12 ? "columns parallel: no inverse" : det > 0 ? "orientation kept" : "orientation flipped");
+    }
+    handle(F, top, "h-det-1", c1, (q) => { c1 = snap(clamp2(q, [-2.9, 3.3], [-1.1, 3.6]), 0.25); draw(); return c1; }, { color: C.force });
+    handle(F, top, "h-det-2", c2, (q) => { c2 = snap(clamp2(q, [-2.9, 3.3], [-1.1, 3.6]), 0.25); draw(); return c2; }, { color: C.green });
+    draw();
+  }
+
+  // ---------------------------------------------------------------- determinant derivation (static)
+  {
+    const F = Fig("#f-par", { w: 540, h: 420, xlim: [-0.45, 4.7], ylim: [-0.45, 3.55] });
+    const G = (k) => F.group({ class: "step", "data-step": String(k) });
+    const R1 = "#f4c4c4", B1 = "#c9d3f2", G1 = "#c8e8c8";
+    F.poly([[0, 0], [3, 1], [4, 3], [1, 2]], { fill: C.cone, color: C.ink, width: 2 });
+    F.text([2, 1.5], "area?", { size: 22, anchor: "middle" });
+    const g1 = G(1);
+    g1.poly([[0, 0], [4, 0], [4, 3], [0, 3]], { fill: "none", color: C.ink, width: 1.5, dash: "6 4" });
+    g1.text([2, -0.25], "a + b = 4", { size: 19, anchor: "middle" });
+    g1.text([4.08, 1.5], "c + d = 3", { size: 19, anchor: "start" });
+    const g2 = G(2);
+    g2.poly([[0, 0], [3, 0], [3, 1]], { fill: R1, color: C.ink, width: 1 });
+    g2.poly([[1, 2], [4, 3], [1, 3]], { fill: R1, color: C.ink, width: 1 });
+    g2.text([2.1, 0.3], "ac/2", { size: 18, anchor: "middle" });
+    g2.text([1.9, 2.72], "ac/2", { size: 18, anchor: "middle" });
+    const g3 = G(3);
+    g3.poly([[0, 0], [1, 2], [0, 2]], { fill: B1, color: C.ink, width: 1 });
+    g3.poly([[3, 1], [4, 1], [4, 3]], { fill: B1, color: C.ink, width: 1 });
+    g3.text([0.3, 1.45], "bd/2", { size: 18, anchor: "middle" });
+    g3.text([3.72, 1.55], "bd/2", { size: 18, anchor: "middle" });
+    const g4 = G(4);
+    g4.poly([[3, 0], [4, 0], [4, 1], [3, 1]], { fill: G1, color: C.ink, width: 1 });
+    g4.poly([[0, 2], [1, 2], [1, 3], [0, 3]], { fill: G1, color: C.ink, width: 1 });
+    g4.text([3.5, 0.5], "bc", { size: 18, anchor: "middle" });
+    g4.text([0.5, 2.5], "bc", { size: 18, anchor: "middle" });
+    F.arrow([0, 0], [3, 1], { color: C.force, width: 2.5, label: "(a, c)", loff: [30, 18], lsize: 19, upright: true });
+    F.arrow([0, 0], [1, 2], { color: C.green, width: 2.5, label: "(b, d)", loff: [-6, -16], lsize: 19, upright: true });
+  }
+
+  // ---------------------------------------------------------------- wide matrix (3D and 2D)
+  {
+    const F3 = Fig("#f-wide3", { w: 560, h: 300, xlim: [-2.3, 2.3], ylim: [-1.25, 1.5] });
+    const F2 = Fig("#f-wide2", { w: 560, h: 300, xlim: [-1.5, 3.4], ylim: [-0.45, 2.6] });
+    const tEl = $("wide-t"), azEl = $("wide-az");
+    const S = 0.62, sc = (p) => p.map((x) => x * S);
+    const xt = (t) => [2 - t, 1 - t, t];
+    const cube = [[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0], [0, 0, 1], [1, 0, 1], [1, 1, 1], [0, 1, 1]];
+    const edges = [[0, 1], [1, 2], [2, 3], [3, 0], [4, 5], [5, 6], [6, 7], [7, 4], [0, 4], [1, 5], [2, 6], [3, 7]];
+    function draw() {
+      const t = +tEl.value, view = Fig.view3(d(+azEl.value), d(20)), T = F3.in3(view);
+      const r = LM.nonsquare(t);
+      F3.clear();
+      F3.axes3(view, { len: [2.6 * S, 1.7 * S, 1.9 * S], color: "#777777", width: 1.2, lsize: 19 });
+      edges.forEach(([i, j]) => T.line(sc(cube[i]), sc(cube[j]), { color: "#555555", width: 1.3 }));
+      T.line(sc(xt(-1)), sc(xt(2.5)), { color: C.force, width: 2.5, opacity: 0.8 });
+      T.dot(sc(r.x), { rpx: 6, color: C.force });
+      T.label(sc(xt(2.5)), "x(t)", { size: 20, color: C.force });
+      F3.text([-2.2, 1.35], "input space R³", { size: 20 });
+      // 2D image
+      F2.clear();
+      plane(F2, [-1.3, 3.2], [-0.35, 2.5]);
+      F2.poly(LM.hull2(r.cube_image), { fill: "#dddddd", fillOpacity: 0.8, color: "#555555", width: 1.3 });
+      F2.arrow([0, 0], [1, 0], { color: "#555555", width: 2.5, label: "Ae_1", loff: [0, 16], lsize: 19 });
+      F2.arrow([0, 0], [0, 1], { color: "#555555", width: 2.5, label: "Ae_2", loff: [-22, 0], lsize: 19 });
+      F2.arrow([0, 0], [1, 1], { color: "#555555", width: 2.5, label: "Ae_3", loff: [14, -6], lsize: 19 });
+      F2.dot(r.Ax, { rpx: 7, color: C.force });
+      F2.text(r.Ax, "(2, 1)", { size: 20, dx: 12, dy: -12, color: C.force });
+      F2.text([-1.25, 2.35], "output space R²", { size: 20 });
+      $("wide-t-out").textContent = fx(t, 2);
+      $("wide-read").textContent = "x(t) = " + vs(r.x, 2) + "\nA23 x(t) = " + vs(r.Ax, 2) + "\n|x(t)| = " + fx(LM.length(r.x), 3);
+    }
+    on(tEl, draw); on(azEl, draw);
+    draw();
+  }
+
+  // ---------------------------------------------------------------- tall matrix (2D and 3D)
+  {
+    const xl = [-2.2, 2.6], yl = [-1.3, 1.9];
+    const F2 = Fig("#f-tall2", { w: 560, h: 300, xlim: xl, ylim: yl });
+    const F3 = Fig("#f-tall3", { w: 560, h: 300, xlim: [-2.3, 2.3], ylim: [-1.2, 1.55] });
+    const base = F2.group(), top = F2.group();
+    const azEl = $("tall-az");
+    const S = 0.55, sc = (p) => p.map((x) => x * S);
+    let s = [1, 0.5];
+    function draw() {
+      base.clear();
+      plane(base, xl, yl);
+      base.arrow([0, 0], s, Object.assign({ color: C.force, label: "s", loff: [12, -8] }, vlab));
+      base.text([xl[0] + 0.1, yl[1] - 0.2], "input space R²", { size: 20 });
+      const view = Fig.view3(d(+azEl.value), d(20)), T = F3.in3(view);
+      const r = LM.nonsquare(0, s);
+      F3.clear();
+      F3.axes3(view, { len: [2.2 * S, 2.2 * S, 2.6 * S], color: "#777777", width: 1.2, lsize: 19 });
+      const pl = (a, b) => [a, b, a + b];
+      T.poly([pl(-1, -1), pl(1.8, -1), pl(1.8, 1.8), pl(-1, 1.8)].map(sc), { fill: C.cone, fillOpacity: 0.65, color: "#bba000", width: 1 });
+      T.arrow([0, 0, 0], sc([1, 0, 1]), { color: "#555555", width: 2.2 });
+      T.arrow([0, 0, 0], sc([0, 1, 1]), { color: "#555555", width: 2.2 });
+      T.line(sc([r.Bs[0], r.Bs[1], 0]), sc(r.Bs), { color: C.force, dash: true, width: 1.2 });
+      T.dot(sc(r.Bs), { rpx: 7, color: C.force });
+      T.label(sc(r.Bs), "Bs", { size: 21, color: C.force, bold: true });
+      const e3 = T.p(sc([0, 0, 1]));
+      F3.line([e3[0] - 0.07, e3[1] - 0.07], [e3[0] + 0.07, e3[1] + 0.07], { color: C.ink, width: 2.5 });
+      F3.line([e3[0] - 0.07, e3[1] + 0.07], [e3[0] + 0.07, e3[1] - 0.07], { color: C.ink, width: 2.5 });
+      F3.text(e3, "(0, 0, 1)", { size: 18, dx: -10, anchor: "end" });
+      F3.text([-2.2, 1.4], "output space R³", { size: 20 });
+      $("tall-read").textContent = "s = " + vs(s, 2) + "\nB s = " + vs(r.Bs, 2) +
+        "\nz - x - y = " + fx(r.Bs[2] - r.Bs[0] - r.Bs[1], 2);
+    }
+    handle(F2, top, "h-tall-s", s, (q) => { s = snap(clamp2(q, [-2, 2.3], [-1.1, 1.5]), 0.1); draw(); return s; }, { color: C.force });
+    on(azEl, draw);
+    draw();
+  }
+
+  // PART-III-SCRIPT
+})();
+</script>
+</body>
+</html>

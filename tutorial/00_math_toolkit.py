@@ -642,7 +642,7 @@ def _(np):
 
 @app.cell
 def _(np):
-    def projection_onto_line(a, b):
+    def d02_projection_onto_line(a, b):
         """Projection of b onto the line through 0 and a (slides projection-line, -derivation).
 
         xhat = a.b / a.a, p = xhat a, e = b - p (perpendicular to a), P = a a^T / a^T a.
@@ -661,7 +661,7 @@ def _(np):
             "P": (np.outer(a, a) / (a @ a)).tolist(),
         }
 
-    def orthonormal_coordinates(x, Q):
+    def d02_orthonormal_coordinates(x, Q):
         """Coordinates c_i = q_i . x of x in the orthonormal basis given by the rows of Q
         (slide orthonormal-basis), and the reconstruction sum_i c_i q_i."""
         Q = np.atleast_2d(np.asarray(Q, dtype=float))
@@ -669,7 +669,7 @@ def _(np):
         c = Q @ x
         return {"c": c.tolist(), "recon": (Q.T @ c).tolist(), "QQt": (Q @ Q.T).tolist()}
 
-    def projection_onto_plane(b, Q):
+    def d02_projection_onto_plane(b, Q):
         """Projection of b onto the span of the orthonormal rows of Q (slide projection-subspace):
         coordinates Q b, point p = Q^T Q b, error e = b - p, projector P = Q^T Q."""
         Q = np.atleast_2d(np.asarray(Q, dtype=float))
@@ -679,12 +679,12 @@ def _(np):
         return {"coords": c.tolist(), "p": p.tolist(), "e": (b - p).tolist(),
                 "dist": float(np.linalg.norm(b - p)), "P": (Q.T @ Q).tolist()}
 
-    return orthonormal_coordinates, projection_onto_line, projection_onto_plane
+    return d02_orthonormal_coordinates, d02_projection_onto_line, d02_projection_onto_plane
 
 
 @app.cell
 def _(np):
-    def gram_schmidt_qr(vectors):
+    def d02_gram_schmidt_qr(vectors):
         """Classical Gram-Schmidt on a list of independent vectors (slide gram-schmidt).
 
         Returns Q (orthonormal vectors as rows), R (upper triangular, R[i][j] = q_i . a_j for
@@ -706,12 +706,12 @@ def _(np):
             Q.append(w / R[j, j])
         return {"Q": np.array(Q).tolist(), "R": R.tolist(), "w": np.array(W).tolist()}
 
-    return (gram_schmidt_qr,)
+    return (d02_gram_schmidt_qr,)
 
 
 @app.cell
 def _(d02_nullspace, np):
-    def complement_split(A, v):
+    def d02_complement_split(A, v):
         """Split v into its row-space and null-space parts (slide orthogonal-complement).
 
         v_null is the projection of v onto NULL(A), v_row = v - v_null; coef solves
@@ -725,7 +725,7 @@ def _(d02_nullspace, np):
         return {"null": N.tolist(), "rows_dot_null": (A @ N.T).ravel().tolist(),
                 "v_null": v_null.tolist(), "v_row": v_row.tolist(), "coef": coef.tolist()}
 
-    def inclusion_rank_test(A, B):
+    def d02_inclusion_rank_test(A, B):
         """NULL(A) inside NULL(B) iff ROW(B) inside ROW(A) iff rank [A; B] = rank A
         (slides null-inclusion and rank-test; Hou & Mason 2021 eq. 11-13)."""
         A = np.atleast_2d(np.asarray(A, dtype=float))
@@ -736,7 +736,7 @@ def _(d02_nullspace, np):
         return {"rank_A": rA, "rank_AB": rAB, "included": rAB == rA,
                 "B_null": (B @ N.T).tolist()}
 
-    def goal_inclusion_toy(b_goal=0.1):
+    def d02_goal_inclusion_toy(b_goal=0.1):
         """Hou & Mason 2021 eq. 11-13 on a box on a rail pushed by a hand (slide rank-test).
 
         v = (v_box, v_hx, v_hy). Contact: the hand touches the box's left face, so
@@ -758,33 +758,33 @@ def _(d02_nullspace, np):
                          "b_C": float((C @ v_star)[0])}
         return out
 
-    return complement_split, goal_inclusion_toy, inclusion_rank_test
+    return d02_complement_split, d02_goal_inclusion_toy, d02_inclusion_rank_test
 
 
 @app.cell
 def _(
-    complement_split,
-    goal_inclusion_toy,
-    gram_schmidt_qr,
-    inclusion_rank_test,
+    d02_complement_split,
+    d02_goal_inclusion_toy,
+    d02_gram_schmidt_qr,
+    d02_inclusion_rank_test,
     mo,
     np,
-    orthonormal_coordinates,
-    projection_onto_line,
-    projection_onto_plane,
+    d02_orthonormal_coordinates,
+    d02_projection_onto_line,
+    d02_projection_onto_plane,
 ):
-    _pl = projection_onto_line([2, 1], [1, 3])
+    _pl = d02_projection_onto_line([2, 1], [1, 3])
     assert np.isclose(_pl["xhat"], 1) and np.allclose(_pl["e"], [-1, 2]) and abs(_pl["e_dot_a"]) < 1e-12
-    _oc = orthonormal_coordinates([2, 1], [[0.6, 0.8], [-0.8, 0.6]])
-    _pp = projection_onto_plane([1, 2, 3], [np.array([1, -1, 0]) / np.sqrt(2), np.array([1, 1, -2]) / np.sqrt(6)])
+    _oc = d02_orthonormal_coordinates([2, 1], [[0.6, 0.8], [-0.8, 0.6]])
+    _pp = d02_projection_onto_plane([1, 2, 3], [np.array([1, -1, 0]) / np.sqrt(2), np.array([1, 1, -2]) / np.sqrt(6)])
     assert np.allclose(_pp["p"], [-1, 0, 1]) and np.allclose(_pp["e"], [2, 2, 2])
-    _gs = gram_schmidt_qr([[3, 1], [2, 2]])
-    _gs3 = gram_schmidt_qr([[1, 1, 0], [1, 0, 1]])
-    _cs = complement_split([[1, 1, 0], [1, 0, 1]], [1, 2, 3])
+    _gs = d02_gram_schmidt_qr([[3, 1], [2, 2]])
+    _gs3 = d02_gram_schmidt_qr([[1, 1, 0], [1, 0, 1]])
+    _cs = d02_complement_split([[1, 1, 0], [1, 0, 1]], [1, 2, 3])
     assert np.allclose(_cs["v_row"], [7 / 3, 2 / 3, 5 / 3]) and np.allclose(_cs["coef"], [2 / 3, 5 / 3])
-    _in1 = inclusion_rank_test([[1, 1, 0], [1, 0, 1]], [[2, 1, 1]])
-    _in2 = inclusion_rank_test([[1, 1, 0], [1, 0, 1]], [[0, 0, 1]])
-    _gt = goal_inclusion_toy()
+    _in1 = d02_inclusion_rank_test([[1, 1, 0], [1, 0, 1]], [[2, 1, 1]])
+    _in2 = d02_inclusion_rank_test([[1, 1, 0], [1, 0, 1]], [[0, 0, 1]])
+    _gt = d02_goal_inclusion_toy()
     assert _gt["C1"]["included"] and not _gt["C2"]["included"] and _gt["n_av_min"] == 1
     _f = lambda v: "(" + ", ".join(f"{x:.4f}" for x in np.ravel(v)) + ")"
     mo.md(f"""
@@ -822,7 +822,7 @@ def _(mo):
 
 @app.cell
 def _(np):
-    def eigen_2x2(A):
+    def d02_eigen_2x2(A):
         """Eigenvalues of a 2x2 matrix from lambda^2 - tr(A) lambda + det(A) = 0 (slide eigen-2x2).
 
         Real case: values in descending order and unit eigenvectors (largest entry positive).
@@ -851,21 +851,21 @@ def _(np):
         out.update(real=True, values=[float(v) for v in vals], vectors=vecs, complex=None)
         return out
 
-    def quadratic_from_eigen(l1, l2, theta_deg):
+    def d02_quadratic_from_eigen(l1, l2, theta_deg):
         """The symmetric A = V diag(l1, l2) V^T whose first eigenvector is at theta_deg
         (the sliders of slide quadratic-forms)."""
         t = np.radians(theta_deg)
         V = np.array([[np.cos(t), -np.sin(t)], [np.sin(t), np.cos(t)]])
         return (V @ np.diag([l1, l2]) @ V.T).tolist()
 
-    def quadratic_form_axes(A, c=1.0):
+    def d02_quadratic_form_axes(A, c=1.0):
         """Shape of J(z) = 1/2 z^T A z for symmetric 2x2 A (slides quadratic-forms, -derivation).
 
         In eigenvector coordinates y = V^T z, J = 1/2 (l1 y1^2 + l2 y2^2); the level set J = c
         has semi-axis sqrt(2c / l_i) along v_i for every positive l_i.
         """
         A = np.asarray(A, dtype=float)
-        e = eigen_2x2(A)
+        e = d02_eigen_2x2(A)
         l1, l2 = e["values"]
         tol = 1e-9 * max(1.0, abs(l1), abs(l2))
         if l2 > tol:
@@ -882,23 +882,23 @@ def _(np):
         return {"values": [l1, l2], "vectors": e["vectors"], "kind": kind, "semi_axes": axes,
                 "kappa": float(l1 / l2) if l2 > tol else None}
 
-    def definiteness_table():
+    def d02_definiteness_table():
         """The three example matrices of slide positive-definite with their eigenvalues."""
         rows = []
         for M in ([[2, 1], [1, 2]], [[1, 1], [1, 1]], [[1, 2], [2, 1]]):
-            q = quadratic_form_axes(M)
+            q = d02_quadratic_form_axes(M)
             rows.append({"A": M, "values": q["values"], "kind": q["kind"],
                          "det": float(np.linalg.det(np.array(M, dtype=float)))})
         z = np.array([1.0, -1.0])
         return {"rows": rows, "saddle_z": z.tolist(),
                 "saddle_value": float(z @ np.array([[1.0, 2.0], [2.0, 1.0]]) @ z)}
 
-    return definiteness_table, eigen_2x2, quadratic_form_axes, quadratic_from_eigen
+    return d02_definiteness_table, d02_eigen_2x2, d02_quadratic_form_axes, d02_quadratic_from_eigen
 
 
 @app.cell
 def _(np):
-    def table_delassus(legs=((1, 1), (-1, 1), (-1, -1), (1, -1)), masses=(1.0, 1.0, 1.0)):
+    def d02_table_delassus(legs=((1, 1), (-1, 1), (-1, -1), (1, -1)), masses=(1.0, 1.0, 1.0)):
         """Gram matrices of a four-legged table (slide gram-psd).
 
         The table top moves with v = (v_z, omega_x, omega_y); leg i at (x_i, y_i) has normal
@@ -916,7 +916,7 @@ def _(np):
                 "rank_G": int(np.linalg.matrix_rank(G)), "null": n.tolist(),
                 "G_null": (G @ n).tolist()}
 
-    def cholesky_2x2_steps(A, b=None):
+    def d02_cholesky_2x2_steps(A, b=None):
         """Cholesky A = L L^T of a symmetric 2x2 matrix entry by entry (slides cholesky,
         cholesky-exists), and the two triangular solves when b is given.
 
@@ -945,32 +945,32 @@ def _(np):
             out.update(w=[float(w1), float(w2)], z=[float(z1), float(z2)])
         return out
 
-    return cholesky_2x2_steps, table_delassus
+    return d02_cholesky_2x2_steps, d02_table_delassus
 
 
 @app.cell
 def _(
-    cholesky_2x2_steps,
-    definiteness_table,
-    eigen_2x2,
+    d02_cholesky_2x2_steps,
+    d02_definiteness_table,
+    d02_eigen_2x2,
     mo,
     np,
-    quadratic_form_axes,
-    table_delassus,
+    d02_quadratic_form_axes,
+    d02_table_delassus,
 ):
-    _eA = eigen_2x2([[2, 1], [1, 2]])
-    _eB = eigen_2x2([[4, 1], [2, 3]])
-    _eR = eigen_2x2([[0, -1], [1, 0]])
-    _eS = eigen_2x2([[1, 1], [0, 1]])
+    _eA = d02_eigen_2x2([[2, 1], [1, 2]])
+    _eB = d02_eigen_2x2([[4, 1], [2, 3]])
+    _eR = d02_eigen_2x2([[0, -1], [1, 0]])
+    _eS = d02_eigen_2x2([[1, 1], [0, 1]])
     assert np.allclose(_eA["values"], [3, 1]) and np.allclose(_eB["values"], [5, 2]) and not _eR["real"]
-    _q = quadratic_form_axes([[2, 1], [1, 2]])
+    _q = d02_quadratic_form_axes([[2, 1], [1, 2]])
     assert np.allclose(_q["semi_axes"], [np.sqrt(2 / 3), np.sqrt(2)])
-    _dt = definiteness_table()
-    _td = table_delassus()
+    _dt = d02_definiteness_table()
+    _td = d02_table_delassus()
     assert np.allclose(_td["G_eigs"], [4, 4, 4, 0]) and np.allclose(_td["null"], [1, -1, 1, -1])
-    _ch = cholesky_2x2_steps([[4, 2], [2, 3]], [2, 1])
+    _ch = d02_cholesky_2x2_steps([[4, 2], [2, 3]], [2, 1])
     assert np.allclose(_ch["L"], np.linalg.cholesky(np.array([[4.0, 2], [2, 3]]))) and np.allclose(_ch["z"], [0.5, 0])
-    _reg = [(mu, cholesky_2x2_steps(np.array([[1.0, 2], [2, 1]]) + mu * np.eye(2))) for mu in (0, 0.5, 1, 1.5, 2, 3)]
+    _reg = [(mu, d02_cholesky_2x2_steps(np.array([[1.0, 2], [2, 1]]) + mu * np.eye(2))) for mu in (0, 0.5, 1, 1.5, 2, 3)]
     _f = lambda v: "(" + ", ".join(f"{x:.4f}" for x in np.ravel(v)) + ")"
     _regrows = "\n".join(
         f"    | cholesky-exists | mu = {mu}: L22^2, ok | {r['L22sq']:.4f}, {r['ok']} |" for mu, r in _reg
@@ -998,7 +998,8 @@ def _(mo):
     ## Deck 02, part 3: singular values, conditioning, the drawer, row normalization
 
     Slides `svd-picture`, `svd-statement`, `condition-number`, `nearly-parallel-rows`,
-    `fragile-vs-infeasible`, `drawer-setup`, `drawer-live`, `row-normalization`. The condition
+    `fragile-vs-infeasible`, `drawer-setup`, `drawer-live`, `drawer-control-axes`,
+    `row-normalization`. The condition
     number is Hou & Mason 2021 eq. 8, $\operatorname{cond}(A) = \sigma_{\max}/\sigma_{\min}$; the
     crashing index is their eq. 9, the condition number of $[\hat J; \hat C]$ with $\hat J$ an
     orthonormal basis of the rows of $J$ and $\hat C$ the rows of $C$ normalized.
@@ -1008,7 +1009,7 @@ def _(mo):
 
 @app.cell
 def _(np):
-    def svd_circle_ellipse(A):
+    def d02_svd_circle_ellipse(A):
         """SVD of a 2x2 matrix for slide svd-picture.
 
         sigma_1 = sqrt(largest eigenvalue of A^T A), sigma_2 = |det A| / sigma_1 (exact zero for
@@ -1036,7 +1037,7 @@ def _(np):
                 "V": np.column_stack(vs).tolist(), "cond": float(cond), "det": float(det),
                 "AtA_eigs": [float(w[1]), float(w[0])]}
 
-    def svd_subspaces(A):
+    def d02_svd_subspaces(A):
         """Singular values, rank, and orthonormal row-space and null-space bases (rows) from the
         SVD (slide svd-statement)."""
         A = np.atleast_2d(np.asarray(A, dtype=float))
@@ -1051,12 +1052,12 @@ def _(np):
         return {"S": s.tolist(), "rank": r, "row": [fix(v).tolist() for v in vt[:r]],
                 "null": [fix(v).tolist() for v in vt[r:]], "AAt_eigs": sorted(np.linalg.eigvalsh(A @ A.T).tolist(), reverse=True)}
 
-    return svd_circle_ellipse, svd_subspaces
+    return d02_svd_circle_ellipse, d02_svd_subspaces
 
 
 @app.cell
 def _(d02_cond, np):
-    def nearly_parallel_example():
+    def d02_nearly_parallel_example():
         """x + y = 2, x + 1.01 y = 2.01 and the same with 2.02 (slide nearly-parallel-rows)."""
         A = np.array([[1.0, 1.0], [1.0, 1.01]])
         b1, b2 = np.array([2.0, 2.01]), np.array([2.0, 2.02])
@@ -1069,7 +1070,7 @@ def _(d02_cond, np):
                 "rel_db": float(rel_db), "rel_dz": float(rel_dz), "amplification": float(rel_dz / rel_db),
                 "angle_deg": float(np.degrees(np.arccos(min(1.0, cosang))))}
 
-    def nearly_parallel_rows(phi_deg, db):
+    def d02_nearly_parallel_rows(phi_deg, db):
         """Two unit rows phi_deg apart, the first at 45 degrees, with right-hand side chosen so
         that z* = (1, 1) solves the system; then b_2 is changed by db (slide nearly-parallel-rows,
         live figure). cond = cot(phi / 2)."""
@@ -1084,7 +1085,7 @@ def _(d02_cond, np):
         return {"A": A.tolist(), "b": b.tolist(), "cond": d02_cond(A), "z": z.tolist(),
                 "shift": float(np.linalg.norm(z - zs))}
 
-    def drawer_conditioning(theta_deg, eps_deg=0.0, b=1.0):
+    def d02_drawer_conditioning(theta_deg, eps_deg=0.0, b=1.0):
         """The drawer of slides drawer-setup and drawer-live.
 
         Velocity v = (v_x, v_y) of the drawer (and of the hand holding its handle). The modeled
@@ -1111,7 +1112,7 @@ def _(d02_cond, np):
                        ratio=float(np.cos(th) / ct) if out["speed_model"] is not None else None)
         return out
 
-    def crashing_index(J, C):
+    def d02_crashing_index(J, C):
         """Hou & Mason 2021 eq. 9: cond([J_hat; C_hat]) with J_hat an orthonormal basis of the rows
         of J and C_hat the rows of C scaled to unit length (slide row-normalization). Also the raw
         cond([J; C]) for comparison."""
@@ -1124,32 +1125,72 @@ def _(d02_cond, np):
         return {"raw": d02_cond(np.vstack([J, C])), "index": d02_cond(np.vstack([Jh, Ch])),
                 "rows_J_hat": int(Jh.shape[0])}
 
-    return crashing_index, drawer_conditioning, nearly_parallel_example, nearly_parallel_rows
+    def d02_fragile_vs_infeasible(db=0.1):
+        """The four panels of slide fragile-vs-infeasible, all built by d02_nearly_parallel_rows:
+        rows 90 deg apart, 2 deg apart, and parallel (0 deg), with b_2 moved by db; the fourth
+        panel is the parallel pair with db = 0. For each: ranks of A and [A | b], cond, the
+        least-squares solution (minimum norm), its residual |A z - b|, and how far z* = (1, 1) moved.
+        """
+        out = []
+        for name, phi, d in (("well conditioned", 90.0, db), ("ill conditioned", 2.0, db),
+                             ("parallel, inconsistent", 0.0, db), ("parallel, consistent", 0.0, 0.0)):
+            r = d02_nearly_parallel_rows(phi, d)
+            A, b = np.array(r["A"]), np.array(r["b"])
+            rA = int(np.linalg.matrix_rank(A))
+            rAb = int(np.linalg.matrix_rank(np.column_stack([A, b])))
+            z = np.linalg.pinv(A) @ b
+            out.append({"name": name, "phi": phi, "db": d, "rank_A": rA, "rank_Ab": rAb,
+                        "cond": d02_cond(A), "z": z.tolist(),
+                        "residual": float(np.linalg.norm(A @ z - b)),
+                        "shift": float(np.linalg.norm(z - 1.0)),
+                        "solutions": "one" if rA == 2 else ("none" if rAb > rA else "a line")})
+        return out
+
+    return (
+        d02_crashing_index,
+        d02_drawer_conditioning,
+        d02_fragile_vs_infeasible,
+        d02_nearly_parallel_example,
+        d02_nearly_parallel_rows,
+    )
 
 
 @app.cell
 def _(
-    crashing_index,
     d02_cond,
-    drawer_conditioning,
+    d02_crashing_index,
+    d02_drawer_conditioning,
+    d02_fragile_vs_infeasible,
+    d02_nearly_parallel_example,
+    d02_svd_circle_ellipse,
+    d02_svd_subspaces,
     mo,
-    nearly_parallel_example,
     np,
-    svd_circle_ellipse,
-    svd_subspaces,
 ):
-    _sv = svd_circle_ellipse([[3, 0], [4, 5]])
+    _sv = d02_svd_circle_ellipse([[3, 0], [4, 5]])
     assert np.allclose(_sv["S"], [np.sqrt(45), np.sqrt(5)]) and np.isclose(_sv["cond"], 3)
-    _ss = svd_subspaces([[1, 1, 0], [1, 0, 1]])
-    _npx = nearly_parallel_example()
+    _ss = d02_svd_subspaces([[1, 1, 0], [1, 0, 1]])
+    _npx = d02_nearly_parallel_example()
     assert np.allclose(_npx["z1"], [1, 1]) and np.allclose(_npx["z2"], [0, 2])
-    _dr = {th: drawer_conditioning(th) for th in (0, 30, 45, 60, 75, 80, 85, 89, 89.5)}
+    _dr = {th: d02_drawer_conditioning(th) for th in (0, 30, 45, 60, 75, 80, 85, 89, 89.5)}
     for _th, _r in _dr.items():
         assert np.isclose(_r["cond"], _r["cond_formula"], rtol=1e-9)
-    _err = [(th, ep, drawer_conditioning(th, ep)) for th, ep in ((0, 2), (60, 2), (85, 2), (85, -2), (88, 2), (88, -2))]
-    _ci = crashing_index([[0, 1]], [[10 * np.cos(np.pi / 4), 10 * np.sin(np.pi / 4)]])
-    _ci0 = crashing_index([[0, 1], [0, 1]], [[1, 0]])
+    _err = [(th, ep, d02_drawer_conditioning(th, ep)) for th, ep in ((0, 2), (60, 2), (85, 2), (85, -2), (88, 2), (88, -2))]
+    _ci = d02_crashing_index([[0, 1]], [[10 * np.cos(np.pi / 4), 10 * np.sin(np.pi / 4)]])
+    _ci0 = d02_crashing_index([[0, 1], [0, 1]], [[1, 0]])
+    _fi = d02_fragile_vs_infeasible()
+    assert [r["solutions"] for r in _fi] == ["one", "one", "none", "a line"]
     _f = lambda v: "(" + ", ".join(f"{x:.4f}" for x in np.ravel(v)) + ")"
+    _firows = "\n".join(
+        f"    | fragile-vs-infeasible | {r['name']}: rank A, rank [A b], cond, solutions, z, residual, shift | "
+        f"{r['rank_A']}, {r['rank_Ab']}, {r['cond']:.4f}, {r['solutions']}, {_f(r['z'])}, {r['residual']:.5f}, {r['shift']:.4f} |"
+        for r in _fi
+    )
+    _Trows = "\n".join(
+        f"    | drawer-control-axes | theta = {th}: T, T v for v = (1/cos theta, 0) | "
+        f"{_f(_dr[th]['T'])}, {_f(np.array(_dr[th]['T']) @ np.array([_dr[th]['speed_model'], 0.0]))} |"
+        for th in (0, 30, 60)
+    )
     _drrows = "\n".join(f"    | drawer-setup | theta = {th}: cond, speed / b | {r['cond']:.4f}, {r['speed_model']:.4f} |" for th, r in _dr.items())
     _errrows = "\n".join(
         f"    | drawer-live | theta = {th}, eps = {ep}: speed_true, ratio | "
@@ -1166,8 +1207,10 @@ def _(
     | condition-number | cond diag(1, 0.01) | {d02_cond(np.diag([1, 0.01])):.1f} |
     | nearly-parallel-rows | z1, z2, cond, angle between rows (deg) | {_f(_npx['z1'])}, {_f(_npx['z2'])}, {_npx['cond']:.2f}, {_npx['angle_deg']:.4f} |
     | nearly-parallel-rows | relative db, relative dz, amplification | {_npx['rel_db']:.5f}, {_npx['rel_dz']:.4f}, {_npx['amplification']:.2f} |
+{_firows}
 {_drrows}
 {_errrows}
+{_Trows}
     | row-normalization | cond [[0,1],[1000,0]], cond [[0,1],[0,1]] | {d02_cond([[0, 1], [1000, 0]]):.1f}, {d02_cond([[0, 1], [0, 1]])} |
     | row-normalization | drawer at 45 deg with c scaled by 10: raw cond, crashing index | {_ci['raw']:.4f}, {_ci['index']:.4f} |
     | row-normalization | redundant J = [[0,1],[0,1]], C = (1,0): raw, index | {_ci0['raw']}, {_ci0['index']:.4f} |
@@ -1176,10 +1219,10 @@ def _(
 
 
 @app.cell
-def _(drawer_conditioning, np, plt):
+def _(d02_drawer_conditioning, np, plt):
     _th = np.linspace(0, 89, 300)
     _fig, _ax = plt.subplots(figsize=(5.5, 2.8))
-    _ax.semilogy(_th, [drawer_conditioning(t)["cond"] for t in _th], lw=2)
+    _ax.semilogy(_th, [d02_drawer_conditioning(t)["cond"] for t in _th], lw=2)
     _ax.set_xlabel("command angle from the rail, theta (deg)")
     _ax.set_ylabel("cond [n; c]")
     _ax.set_title("Drawer: cond = tan(45 deg + theta/2) (slide drawer-setup)")
@@ -1204,7 +1247,7 @@ def _(mo):
 
 @app.cell
 def _(d02_nullspace, np):
-    def line_fit_normal_equations(t, y):
+    def d02_line_fit_normal_equations(t, y):
         """Least-squares line y = c + d t through the points (t_i, y_i) (slide line-fit), by the
         normal equations A^T A x = A^T y with A = [1, t]."""
         t = np.asarray(t, dtype=float)
@@ -1216,7 +1259,7 @@ def _(d02_nullspace, np):
         return {"AtA": AtA.tolist(), "Aty": Aty.tolist(), "c": float(x[0]), "d": float(x[1]),
                 "residuals": e.tolist(), "sse": float(e @ e), "Ate": (A.T @ e).tolist()}
 
-    def column_space_projection(A, b):
+    def d02_column_space_projection(A, b):
         """Least squares as projection (slide ls-projection-3d): xhat from the normal equations,
         p = A xhat, e = b - p, A^T e = 0, and the projector P = A (A^T A)^-1 A^T."""
         A = np.asarray(A, dtype=float)
@@ -1228,7 +1271,7 @@ def _(d02_nullspace, np):
                 "dist": float(np.linalg.norm(b - p)),
                 "P": (A @ np.linalg.solve(A.T @ A, A.T)).tolist()}
 
-    def min_norm_solution(A, b):
+    def d02_min_norm_solution(A, b):
         """Minimum-norm solution x+ = A^T (A A^T)^-1 b of a wide system with independent rows
         (slide min-norm), checked against the pseudoinverse."""
         A = np.atleast_2d(np.asarray(A, dtype=float))
@@ -1237,7 +1280,7 @@ def _(d02_nullspace, np):
         return {"x": x.tolist(), "norm": float(np.linalg.norm(x)),
                 "pinv_x": (np.linalg.pinv(A) @ b).tolist(), "null": d02_nullspace(A).tolist()}
 
-    def table_force_distribution(W=100.0, com=(0.2, 0.1), legs=((1, 1), (-1, 1), (-1, -1), (1, -1)), t=0.0):
+    def d02_table_force_distribution(W=100.0, com=(0.2, 0.1), legs=((1, 1), (-1, 1), (-1, -1), (1, -1)), t=0.0):
         """Leg forces of a table on four legs (slide table-forces).
 
         Equilibrium M f = rhs: sum f_i = W, sum f_i x_i = W x_c, sum f_i y_i = W y_c. Three
@@ -1258,7 +1301,7 @@ def _(d02_nullspace, np):
                 "null": n.tolist(), "f": f.tolist(), "norm": float(np.linalg.norm(f)),
                 "residual": (M @ f - rhs).tolist(), "t_range": [float(lo), float(hi)]}
 
-    def pseudoinverse_rank_one(A=((1, 2), (2, 4)), b=(1, 1), mus=(1.0, 0.1, 0.01, 0.001)):
+    def d02_pseudoinverse_rank_one(A=((1, 2), (2, 4)), b=(1, 1), mus=(1.0, 0.1, 0.01, 0.001)):
         """Pseudoinverse of a rank-one matrix from its SVD, and Tikhonov-regularized solutions
         (A^T A + mu I)^-1 A^T b approaching A+ b (slide pseudoinverse)."""
         A = np.asarray(A, dtype=float)
@@ -1270,17 +1313,17 @@ def _(d02_nullspace, np):
                 "Ax": (A @ x).tolist(), "tikhonov": tik, "mus": list(mus)}
 
     return (
-        column_space_projection,
-        line_fit_normal_equations,
-        min_norm_solution,
-        pseudoinverse_rank_one,
-        table_force_distribution,
+        d02_column_space_projection,
+        d02_line_fit_normal_equations,
+        d02_min_norm_solution,
+        d02_pseudoinverse_rank_one,
+        d02_table_force_distribution,
     )
 
 
 @app.cell
 def _(np):
-    def schur_block_solve(K, rhs, n1):
+    def d02_schur_block_solve(K, rhs, n1):
         """Solve K [x; u] = rhs by block elimination (slide schur-complement), where x holds the
         first n1 unknowns: S = A - B C^-1 B^T, S x = f - B C^-1 g, u = C^-1 (g - B^T x)."""
         K = np.asarray(K, dtype=float)
@@ -1293,7 +1336,7 @@ def _(np):
         return {"S": S.tolist(), "x": x.tolist(), "u": u.tolist(),
                 "check": (K @ np.concatenate([x, u]) - rhs).tolist()}
 
-    def schur_minimize_out(a, b, c):
+    def d02_schur_minimize_out(a, b, c):
         """Minimize f(x, u) = 1/2 (a x^2 + 2 b x u + c u^2) over u (slide schur-minimization).
 
         With c > 0 the minimizer is u*(x) = -(b / c) x and f(x, u*) = 1/2 s x^2 with the Schur
@@ -1308,34 +1351,34 @@ def _(np):
         return {"s": float(s), "gain": float(-b / c), "eigs": sorted(eig.tolist(), reverse=True),
                 "pd": bool(s > 0), "c_pos": True}
 
-    return schur_block_solve, schur_minimize_out
+    return d02_schur_block_solve, d02_schur_minimize_out
 
 
 @app.cell
 def _(
-    column_space_projection,
-    line_fit_normal_equations,
-    min_norm_solution,
+    d02_column_space_projection,
+    d02_line_fit_normal_equations,
+    d02_min_norm_solution,
     mo,
     np,
-    pseudoinverse_rank_one,
-    schur_block_solve,
-    schur_minimize_out,
-    table_force_distribution,
+    d02_pseudoinverse_rank_one,
+    d02_schur_block_solve,
+    d02_schur_minimize_out,
+    d02_table_force_distribution,
 ):
-    _lf = line_fit_normal_equations([0, 1, 2, 3], [1, 2, 2, 4])
+    _lf = d02_line_fit_normal_equations([0, 1, 2, 3], [1, 2, 2, 4])
     assert np.isclose(_lf["c"], 0.9) and np.isclose(_lf["d"], 0.9) and np.isclose(_lf["sse"], 0.7)
-    _cp = column_space_projection([[1, 0], [1, 1], [1, 2]], [6, 0, 0])
+    _cp = d02_column_space_projection([[1, 0], [1, 1], [1, 2]], [6, 0, 0])
     assert np.allclose(_cp["xhat"], [5, -3]) and np.allclose(_cp["e"], [1, -2, 1])
-    _mn = min_norm_solution([[1, 1]], [2])
-    _tf = table_force_distribution()
+    _mn = d02_min_norm_solution([[1, 1]], [2])
+    _tf = d02_table_force_distribution()
     assert np.allclose(_tf["f_plus"], [32.5, 22.5, 17.5, 27.5]) and np.allclose(_tf["t_range"], [-17.5, 22.5])
-    _tf10 = table_force_distribution(t=10.0)
-    _pi = pseudoinverse_rank_one()
-    _sb = schur_block_solve([[4, 2], [2, 2]], [6, 2], 1)
+    _tf10 = d02_table_force_distribution(t=10.0)
+    _pi = d02_pseudoinverse_rank_one()
+    _sb = d02_schur_block_solve([[4, 2], [2, 2]], [6, 2], 1)
     assert np.allclose(_sb["x"], [2]) and np.allclose(_sb["u"], [-1])
-    _sm = {b: schur_minimize_out(4, b, 2) for b in (0, 1, 2, 2.5, 3, 4)}
-    _cx = schur_minimize_out(0, 1, 1)
+    _sm = {b: d02_schur_minimize_out(4, b, 2) for b in (0, 1, 2, 2.5, 3, 4)}
+    _cx = d02_schur_minimize_out(0, 1, 1)
     _f = lambda v: "(" + ", ".join(f"{x:.4f}" for x in np.ravel(v)) + ")"
     _smrows = "\n".join(f"    | schur-minimization | a = 4, c = 2, b = {b}: s, gain, pd | {r['s']:.4f}, {r['gain']:.4f}, {r['pd']} |" for b, r in _sm.items())
     mo.md(f"""

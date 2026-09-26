@@ -1,0 +1,53 @@
+<!--
+  block_tilt.xml: a point finger tilts a 75 mm wooden cube about one of its bottom edges.
+
+  The block-tilting example of Hou and Mason, ICRA 2019, Sec. V, and ICRA 2021, Sec. VII. Units
+  are SI (m, kg, s, N). The cube (density 700 kg/m^3, mass 0.295 kg) rests on the table centred
+  at the origin; the plan rotates it about its bottom edge at x = +37.5 mm (the y axis through
+  (0.0375, 0, 0)), top toward +x. The finger is a 4 mm sphere of 0.1 kg on three slide joints
+  (x, y, z) driven by three force motors; ctrl is the finger force in newtons along the world
+  axes. The finger starts 0.5 mm above the top face at x = 30 mm, which is 0.1 L behind the
+  rotation edge, the hand position of the authors' block_tilting_control.m.
+
+  Friction 0.8 on every geom (the authors' estimate for table and hand), elliptic cones,
+  condim 3, impratio 10. solref "0.002 1" makes contacts stiffer than MuJoCo's default "0.02 1";
+  its time constant is 4 timesteps. impratio 10 makes sticking stiffer: under the HFVC of the
+  lab, the table edge creeps 0.05 mm over a 40 degree tilt, against 0.41 mm with impratio 1.
+  The finger cannot rotate, so a sticking contact moves over the 4 mm sphere and the contact
+  point on the top face shifts by r theta (2.8 mm at 40 degrees) without any sliding.
+
+  labs/hybrid_servoing/sim_block_tilt.py loads this file through mujoco.MjSpec and changes the
+  block size, the table height and the friction per trial; the geom names below are its handles.
+-->
+<mujoco model="block_tilt">
+  <option timestep="0.0005" gravity="0 0 -9.81" cone="elliptic" impratio="10" integrator="implicitfast"/>
+
+  <default>
+    <geom friction="0.8 0.005 0.0001" condim="3" solref="0.002 1"/>
+    <joint type="slide" armature="0" damping="0"/>
+  </default>
+
+  <worldbody>
+    <light pos="0 -0.3 0.5" dir="0 0.5 -1"/>
+    <geom name="table" type="plane" size="0.2 0.2 0.01" rgba="0.85 0.85 0.85 1"/>
+
+    <body name="block" pos="0 0 0.0375">
+      <freejoint name="block"/>
+      <geom name="block" type="box" size="0.0375 0.0375 0.0375" density="700" rgba="0.76 0.60 0.42 1"/>
+    </body>
+
+    <!-- Finger reference point; the slide joints measure its displacement from here. -->
+    <body name="finger" pos="0.03 0 0.0795">
+      <joint name="fx" axis="1 0 0" range="-0.1 0.1"/>
+      <joint name="fy" axis="0 1 0" range="-0.1 0.1"/>
+      <joint name="fz" axis="0 0 1" range="-0.1 0.1"/>
+      <geom name="finger" type="sphere" size="0.004" mass="0.1" rgba="0.2 0.2 0.8 1"/>
+    </body>
+  </worldbody>
+
+  <actuator>
+    <motor name="fx" joint="fx" ctrlrange="-200 200" ctrllimited="true"/>
+    <motor name="fy" joint="fy" ctrlrange="-200 200" ctrllimited="true"/>
+    <motor name="fz" joint="fz" ctrlrange="-200 200" ctrllimited="true"/>
+  </actuator>
+</mujoco>

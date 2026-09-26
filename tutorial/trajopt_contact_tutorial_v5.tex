@@ -1110,11 +1110,11 @@ matrices bold uppercase ($\M$).
 $\langle\x,\bm{y}\rangle=\x^{\!\top}\bm{y}=\sum_{i}x_{i}y_{i}$.
 
 \textbf{Norms.}
-The $p$-norm of $\x\in\R^{n}$:
+The $p$-norm of $\x\in\R^{n}$, for $p\ge 1$ (for $p<1$ the triangle inequality fails):
 \begin{equation}
 \|\x\|_{p}=\Bigl(\sum_{i=1}^{n}|x_{i}|^{p}\Bigr)^{1/p}.
 \end{equation}
-Common cases: $p=2$ (Euclidean), $p=1$ (Manhattan), $p=\infty$ (max).
+Common cases: $p=2$ (Euclidean), $p=1$ (Manhattan), and the limit $p\to\infty$, $\|\x\|_{\infty}=\max_{i}|x_{i}|$.
 
 \textbf{Weighted norm:}
 $\|\x\|_{\bm{W}}=\sqrt{\x^{\!\top}\bm{W}\x}$ for
@@ -1122,9 +1122,9 @@ $\bm{W}\succ 0$.
 This appears throughout trajectory optimisation in cost functions.
 The notation deserves a moment: $\|\bm{v}-\bm{v}^{f}\|_{\M}^{2}$ in
 MuJoCo's contact problem \eqref{eq:mujoco-primal} measures velocity
-change \emph{in the metric of the inertia matrix}---i.e.\ it measures
-\emph{kinetic energy} of the velocity change, which is why that
-formulation is called a ``least-action'' principle.
+change \emph{in the metric of the inertia matrix}: half of it,
+$\tfrac12\|\bm{v}-\bm{v}^{f}\|_{\M}^{2}$, is the \emph{kinetic energy} of the velocity change. MuJoCo's
+documentation calls this formulation Gauss's principle of least constraint.
 
 %-------------------------------------------------------------
 \section{Quadratic Forms, Eigenvalues, and Conditioning}

@@ -47,11 +47,11 @@ from scipy.linalg import block_diag
 from scipy.optimize import brentq, least_squares, linprog, nnls
 
 RTOL = 1e-9  # relative singular-value threshold for rank decisions
-
-
-# ----------------------------------------------------------------------------------------------
-# 1. Linear algebra
-# ----------------------------------------------------------------------------------------------
+ATOL = 1e-10  # absolute floor: singular values below it count as zero whatever the scale
+# Both thresholds matter. A product of two orthonormal bases that should be zero, such as
+# Null([J; G]) U_bar^T in eq. 24, comes out with entries near 1e-16; a relative test alone
+# would call its largest (1e-16) singular value nonzero and drop a row of K. Every matrix this
+# file decides a rank for has entries between about 1e-3 and 1e3.
 
 
 def _as2d(A, n=None):
@@ -61,18 +61,21 @@ def _as2d(A, n=None):
     return A
 
 
-def svd_rank(A, rtol=RTOL):
-    """Numerical rank: the number of singular values above rtol * sigma_max."""
+def _rank_from_sv(s, rtol=RTOL, atol=ATOL):
+    if s.size == 0:
+        return 0
+    return int(np.sum(s > max(rtol * s[0], atol)))
+
+
+def svd_rank(A, rtol=RTOL, atol=ATOL):
+    """Numerical rank: the number of singular values above max(rtol * sigma_max, atol)."""
     A = _as2d(A)
     if A.size == 0:
         return 0
-    s = np.linalg.svd(A, compute_uv=False)
-    if s[0] == 0.0:
-        return 0
-    return int(np.sum(s > rtol * s[0]))
+    return _rank_from_sv(np.linalg.svd(A, compute_uv=False), rtol, atol)
 
 
-def null_rows(A, n=None, rtol=RTOL):
+def null_rows(A, n=None, rtol=RTOL, atol=ATOL):
     """Matrix whose rows are an orthonormal basis of NULL(A); shape (n - rank A, n).
 
     A matrix with no rows constrains nothing, so its null space is all of R^n (pass n)."""
@@ -81,18 +84,16 @@ def null_rows(A, n=None, rtol=RTOL):
     if A.shape[0] == 0:
         return np.eye(n)
     _, s, Vt = np.linalg.svd(A, full_matrices=True)
-    r = 0 if s.size == 0 or s[0] == 0.0 else int(np.sum(s > rtol * s[0]))
-    return Vt[r:].copy()
+    return Vt[_rank_from_sv(s, rtol, atol):].copy()
 
 
-def row_rows(A, rtol=RTOL):
+def row_rows(A, rtol=RTOL, atol=ATOL):
     """Matrix whose rows are an orthonormal basis of ROW(A); shape (rank A, n)."""
     A = _as2d(A)
     if A.shape[0] == 0:
         return np.zeros((0, A.shape[1]))
     _, s, Vt = np.linalg.svd(A, full_matrices=False)
-    r = 0 if s[0] == 0.0 else int(np.sum(s > rtol * s[0]))
-    return Vt[:r].copy()
+    return Vt[:_rank_from_sv(s, rtol, atol)].copy()
 
 
 def normalize_rows(A):
@@ -274,6 +275,17 @@ class Infeasible(Exception):
     """The velocity or force problem has no solution (the message names the failed test)."""
 
 
+def check_goal_rank(prob: HFVCProblem, C, who):
+    """Raise Infeasible unless rank(R_C) = rows(C) and rank([J; C]) = rank([J; C; G]) (eq. 13)."""
+    C = _as2d(C, prob.n)
+    if C.shape[0] and svd_rank(C[:, prob.n_u:]) < C.shape[0]:
+        raise Infeasible(f"{who}: the rows of C are linearly dependent")
+    r1 = svd_rank(np.vstack([prob.J, C]))
+    r2 = svd_rank(np.vstack([prob.J, C, prob.G]))
+    if r1 != r2:
+        raise Infeasible(f"{who}: goal inclusion fails, rank [J; C] = {r1} < rank [J; C; G] = {r2}")
+
+
 def complete_axes(C, n_u):
     """R_a = [Null(R_C); R_C] with R_C the actuated columns of C (2019 eq. 16, 2021 eq. 27)."""
     C = _as2d(C)
@@ -379,6 +391,10 @@ def alg1_velocity(prob: HFVCProblem, Ns=3, t=10.0, iters=50, form="paper", rng=N
         costs = [r[1] for r in results]
         best = int(np.argmin(costs))
         C = (b["Bc"] @ results[best][0]).T
+    # Algorithm 1 as printed stops here. Its C always satisfies C sigma_i = 0, but projected
+    # gradient descent can return rows that are dependent on each other or on the rows of N,
+    # and then Sol(N & C) is larger than Sol(N & G) (eq. 7 fails) and R_a is singular.
+    check_goal_rank(prob, C, "Algorithm 1")
     R_a, T = complete_axes(C, n_u)
     NG = np.vstack([prob.J, prob.G])
     v_star, res = special_solution(NG, np.concatenate([np.zeros(prob.J.shape[0]), prob.b_G]))
@@ -516,8 +532,7 @@ def ochs_velocity(prob: HFVCProblem, maximal=False):
     info = dict(U=U, Ubar=Ubar, r_J=r_J, r_JG=r_JG)
     if maximal:
         n_av, C = Ubar.shape[0], Ubar
-        if svd_rank(np.vstack([J, C])) != svd_rank(np.vstack([J, C, G])):  # eq. 13
-            raise Infeasible("eq. 13 fails for C = U_bar")
+        check_goal_rank(prob, C, "OCHS(M), eq. 13")
     else:
         n_av = n_min
         Z = null_rows(np.vstack([J, G]), n)
@@ -526,6 +541,7 @@ def ochs_velocity(prob: HFVCProblem, maximal=False):
         if K.shape[0] < n_av:  # eq. 25
             raise Infeasible(f"eq. 25 fails: rows(K) = {K.shape[0]} < n_av = {n_av}")
         C = K[:n_av] @ Ubar
+        check_goal_rank(prob, C, "OCHS")  # holds by construction; kept as a safeguard
     R_a, T = complete_axes(C, n_u)
     v_star, res = special_solution(np.vstack([J, G]), np.concatenate([np.zeros(J.shape[0]), prob.b_G]))
     if res > 1e-7 * (1 + np.linalg.norm(prob.b_G)):
@@ -758,19 +774,25 @@ def contact_system(dim, bodies, contacts, n_u, F, G, b_G, cone_sides=8, name="",
 # ----------------------------------------------------------------------------------------------
 # 9. Planar examples of 2021 Fig. 1 (block + point finger), reconstructed
 # ----------------------------------------------------------------------------------------------
-# The figure gives no geometry. v = (block vx, vy, omega at the block centre, finger vx, vy);
-# the finger touches the top centre and sticks. Top row: the block slides on the ground (two
-# normal-only corner contacts). Bottom row: the block sticks on a pivot under its bottom centre.
-# 2.41 = 1 + sqrt(2) and both 'inf' follow from the contact structure alone. The diagonal V is
-# drawn at 45 degrees, which gives 2 + sqrt(3) = 3.73; the printed 3.87 needs 46.8 degrees below
-# horizontal. With the block velocity taken at its centre, the pivot-to-finger distance h enters
-# the bottom row; h = 0.290 (any length unit, radians for omega) gives 7.10, and then 10.48 is
-# a prediction. fig1_fit() recomputes both parameters from the printed numbers.
+# The figure gives no geometry, so the examples are reconstructed. v = (block vx, vy, omega at
+# the block centre, finger vx, vy); the finger touches the top centre and sticks. Top row: the
+# block slides on the ground (two normal-only corner contacts). Bottom row: the block sticks on
+# a pivot under its bottom centre (a pin joint).
+#  * Top row. ROW(J) = span{e_vy, e_omega, e_fy, e_fx - e_bx} for every block size, so the top
+#    row depends only on the direction of V: 1 + sqrt(2) = 2.414 for V to the right, inf for V
+#    down (V is then a row of J). A diagonal V at 45 degrees gives 2 + sqrt(3) = 3.732; the
+#    printed 3.87 needs V at 46.76 degrees below horizontal.
+#  * Bottom row. omega is in rad/s and the lengths enter J, so the block height h matters:
+#    h = 0.2904 (length unit of v) gives the printed 7.10 for V to the right; inf for V down.
+#  * A least-squares fit of (phi, h) to 3.87, 7.10 and 10.48 gives phi = 46.78 deg,
+#    h = 0.2904, with residuals under 0.002, so all six printed values are reproduced to their
+#    two decimals. The one-parameter fits (phi from 3.87 alone, h from 7.10 alone) predict 10.47
+#    for the printed 10.48. fig1_fit() recomputes these numbers.
 
 FIG1_PAPER = {("ground", "right"): 2.41, ("ground", "diag"): 3.87, ("ground", "down"): math.inf,
               ("pivot", "right"): 7.10, ("pivot", "diag"): 10.48, ("pivot", "down"): math.inf}
-FIG1_PHI_DEG = 46.8  # angle of the diagonal V below horizontal (fitted; drawn as 45)
-FIG1_H = 0.290  # pivot-to-finger distance (fitted)
+FIG1_PHI_DEG = 46.78  # angle of the diagonal V below horizontal (fitted; drawn near 45)
+FIG1_H = 0.2904  # block height, pivot to finger (fitted)
 
 
 def fig1_problem(support="ground", h=FIG1_H, w=None, weight=1.0, mu_finger=0.8, mu_ground=0.3,
@@ -817,6 +839,33 @@ def fig1_table(phi_deg=FIG1_PHI_DEG, h=FIG1_H):
                             ours=crashing_index(J, fig1_C(direction, phi_deg)),
                             paper=FIG1_PAPER[(support, direction)]))
     return out
+
+
+def drawer_system(theta_deg, eps_deg=0.0, b=1.0):
+    """The drawer of deck 02 (slide drawer-setup): v = (vx, vy) of a drawer on a rail along x.
+
+    Natural constraint n^T v = 0 with the true rail normal n = (-sin eps, cos eps) (the model
+    assumes eps = 0); velocity command c^T v = b with c = (cos theta, sin theta). Returns the
+    condition number of the modelled system [n0; c] (= tan(45 deg + theta / 2)), the speed along
+    the rail the model predicts (b / cos theta) and the true one (b / cos(theta - eps)), and
+    whether the true system is consistent (it is not when theta - eps = 90 deg)."""
+    th, ep = math.radians(theta_deg), math.radians(eps_deg)
+    c = np.array([math.cos(th), math.sin(th)])
+    A_model = np.array([[0.0, 1.0], c])
+    A_true = np.array([[-math.sin(ep), math.cos(ep)], c])
+    s_true = abs(math.cos(th - ep))
+    feasible = s_true > 1e-12
+    return dict(cond=cond_rows(A_model), speed_model=b / math.cos(th) if math.cos(th) else math.inf,
+                speed_true=b / math.cos(th - ep) if feasible else math.inf, feasible=feasible,
+                v_true=np.linalg.solve(A_true, [0.0, b]) if feasible else None)
+
+
+def drawer_crashing_index(theta_deg):
+    """Crashing index of the drawer with the finger in the loop: Fig. 1 top row, V at angle theta
+    above the rail direction. Equals sqrt((1 + c) / (1 - c)) with c^2 = (1 + sin^2 theta) / 2."""
+    th = math.radians(theta_deg)
+    C = np.array([[0.0, 0.0, 0.0, math.cos(th), math.sin(th)]])
+    return crashing_index(fig1_problem("ground").J, C)
 
 
 def fig1_fit():
@@ -1034,23 +1083,36 @@ def world_commands(vel: VelocityControl, force: Optional[ForceControl], n_u):
 # 2021 Sec. VI-B: one rigid object, one to three environment contacts ('f' sticking, 's'
 # sliding), one to three rigid fingers with one to three sticking contacts each; 1000 samples
 # of contact locations and normals per setting (6000 planar, 72000 3D) and a random goal. The
-# paper does not give the distributions; the choices here are:
-#   object: reference point at the origin, contact points uniform in [-0.5, 0.5]^dim;
+# paper gives no distributions; the choices here are:
+#   object: reference point at the origin, contact points uniform in [-0.5, 0.5]^dim (length
+#     units of the same size as one radian, so the crashing index weighs rotation and
+#     translation alike);
 #   environment normals uniform on the upper half-sphere (the environment pushes from below);
 #   finger normals uniform on the sphere; finger reference point = mean of its contact points
 #   plus a uniform offset in [-0.2, 0.2]^dim; mu_env ~ U[0.2, 1.0], mu_finger ~ U[0.5, 1.2];
-#   object weight 1 along -y (2D) or -z (3D); minimum normal force 0.1 at finger contacts and 0
-#   at environment contacts; sliding contacts are frictionless (2021 eq. 4 has no equality
-#   rows, so it does not model sliding friction);
+#   minimum normal force 0.1 at finger contacts and 0 at environment contacts; sliding contacts
+#   are frictionless (2021 eq. 4 has no equality rows, so it does not model sliding friction);
 #   goal: n_G rows (uniform in 1..rows(U_bar) for goal='min', all of them for goal='max')
-#   drawn from the projection of ROW(U_bar) onto NULL(J), plus a random ROW(J) component that
-#   changes no solution set, and b_G = G v_g for a random v_g in NULL(J). Every goal is
-#   therefore feasible for the velocity part, and failures come from the force part.
+#     drawn from the projection of ROW(U_bar) onto NULL(J), plus a random ROW(J) component that
+#     changes no solution set, and b_G = G v_g for a random v_g in NULL(J). Every goal is
+#     therefore feasible for the velocity part;
+#   load='feasible' (default): the external wrench on the object is F_u = -(J'_u)^T lambda* for
+#     a contact force lambda* strictly inside the guard set (normal force n_min + U[1, 2],
+#     tangential force at most half the friction bound), so a force distribution that satisfies
+#     every guard exists and the force part fails only when a method cannot find it;
+#     load='gravity': a unit weight on the object instead, which makes about 60 % of the
+#     planar problems force-infeasible.
+# Settings in which the environment and the fingers lock every body (3D 'ffs' with three
+# contacts per finger) have no free robot motion and no goal; random_problems skips them.
 
 TABLE1 = {
     2: dict(env=("f", "s", "ss"), hand=(1, 2), fingers=(1,)),
     3: dict(env=("f", "s", "ff", "fs", "ss", "ffs", "fss", "sss"), hand=(1, 2, 3), fingers=(1, 2, 3)),
 }
+
+
+class Locked(RuntimeError):
+    """The sampled contact setting leaves the robot no free motion, so no goal can be posed."""
 
 
 def table1_settings(dim):
@@ -1067,8 +1129,22 @@ def _unit(rng, dim, upper=False):
     return v
 
 
-def random_problem(rng=None, dim=2, env="f", hand=1, fingers=1, goal="min", weight=1.0,
-                   n_min_finger=0.1, cone_sides=8, max_tries=200):
+def interior_force(prob: HFVCProblem, rng):
+    """A contact force strictly inside the friction-cone and normal-force guards of a
+    contact_system problem: normal n_min + U[1, 2], tangential at most half of mu * normal."""
+    dim, contacts, lam_of = prob.info["dim"], prob.info["contacts"], prob.info["lam_of"]
+    lam = np.zeros(prob.n_lam)
+    for c, idx in zip(contacts, lam_of):
+        ln = c.n_min + rng.uniform(1.0, 2.0)
+        lam[idx[0]] = ln
+        if c.mode == "stick":
+            t = _unit(rng, dim - 1) if dim == 3 else np.array([rng.choice([-1.0, 1.0])])
+            lam[idx[1:]] = rng.uniform(0.0, 0.5) * c.mu * ln * t
+    return lam
+
+
+def random_problem(rng=None, dim=2, env="f", hand=1, fingers=1, goal="min", load="feasible",
+                   weight=1.0, n_min_finger=0.1, cone_sides=8, max_tries=50):
     """One random HFVC problem of 2021 Table I (see the comment above for the distributions)."""
     rng = np.random.default_rng(rng)
     for _ in range(max_tries):
@@ -1101,18 +1177,33 @@ def random_problem(rng=None, dim=2, env="f", hand=1, fingers=1, goal="min", weig
             G = G + rng.standard_normal((nG, J.shape[0])) @ J
         v_g = U.T @ rng.standard_normal(U.shape[0])
         F = np.zeros(n)
-        F[dim - 1] = -weight
+        if load == "feasible":
+            F[:n_u] = -(base.J_force.T @ interior_force(base, rng))[:n_u]
+        elif load == "gravity":
+            F[dim - 1] = -weight
+        else:
+            raise ValueError(load)
         return contact_system(dim, bodies, contacts, n_u, F, G, G @ v_g, cone_sides,
                               name=f"{dim}d-{env}-{hand}x{fingers}-{goal}",
-                              info=dict(env=env, hand=hand, fingers=fingers, goal=goal))
-    raise RuntimeError("no controllable random problem found")
+                              info=dict(env=env, hand=hand, fingers=fingers, goal=goal, load=load))
+    raise Locked(f"{dim}D setting env={env}, {hand} contacts x {fingers} fingers: no free robot motion")
 
 
-def random_problems(count, dim=2, goal="min", seed=0, settings=None):
-    """`count` problems cycling through the Table I settings, reproducible from `seed`."""
+def random_problems(count, dim=2, goal="min", seed=0, settings=None, load="feasible"):
+    """`count` problems cycling through the Table I settings, reproducible from `seed`.
+
+    Settings that lock every body (class Locked) are dropped from the cycle."""
     rng = np.random.default_rng(seed)
-    settings = settings or table1_settings(dim)
-    return [random_problem(rng, dim, *settings[i % len(settings)], goal=goal) for i in range(count)]
+    settings = list(settings or table1_settings(dim))
+    out, i = [], 0
+    while len(out) < count and settings:
+        s = settings[i % len(settings)]
+        try:
+            out.append(random_problem(rng, dim, *s, goal=goal, load=load))
+            i += 1
+        except Locked:
+            settings.remove(s)
+    return out
 
 
 # ----------------------------------------------------------------------------------------------

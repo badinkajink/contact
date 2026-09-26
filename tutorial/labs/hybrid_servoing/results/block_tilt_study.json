@@ -1,0 +1,39 @@
+{
+ "model": "models/block_tilt.xml",
+ "mujoco": "3.14.0",
+ "model_L_m": 0.075,
+ "density": 700.0,
+ "mu_model": 0.8,
+ "hand_x": -0.1,
+ "omega": 0.5,
+ "theta_goal_deg": 40.0,
+ "settle_s": 0.3,
+ "t_max_s": 2.5,
+ "control_dt_s": 0.004,
+ "force_limit_N": 25.0,
+ "slip_limit_m": 0.002,
+ "gap_limit_s": 0.02,
+ "gains": {
+  "K_v": 60.0,
+  "D_f": 2.0,
+  "K_p": 10000.0,
+  "K_d": 60.0,
+  "D_low": 6.0,
+  "preload": 10.0
+ },
+ "bt": {
+  "L": 0.075,
+  "mass": 0.2953125,
+  "hand_mass": 0.0,
+  "g": 9.81,
+  "mu_hand": 0.8,
+  "mu_table": 0.8,
+  "n_min_hand": 10.0,
+  "n_min_table": 0.0,
+  "cone_sides": 8,
+  "hand_x": -0.1,
+  "omega_goal": 0.5
+ },
+ "started": "2026-09-25 09:04:46",
+ "quick": false
+}

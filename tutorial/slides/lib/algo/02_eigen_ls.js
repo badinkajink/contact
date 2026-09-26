@@ -10,20 +10,25 @@
  * the Python twin in tutorial/00_math_toolkit.py (section "Deck 02"), checked by
  *   uv run tools/twins.py 02
  *
- *   twin (00_math_toolkit.py)      JavaScript
- *   projection_onto_line(a, b)     EigenLS.projectLine(a, b)
- *   gram_schmidt_qr(vectors)       EigenLS.gramSchmidt(vectors)
- *   eigen_2x2(A)                   EigenLS.eig2(A)
- *   quadratic_from_eigen(...)      EigenLS.fromEigen(l1, l2, thetaDeg)
- *   quadratic_form_axes(A, c)      EigenLS.quadAxes(A, c)
- *   cholesky_2x2_steps(A, b)       EigenLS.chol2(A, b)
- *   svd_circle_ellipse(A)          EigenLS.svd2(A)
- *   nearly_parallel_rows(phi, db)  EigenLS.twoRows(phiDeg, db)
- *   drawer_conditioning(th, eps)   EigenLS.drawer(thetaDeg, epsDeg, b)
- *   crashing_index(J, C)           EigenLS.crashingIndex(J, C)
- *   line_fit_normal_equations      EigenLS.fitLine(t, y)
- *   table_force_distribution       EigenLS.tableForces(W, com, legs, t)
- *   schur_minimize_out(a, b, c)    EigenLS.schur2(a, b, c)
+ *   twin (00_math_toolkit.py)          JavaScript
+ *   d02_projection_onto_line(a, b)     EigenLS.projectLine(a, b)
+ *   d02_gram_schmidt_qr(vectors)       EigenLS.gramSchmidt(vectors)
+ *   d02_projection_onto_plane(b, Q)    EigenLS.projectPlane(b, Q)
+ *   d02_complement_split(A, v)         EigenLS.complementSplit(A, v)
+ *   d02_inclusion_rank_test(A, B)      EigenLS.inclusion(A, B)
+ *   d02_eigen_2x2(A)                   EigenLS.eig2(A)
+ *   d02_quadratic_from_eigen(...)      EigenLS.fromEigen(l1, l2, thetaDeg)
+ *   d02_quadratic_form_axes(A, c)      EigenLS.quadAxes(A, c)
+ *   d02_cholesky_2x2_steps(A, b)       EigenLS.chol2(A, b)
+ *   d02_svd_circle_ellipse(A)          EigenLS.svd2(A)
+ *   d02_nearly_parallel_rows(phi, db)  EigenLS.twoRows(phiDeg, db)
+ *   d02_drawer_conditioning(th, eps)   EigenLS.drawer(thetaDeg, epsDeg, b)
+ *   d02_crashing_index(J, C)           EigenLS.crashingIndex(J, C)
+ *   d02_line_fit_normal_equations      EigenLS.fitLine(t, y)
+ *   d02_column_space_projection(A, b)  EigenLS.colProject(A, b)
+ *   d02_min_norm_solution(A, b)        EigenLS.minNorm(A, b)
+ *   d02_table_force_distribution       EigenLS.tableForces(W, com, legs, t)
+ *   d02_schur_minimize_out(a, b, c)    EigenLS.schur2(a, b, c)
  *
  * Sign convention (as lib/num.js and the notebook): an eigenvector or singular vector is
  * scaled so that its entry of largest magnitude is positive, the first one when two tie to
@@ -73,6 +78,36 @@
       Q.push(w.map((x) => x / R[j][j]));
     });
     return { Q, R, w: W };
+  }
+
+  // Projection of b onto the span of the orthonormal ROWS of Q: coordinates, point, error.
+  function projectPlane(b, Q) {
+    const c = N.matvec(Q, b);
+    const p = N.matvec(N.transpose(Q), c);
+    const e = b.map((x, i) => x - p[i]);
+    return { coords: c, p, e, dist: hyp(e), P: N.matmul(N.transpose(Q), Q) };
+  }
+
+  // Split v into its ROW(A) part and its NULL(A) part; coef: v_row as a combination of A's rows.
+  function complementSplit(A, v) {
+    const Nb = N.nullspace(A);
+    const vNull = Nb.length ? N.matvec(N.transpose(Nb), N.matvec(Nb, v)) : v.map(() => 0);
+    const vRow = v.map((x, i) => x - vNull[i]);
+    const coef = N.lstsq(N.transpose(A), vRow).x;
+    return {
+      null: Nb, rows_dot_null: Nb.length ? N.matmul(A, N.transpose(Nb)).flat() : [],
+      v_null: vNull, v_row: vRow, coef,
+    };
+  }
+
+  // NULL(A) in NULL(B)  <=>  ROW(B) in ROW(A)  <=>  rank [A; B] = rank A (Hou & Mason 2021 eq. 11-13).
+  function inclusion(A, B) {
+    const rA = N.rank(A), rAB = N.rank(N.vstack(A, B));
+    const Nb = N.nullspace(A);
+    return {
+      rank_A: rA, rank_AB: rAB, included: rA === rAB,
+      B_null: Nb.length ? N.matmul(B, N.transpose(Nb)) : B.map(() => []),
+    };
   }
 
   // ------------------------------------------------------------------ part 2
@@ -221,6 +256,22 @@
     };
   }
 
+  // Least squares as projection: xhat from A^T A x = A^T b, p = A xhat, e = b - p, P = A (A^T A)^-1 A^T.
+  function colProject(A, b) {
+    const At = N.transpose(A), AtA = N.matmul(At, A), Atb = N.matvec(At, b);
+    const xhat = N.solve(AtA, Atb);
+    const p = N.matvec(A, xhat);
+    const e = b.map((x, i) => x - p[i]);
+    const X = N.solve(AtA, At); // (A^T A)^-1 A^T, one column per right-hand side
+    return { AtA, Atb, xhat, p, e, Ate: N.matvec(At, e), dist: hyp(e), P: N.matmul(A, X) };
+  }
+
+  // Minimum-norm solution x+ = A^T (A A^T)^-1 b of a wide system with independent rows.
+  function minNorm(A, b) {
+    const x = N.matvec(N.transpose(A), N.solve(N.matmul(A, N.transpose(A)), b));
+    return { x, norm: hyp(x), pinv_x: N.matvec(N.pinv(A), b), null: N.nullspace(A) };
+  }
+
   // Four-legged table: minimum-norm leg forces and the line of all equilibrium distributions.
   function tableForces(W, com, legs, t) {
     W = W === undefined ? 100 : W;
@@ -257,7 +308,8 @@
   }
 
   window.EigenLS = {
-    projectLine, gramSchmidt, eig2, fromEigen, quadAxes, chol2,
-    svd2, twoRows, drawer, crashingIndex, fitLine, tableForces, schur2, fixSign,
+    projectLine, gramSchmidt, projectPlane, complementSplit, inclusion, eig2, fromEigen, quadAxes,
+    chol2, svd2, twoRows, drawer, crashingIndex, fitLine, colProject, minNorm, tableForces, schur2,
+    fixSign,
   };
 })();
