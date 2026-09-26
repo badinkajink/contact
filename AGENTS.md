@@ -401,10 +401,16 @@ pass after three cases were corrected (a hand-written rank, and two LPs with non
 now compared by objective); the gradient-descent table in the tex (section 3), corrected but not rebuilt, since
 the tex needs `algorithm2e.sty`.
 
-In progress (checkpoint 6959c20, 2026-09-25): notebook cells for decks 01-02 in
-`00_math_toolkit.py`, `lib/algo/01_linear_maps.js`, `lib/algo/02_eigen_ls.js`, their twin files,
-and `labs/hybrid_servoing/hfvc.py`. The deck HTML files do not exist yet; a writer resumes from
-these files rather than starting over.
+In progress (checkpoints 6959c20 and 8499e0c, 2026-09-25): a first draft of deck 01 (25 slides,
+not reviewed); notebook cells for decks 01-02 in `00_math_toolkit.py` (runs top to bottom);
+`lib/algo/01_linear_maps.js`, `lib/algo/02_eigen_ls.js` and their twin files; the lab's
+`hfvc.py`, `test_hfvc.py` (31 pass, 3 fail: goal inclusion and guard conditions of returned
+solutions; run with `env -u PYTHONPATH` so pytest skips the ROS plugins on this machine),
+`sim_block_tilt.py`, `results/` and `models/block_tilt.xml`. Writers resume from these files.
+
+Scheduling: follow-up jobs created inside a Claude Code session die with that session; the
+2026-09-25 run sat idle for 12 hours after the remote session closed. Keep the session open, or
+restart the work from this section in a new one.
 
 Not started, in order: decks 01-10 and 17-22, the lab, and the integration of decks 11-16 (scope
 of each in [`tutorial/PLAN.md`](tutorial/PLAN.md), which also holds the concept-ownership table
