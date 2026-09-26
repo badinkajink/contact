@@ -57,10 +57,10 @@ Twenty-two decks in six parts. File names are final; other files link to them.
 | # | file (`tutorial/slides/`) | title | notebook | status |
 |---|---|---|---|---|
 | **I** | | **Mathematical toolkit** | | |
-| 01 | `01_vectors_and_matrices.html` | Vectors, matrices, and linear maps | `00_math_toolkit.py` | planned |
-| 02 | `02_eigenvalues_and_least_squares.html` | Eigenvalues, singular values, and least squares | `00_math_toolkit.py` | planned |
-| 03 | `03_derivatives_and_jacobians.html` | Derivatives, gradients, and Jacobians | `00_math_toolkit.py` | planned |
-| 04 | `04_probability_and_sampling.html` | Probability, Gaussians, and sampling | `00_math_toolkit.py` | planned |
+| 01 | `01_vectors_and_matrices.html` | Vectors, matrices, and linear maps | `00_math_toolkit.py` | exists: 45 slides, `check.py` clean, twins pass; awaiting the owner's review (`tools/packet.py 01`) |
+| 02 | `02_eigenvalues_and_least_squares.html` | Eigenvalues, singular values, and least squares | `00_math_toolkit.py` | draft: 44 slides, figures unfinished |
+| 03 | `03_derivatives_and_jacobians.html` | Derivatives, gradients, and Jacobians | `00_math_toolkit.py` | draft: 45 slides, figures unfinished |
+| 04 | `04_probability_and_sampling.html` | Probability, Gaussians, and sampling | `00_math_toolkit.py` | draft: 32 slides, figures unfinished |
 | **II** | | **Optimization** | | |
 | 05 | `05_unconstrained_optimization.html` | Unconstrained optimization: gradient descent and Newton's method | `01_optimization_fundamentals.py` | planned |
 | 06 | `06_constrained_optimization.html` | Constrained optimization: Lagrange multipliers and the KKT conditions | `01_optimization_fundamentals.py` | planned |
