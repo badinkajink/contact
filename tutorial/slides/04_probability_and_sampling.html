@@ -1,0 +1,1161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Probability, Gaussians, and sampling</title>
+<link rel="stylesheet" href="lib/katex/katex.min.css">
+<link rel="stylesheet" href="lib/retro.css">
+<script defer src="lib/katex/katex.min.js"></script>
+<script defer src="lib/katex/contrib/auto-render.min.js"></script>
+<script src="lib/fig.js"></script>
+<script src="lib/plot.js"></script>
+<script src="lib/num.js"></script>
+<script src="lib/algo/04_sampling.js"></script>
+<script>
+  window.DECK_MACROS = {
+    "\\veps": "\\boldsymbol{\\epsilon}",
+    "\\Neff": "N_{\\mathrm{eff}}",
+    "\\Nrm": "\\mathcal{N}",
+    "\\corr": "\\operatorname{corr}",
+    "\\ind": "\\mathbf{1}",
+  };
+</script>
+<script defer src="lib/deck.js"></script>
+<style>
+  .controls input[type="range"].short { width: 150px; }
+  .controls select, .controls button { font-family: "Times New Roman", Times, serif; font-size: 20px; }
+  .tight li { margin-bottom: 3px; }
+  ol.steps { padding-left: 1.4em; }
+  ol.steps li { margin-bottom: 4px; }
+  table.mid td, table.mid th { padding: 2px 9px; }
+  .mathcol .katex-display { margin: 4px 0 8px; }
+</style>
+</head>
+<!--
+  Deck 04 of the series. Numbers on the slides come from tutorial/00_math_toolkit.py, section
+  "Deck 04" (functions d04_*, class D04Rng); the live figures call lib/algo/04_sampling.js
+  (window.Sampling), whose twin cases are tools/twins/04.json. Every random number on a slide
+  comes from Num.rng(seed) in lib/num.js, which D04Rng reproduces in the notebook.
+-->
+<body data-index="index.html">
+<main class="deck">
+
+<!-- ============================================================ title -->
+<section class="slide title" id="title" data-code="00_math_toolkit.py:d04_cov_ellipse">
+  <h1>Probability, Gaussians, and sampling</h1>
+  <p class="authors">William Xie</p>
+  <p class="links">[<a href="index.html">index</a>] [<a href="../00_math_toolkit.py">code</a>]
+    [<a href="#" data-action="print">pdf</a>]</p>
+  <hr>
+  <div class="cols l2 mid">
+    <figure>
+      <svg id="f-hero"></svg>
+      <figcaption>400 draws of a Gaussian vector with covariance
+        $\Sigma = \begin{bmatrix} 4 & 2 \\ 2 & 3 \end{bmatrix}$, with its 1-, 2- and 3-$\sigma$
+        ellipses. The black segments are the principal standard deviations
+        $\sigma_1 = 2.358$ and $\sigma_2 = 1.199$.</figcaption>
+    </figure>
+    <div class="small">
+      <p>Deck 04 of 22, Part I (mathematical toolkit).</p>
+      <p>Prerequisites: <a href="01_vectors_and_matrices.html">deck 01</a> (vectors, matrices,
+        the transpose) and <a href="02_eigenvalues_and_least_squares.html">deck 02</a>
+        (eigenvectors of symmetric matrices, the Cholesky factor).</p>
+      <p>Code: every number on these slides is computed in <code>tutorial/00_math_toolkit.py</code>,
+        section &ldquo;Deck 04&rdquo;. Press <kbd>C</kbd> on a slide to see the function.</p>
+      <p>Used by decks 10, 21 and 22.</p>
+    </div>
+  </div>
+  <p class="updated">Last updated September 2026.</p>
+  <aside class="notes">This deck builds the probability that sampling-based optimization uses.
+    Part 1 defines outcomes, events, random variables, the mean and the variance on dice, where
+    every number can be checked by counting. Part 2 moves to continuous distributions, the
+    Gaussian density, and the way a computer draws random numbers (a seeded generator and the
+    Box-Muller transform). Part 3 builds Gaussian vectors: covariance matrices, covariance
+    ellipses from eigenvectors, sampling $\Nrm(\vm, \Sigma)$ as $\vm + L\veps$ with a Cholesky
+    factor, and Monte Carlo estimates with their $1/\sqrt N$ error. Part 4 turns to weighted
+    samples: softmax weights with a temperature, the effective sample size, importance sampling,
+    refitting a Gaussian to the best samples, random restarts, and random test problems. Deck 10
+    uses these tools for predictive sampling, MPPI, CEM and DIAL-MPC (tex lines 2144-2437); deck
+    21 uses the restart and test-problem arithmetic to read Hou and Mason (ICRA 2019, 2021). The
+    mean is written $m$, not $\mu$, because $\mu$ is the friction coefficient everywhere in this
+    series.</aside>
+</section>
+
+<!-- ============================================================ part 1 -->
+<section class="slide section" id="part-probability">
+  <p class="kicker">Part 1</p>
+  <h1>Probability and random variables</h1>
+  <hr>
+  <p>Outcomes and events, random variables, the mean and the variance, and what happens to the
+    average of many repeated trials. Every number comes from counting dice.</p>
+</section>
+
+<!-- ============================================================ outcomes -->
+<section class="slide" id="outcomes-events">
+  <h2>Outcomes, events, and probability</h2>
+  <div class="cols">
+    <div>
+      <figure>
+        <svg id="f-die"></svg>
+        <figcaption>The six outcomes of one roll. Yellow: the outcomes in the chosen event.</figcaption>
+      </figure>
+      <div class="controls">
+        <label>event $A$: <select id="ev-sel">
+          <option value="even">even</option>
+          <option value="ge5">at least 5</option>
+          <option value="prime">prime</option>
+          <option value="union">even or at least 5</option>
+          <option value="inter">even and at least 5</option>
+          <option value="not">not even</option>
+        </select></label>
+      </div>
+      <div class="readout" id="ev-read"></div>
+    </div>
+    <div>
+      <ul class="tight">
+        <li>An experiment has a set $\Omega$ of <b>outcomes</b>. One roll of a die:
+          $\Omega = \{1, 2, 3, 4, 5, 6\}$.</li>
+        <li>An <b>event</b> is a set of outcomes. &ldquo;Even&rdquo; is $A = \{2, 4, 6\}$.</li>
+        <li>With equally likely outcomes, $P(A) = \abs{A} / \abs{\Omega}$, where $\abs{A}$ counts
+          the outcomes in $A$: $P(\text{even}) = 3/6$.</li>
+        <li class="step">Rules: $0 \le P(A) \le 1$; $P(\Omega) = 1$; $P(\text{not } A) = 1 - P(A)$;
+          $P(A \text{ or } B) = P(A) + P(B)$ when $A$ and $B$ share no outcome.</li>
+        <li class="step">With overlap, subtract the shared part once:
+          $P(\text{even or} \ge 5) = \tfrac36 + \tfrac26 - \tfrac16 = \tfrac46$.</li>
+      </ul>
+    </div>
+  </div>
+  <aside class="notes">Probability starts with a list of everything that can happen, the set
+    $\Omega$ of outcomes, and assigns each set of outcomes (each event) a number between 0 and 1.
+    The rules on the slide are Kolmogorov's axioms in words, plus two consequences: the complement
+    rule follows from $A$ and &ldquo;not $A$&rdquo; sharing no outcome and together making
+    $\Omega$, so $P(A) + P(\text{not } A) = 1$. The overlap rule follows from counting: in
+    $\abs{A} + \abs{B}$ every outcome in both sets is counted twice, so
+    $\abs{A \text{ or } B} = \abs{A} + \abs{B} - \abs{A \text{ and } B}$. For &ldquo;even or at
+    least 5&rdquo; the shared outcome is 6, and the union is $\{2, 4, 5, 6\}$, four outcomes.
+    &ldquo;Equally likely&rdquo; is a modeling assumption about a fair die, not a consequence of
+    the rules; a loaded die obeys the same rules with other numbers. The select box computes the
+    event and its probability by counting the yellow faces.</aside>
+</section>
+
+<!-- ============================================================ two dice -->
+<section class="slide" id="two-dice" data-code="00_math_toolkit.py:d04_two_dice_counts">
+  <h2>Equally likely outcomes of two dice</h2>
+  <div class="cols r2 mid">
+    <figure>
+      <svg id="f-dice2"></svg>
+      <figcaption>The 36 ordered outcomes $(a, b)$, each cell labeled with $a + b$.</figcaption>
+    </figure>
+    <div>
+      <ul class="tight">
+        <li>Roll two dice. An outcome is the ordered pair $(a, b)$: 36 outcomes, each with
+          probability $1/36$.</li>
+        <li>$(3, 4)$ and $(4, 3)$ are different outcomes: the first die shows 3 in one and 4 in the
+          other.</li>
+        <li>The sum 7 comes from 6 outcomes, $(1, 6), (2, 5), \dots, (6, 1)$:
+          $P(\text{sum} = 7) = 6/36 = 0.1667$. The sum 2 comes from $(1, 1)$ alone: $1/36$.</li>
+      </ul>
+      <div class="controls">
+        <label>sum $s$ = <input type="range" id="d2-s" min="2" max="12" step="1" value="7">
+          <span id="d2-s-out"></span></label>
+      </div>
+      <div class="readout" id="d2-read"></div>
+    </div>
+  </div>
+  <aside class="notes">Treating the dice as distinguishable (a red die and a blue die, say) makes
+    the 36 outcomes equally likely, which is what lets probabilities be computed by counting. If
+    the pairs were unordered, $\{3, 4\}$ would be one outcome and $\{3, 3\}$ another, and these
+    two would not be equally likely: $\{3, 4\}$ happens in two ways out of 36 and $\{3, 3\}$ in
+    one. The counts of the sums form a triangle, $1, 2, 3, 4, 5, 6, 5, 4, 3, 2, 1$ for sums 2 to
+    12, which add to 36. The count for sum $s$ is $6 - \abs{s - 7}$: the diagonal of the grid on
+    which $a + b = s$ is longest through the middle of the square. Move the slider to see each
+    diagonal. <code>d04_two_dice_counts</code> in the notebook counts the same cells by looping
+    over all 36 pairs.</aside>
+</section>
+
+<!-- ============================================================ independence -->
+<section class="slide" id="independence" data-code="00_math_toolkit.py:d04_at_least_one">
+  <h2>Independent events and repeated trials</h2>
+  <div class="cols">
+    <div>
+      <ul class="tight">
+        <li>Events $A$ and $B$ are <b>independent</b> when $P(A \text{ and } B) = P(A)\,P(B)$.
+          Two dice: $P(\text{two sixes}) = \tfrac16\cdot\tfrac16 = \tfrac{1}{36}$, one cell of
+          the grid.</li>
+        <li class="step">At least one six in $k$ rolls: the complement is &ldquo;no six in any
+          roll&rdquo;, with probability $(5/6)^k$, so
+          $$P(\text{at least one six}) = 1 - (5/6)^k.$$</li>
+        <li class="step">$k = 4$: $1 - 0.4823 = 0.5177$. $k = 12$: $0.8878$.</li>
+        <li class="step">With success probability $p$ per trial:
+          $P(\text{at least one success in } k) = 1 - (1 - p)^k$.</li>
+      </ul>
+    </div>
+    <figure>
+      <svg id="f-atleast"></svg>
+      <figcaption>$1 - (5/6)^k$ for $k = 1, \dots, 12$. The dashed line is 0.5.</figcaption>
+    </figure>
+  </div>
+  <aside class="notes">Independence means that knowing whether $B$ happened does not change the
+    chances of $A$. For two dice, the first die's face does not affect the second's, and every
+    event about the first die is independent of every event about the second: of the 36 cells,
+    the six with $a = 6$ contain exactly one with $b = 6$, a fraction $1/6$ of them, the same as
+    the fraction $6/36$ of all cells with $b = 6$. For repeated independent trials the product
+    rule extends to $k$ factors: $P(\text{no six in } k \text{ rolls}) = (5/6)^k$. Counting
+    &ldquo;at least one&rdquo; directly would need the cases &ldquo;exactly one&rdquo;,
+    &ldquo;exactly two&rdquo;, and so on; the complement needs one line. The Chevalier de
+    M&eacute;r&eacute; bet on at least one six in four rolls and won slightly more than half the
+    time, 0.5177. The last formula, $1 - (1 - p)^k$, is the success probability of $k$ random
+    restarts of an optimizer (slide <a href="#random-restarts">random-restarts</a>) and the chance
+    that a failure mode of probability $p$ shows up in $k$ random test problems (slide
+    <a href="#random-test-problems">random-test-problems</a>).</aside>
+</section>
+
+<!-- ============================================================ random variables -->
+<section class="slide" id="random-variables" data-code="00_math_toolkit.py:d04_two_dice_counts">
+  <h2>Random variables and probability mass functions</h2>
+  <div class="cols">
+    <div>
+      <ul class="tight">
+        <li>A <b>random variable</b> is a number computed from the outcome. For two dice,
+          $X = a + b$ turns each of the 36 outcomes into a sum from 2 to 12.</li>
+        <li>Its <b>probability mass function</b> (pmf) lists $p(k) = P(X = k)$:
+          $$p(k) = \frac{6 - \abs{k - 7}}{36}, \quad k = 2, \dots, 12.$$</li>
+        <li class="step">The values of a pmf are at least 0 and add to 1:
+          $(1 + 2 + \dots + 6 + \dots + 1)/36 = 36/36$.</li>
+        <li class="step">Events about $X$ add pmf values:
+          $P(X \le 4) = p(2) + p(3) + p(4) = \tfrac{1 + 2 + 3}{36} = \tfrac16$.</li>
+      </ul>
+    </div>
+    <figure>
+      <svg id="f-pmf"></svg>
+      <figcaption>The pmf of the sum of two dice. Red bars: the event $X \le 4$.</figcaption>
+    </figure>
+  </div>
+  <aside class="notes">Capital letters ($X$, $Y$) name random variables and lowercase letters
+    ($x$, $k$) the values they take, so $P(X = k)$ reads &ldquo;the probability that the sum
+    equals $k$&rdquo;. A random variable is a function from outcomes to numbers; many outcomes
+    can give the same value, and the pmf collects their probabilities: $p(7)$ is the total
+    probability of the six outcomes on the diagonal $a + b = 7$ of the previous slide. Once the
+    pmf is known the outcomes can be forgotten: every question about $X$ alone is answered by
+    adding pmf values over the values in question. The same outcomes support other random
+    variables: the larger of the two faces, $\max(a, b)$, has $p(k) = (2k - 1)/36$ for
+    $k = 1, \dots, 6$, because the cells with maximum $k$ form an L-shaped strip of $2k - 1$ cells
+    in the corner of the grid (next slide).</aside>
+</section>
+
+<!-- ============================================================ mean -->
+<section class="slide" id="mean" data-code="00_math_toolkit.py:d04_pmf_moments">
+  <h2>The mean as a probability-weighted average</h2>
+  <div class="cols">
+    <div>
+      $$\E[X] = \sum_k k\,p(k)$$
+      <ul class="tight">
+        <li>Each value is weighted by its probability. One die:
+          $\E[X] = (1 + 2 + \dots + 6)\cdot\tfrac16 = 3.5$.</li>
+        <li>The mean is the balance point of the bars: a beam loaded with weight $p(k)$ at
+          position $k$ balances on a support at $\E[X]$.</li>
+        <li class="step">The mean need not be a possible value: no roll shows 3.5.</li>
+        <li class="step">Larger of two dice, $p(k) = (2k - 1)/36$:
+          $\E = \tfrac{1\cdot1 + 2\cdot3 + 3\cdot5 + 4\cdot7 + 5\cdot9 + 6\cdot11}{36} = \tfrac{161}{36} = 4.472$.</li>
+      </ul>
+      <p class="small">We write the mean $m = \E[X]$; $\mu$ is the friction coefficient in this series.</p>
+    </div>
+    <div>
+      <figure>
+        <svg id="f-beam"></svg>
+      </figure>
+      <div class="controls">
+        <label>$X$: <select id="mean-sel">
+          <option value="one">one die</option>
+          <option value="sum">sum of two dice</option>
+          <option value="max">larger of two dice</option>
+        </select></label>
+      </div>
+      <div class="readout" id="mean-read"></div>
+    </div>
+  </div>
+  <aside class="notes">The mean (or expected value) $\E[X]$ is the average of the values of $X$,
+    each counted as often as it is likely. It is a property of the distribution, not of any single
+    roll. The balance-point picture is the center of mass: the torque of weight $p(k)$ at
+    distance $k - m$ from the support is $p(k)(k - m)$, and the torques cancel exactly when
+    $\sum_k p(k)(k - m) = \E[X] - m = 0$, using $\sum_k p(k) = 1$. For the sum of two dice the
+    triangle is symmetric about 7, so the mean is 7. For the larger of two dice the bars grow to
+    the right and the support moves to $161/36 = 4.472$, right of the middle value 3.5. The mean
+    of a function of $X$ uses the same weights: $\E[g(X)] = \sum_k g(k)\,p(k)$, which the next
+    slide applies to $g(X) = (X - m)^2$.</aside>
+</section>
+
+<!-- ============================================================ variance -->
+<section class="slide" id="variance" data-code="00_math_toolkit.py:d04_pmf_moments">
+  <h2>Variance and standard deviation</h2>
+  $$\Var X = \E\bigl[(X - m)^2\bigr], \qquad \sigma = \sqrt{\Var X}$$
+  <table class="small mid">
+    <tr><th>$x$</th><td class="num">1</td><td class="num">2</td><td class="num">3</td><td class="num">4</td><td class="num">5</td><td class="num">6</td><th>average</th></tr>
+    <tr><th>$x - m$</th><td class="num">$-2.5$</td><td class="num">$-1.5$</td><td class="num">$-0.5$</td><td class="num">0.5</td><td class="num">1.5</td><td class="num">2.5</td><td class="num">0</td></tr>
+    <tr class="step" data-step="1"><th>$(x - m)^2$</th><td class="num">6.25</td><td class="num">2.25</td><td class="num">0.25</td><td class="num">0.25</td><td class="num">2.25</td><td class="num">6.25</td><td class="num">$17.5/6 = 2.9167$</td></tr>
+    <tr class="step" data-step="2"><th>$x^2$</th><td class="num">1</td><td class="num">4</td><td class="num">9</td><td class="num">16</td><td class="num">25</td><td class="num">36</td><td class="num">$91/6 = 15.1667$</td></tr>
+  </table>
+  <ul class="tight">
+    <li>One die, $m = 3.5$. The deviations $x - m$ average to 0, so their squares measure the spread.</li>
+    <li class="step" data-step="1">$\Var X = 35/12 = 2.9167$ and $\sigma = 1.7078$, in the units of $X$.</li>
+    <li class="step" data-step="2">Shortcut: $\Var X = \E[X^2] - m^2 = 15.1667 - 12.25 = 2.9167$.</li>
+  </ul>
+  <aside class="notes">The deviations from the mean always average to zero,
+    $\E[X - m] = \E[X] - m = 0$, so the plain average deviation says nothing about spread. Squaring
+    makes every deviation count positively and counts large deviations more. The variance is in
+    squared units (dots squared, or m$^2$ for a position), so the standard deviation
+    $\sigma = \sqrt{\Var X}$ is used to state spreads: a die is typically about 1.7 away from 3.5.
+    The shortcut comes from expanding the square inside the mean: $(X - m)^2 = X^2 - 2mX + m^2$,
+    and the mean of a sum is the sum of the means, so
+    $\E[(X - m)^2] = \E[X^2] - 2m\,\E[X] + m^2 = \E[X^2] - 2m^2 + m^2 = \E[X^2] - m^2$.
+    The shortcut is convenient by hand; in floating point it loses digits when $m$ is large
+    compared with $\sigma$ (it subtracts two large, nearly equal numbers), which is why the
+    notebook computes $\E[(X - m)^2]$ directly.</aside>
+</section>
+
+<!-- ============================================================ variance rules -->
+<section class="slide" id="variance-rules" data-code="00_math_toolkit.py:d04_pmf_moments">
+  <h2>Rules for shifted, scaled, and summed random variables</h2>
+  <div class="cols">
+    <div>
+      <p>Shift and scale ($a$, $b$ numbers):</p>
+      $$\E[aX + b] = a\,\E[X] + b, \qquad \Var(aX + b) = a^2 \Var X.$$
+      <p class="small">The shift $b$ cancels in $(aX + b) - (am + b) = a(X - m)$.</p>
+      <p>Sum of $X$ and $Y$, with means $m_X$, $m_Y$:</p>
+      <div class="example small step" data-step="5">Two dice: $\Var = \tfrac{35}{12} + \tfrac{35}{12}
+        = \tfrac{35}{6} = 5.8333$, $\sigma = 2.4152$, not $2 \times 1.7078 = 3.4157$.</div>
+    </div>
+    <div class="mathcol">
+      <ol class="steps">
+        <li class="step" data-step="1">$\Var(X + Y) = \E\bigl[\bigl((X - m_X) + (Y - m_Y)\bigr)^2\bigr]$</li>
+        <li class="step" data-step="2">$= \E[(X - m_X)^2] + 2\,\E[(X - m_X)(Y - m_Y)] + \E[(Y - m_Y)^2]$</li>
+        <li class="step" data-step="3">$= \Var X + 2\Cov(X, Y) + \Var Y$, with the <b>covariance</b>
+          $\Cov(X, Y) = \E[(X - m_X)(Y - m_Y)]$.</li>
+        <li class="step" data-step="4">Independent $X$, $Y$: $\Cov(X, Y) = 0$, so
+          $\Var(X + Y) = \Var X + \Var Y$.</li>
+      </ol>
+    </div>
+  </div>
+  <aside class="notes">Step 1 uses $\E[X + Y] = m_X + m_Y$ (the mean of a sum is the sum of the
+    means: the sum over outcomes of $X + Y$ splits into two sums), so the deviation of $X + Y$ is
+    the sum of the two deviations. Step 2 expands $(u + v)^2 = u^2 + 2uv + v^2$ and takes the mean
+    term by term. Step 3 names the three terms. Step 4 needs one fact about independent variables:
+    $\E[UV] = \E[U]\,\E[V]$. For discrete variables,
+    $\E[UV] = \sum_{u, v} uv\,P(U = u, V = v) = \sum_{u, v} uv\,P(U = u)P(V = v) = \bigl(\sum_u u P(U = u)\bigr)\bigl(\sum_v v P(V = v)\bigr)$.
+    With $U = X - m_X$ and $V = Y - m_Y$, both of mean zero, $\Cov(X, Y) = 0$. So variances of
+    independent variables add, standard deviations do not: $\sigma_{X + Y} = \sqrt{\sigma_X^2 + \sigma_Y^2}$.
+    The same rule for $N$ independent copies gives $\Var(X_1 + \dots + X_N) = N\sigma^2$, the
+    fact behind the $1/\sqrt N$ error of averages (slide <a href="#monte-carlo-error">monte-carlo-error</a>).</aside>
+</section>
+
+<!-- ============================================================ histograms -->
+<section class="slide" id="histograms" data-code="00_math_toolkit.py:d04_die_rolls 00_math_toolkit.py:d04_sample_stats">
+  <h2>Histograms of repeated samples</h2>
+  <div class="cols r2">
+    <div>
+      <p>Repeat the experiment $N$ times, independently. The results $x_1, \dots, x_N$ are
+        <b>samples</b> of $X$.</p>
+      $$\bar x = \frac1N \sum_{i=1}^N x_i, \qquad s^2 = \frac1N \sum_{i=1}^N (x_i - \bar x)^2$$
+      <p class="small">$\bar x$ and $s^2$ are the sample mean and sample variance. Sums of two dice,
+        seed 1: $N = 100$ gives $6.68$, $5.998$; $N = 10^4$ gives $6.976$, $5.867$; $N = 10^5$ gives
+        $6.996$, $5.802$. The exact values are 7 and 5.833.</p>
+    </div>
+    <div>
+      <figure><svg id="f-hist"></svg></figure>
+      <div class="controls">
+        <label>$\log_{10} N$ = <input type="range" class="short" id="hi-n" min="1" max="5" step="0.5" value="2">
+          <span id="hi-n-out"></span></label>
+        <label>seed <input type="range" class="short" id="hi-seed" min="1" max="20" step="1" value="1">
+          <span id="hi-seed-out"></span></label>
+      </div>
+      <div class="readout" id="hi-read"></div>
+    </div>
+  </div>
+  <aside class="notes">A histogram counts how often each value appears among the samples. Divided
+    by $N$, the counts are fractions, and the bars are drawn on the same scale as the pmf (red
+    dots). With 10 samples the bars are ragged; by $10^4$ they sit within a few thousandths of the
+    pmf. The sample mean and variance are the mean and variance of the samples themselves, each
+    sample counted with weight $1/N$. Some texts divide the sample variance by $N - 1$ instead of
+    $N$: the deviations are measured from $\bar x$, which sits closer to the samples than the true
+    mean $m$ does, so $\sum (x_i - \bar x)^2$ is on average $(N - 1)\sigma^2$, not $N\sigma^2$. The
+    difference is 1 % at $N = 100$ and does not matter for the large $N$ used in sampling. The
+    cross-entropy method refits with $1/N$ (slide <a href="#elite-fit">elite-fit</a>). The samples
+    are the rolls $1 + \lfloor 6u \rfloor$ of the generator of slide
+    <a href="#pseudo-random-generators">pseudo-random-generators</a>, two uniforms per sum.</aside>
+</section>
+
+<!-- ============================================================ LLN -->
+<section class="slide" id="law-of-large-numbers" data-code="00_math_toolkit.py:d04_running_mean">
+  <h2>The law of large numbers</h2>
+  <div class="cols l2">
+    <div>
+      <figure><svg id="f-lln"></svg>
+        <figcaption>Running means $\bar x_N$ of one die, five seeds, against $N$ on a log scale.
+          Gray band: $3.5 \pm 2\sigma/\sqrt N$.</figcaption></figure>
+      <div class="controls">
+        <label>first seed <input type="range" id="ln-seed" min="1" max="96" step="5" value="1">
+          <span id="ln-seed-out"></span></label>
+      </div>
+    </div>
+    <div>
+      <ul class="tight">
+        <li>The sample mean of $N$ independent samples approaches the mean $m$ as $N$ grows:
+          $\bar x_N \to m$.</li>
+        <li>Seed 1: $\bar x_N = 4.1$, $3.36$, $3.444$, $3.4856$ at $N = 10$, $10^2$, $10^3$, $10^4$.</li>
+        <li class="step">The typical error shrinks like $\sigma/\sqrt N$ (derived on slide
+          <a href="#monte-carlo-error">monte-carlo-error</a>). Band half-width $2\sigma/\sqrt N$:
+          0.342 at $N = 100$, 0.108 at $N = 1000$.</li>
+        <li class="step">At $N = 1000$, 193 of 200 seeds (96.5 %) lie inside the band.</li>
+      </ul>
+      <div class="readout" id="ln-read"></div>
+    </div>
+  </div>
+  <aside class="notes">The law of large numbers says that the average of $N$ independent samples
+    of the same random variable converges to its mean. It does not say that a run of low rolls is
+    later &ldquo;corrected&rdquo; by high ones: the early rolls are never undone, they are diluted
+    by the many later ones. How fast the dilution works is the useful part. The variance of the
+    average of $N$ independent samples is $\sigma^2/N$ (the sum rule of slide
+    <a href="#variance-rules">variance-rules</a> gives $N\sigma^2$ for the sum; dividing by $N$
+    multiplies the variance by $1/N^2$), so its standard deviation is $\sigma/\sqrt N$ with
+    $\sigma = 1.7078$ for a die. Two standard deviations cover about 95 % of a Gaussian (slide
+    <a href="#rule-68-95-997">rule-68-95-997</a>), and the fraction of 200 seeds inside the band,
+    96.5 %, is close to that. The slider picks which five seeds are drawn; the curves wander
+    early and settle inside the narrowing band.</aside>
+</section>
+
+<!-- ============================================================ check 1 -->
+<section class="slide" id="check-probability">
+  <h2>Check yourself: probability and random variables</h2>
+  <ol>
+    <li>Two dice. What is $P(\text{sum} = 10)$?
+      <details><summary>answer</summary><div>Three outcomes, $(4, 6), (5, 5), (6, 4)$: $3/36 = 1/12$.</div></details></li>
+    <li>Three fair coin flips. What is the probability of at least one head?
+      <details><summary>answer</summary><div>$1 - (1/2)^3 = 7/8$.</div></details></li>
+    <li>$X$ is one die roll. What are $\Var(2X + 1)$ and the standard deviation of $2X + 1$?
+      <details><summary>answer</summary><div>$4 \cdot 35/12 = 35/3 = 11.67$; $\sigma = 2 \times 1.7078 = 3.416$.</div></details></li>
+    <li>The samples are $2, 4, 9$. What are $\bar x$ and $s^2$ (dividing by $N$)?
+      <details><summary>answer</summary><div>$\bar x = 5$; deviations $-3, -1, 4$; $s^2 = (9 + 1 + 16)/3 = 8.667$.</div></details></li>
+  </ol>
+  <aside class="notes">Question 1 counts cells of the two-dice grid on the diagonal $a + b = 10$.
+    Question 2 uses the complement rule of slide <a href="#independence">independence</a> with
+    $p = 1/2$ and $k = 3$. Question 3 uses the shift-and-scale rule of slide
+    <a href="#variance-rules">variance-rules</a>: the shift by 1 does not change the spread and
+    the factor 2 multiplies the variance by 4 and the standard deviation by 2. Question 4 applies
+    the definitions of slide <a href="#histograms">histograms</a>; dividing by $N - 1 = 2$ instead
+    would give 13.</aside>
+</section>
+
+<!-- ============================================================ part 2 -->
+<section class="slide section" id="part-continuous">
+  <p class="kicker">Part 2</p>
+  <h1>Continuous distributions and random number generation</h1>
+  <hr>
+  <p>Densities, the uniform and Gaussian distributions, and how a computer turns a seed into
+    uniform and Gaussian samples.</p>
+</section>
+
+<!-- ============================================================ uniform -->
+<section class="slide" id="uniform-density" data-code="00_math_toolkit.py:d04_uniform_moments">
+  <h2>The uniform distribution and probability density</h2>
+  <div class="cols">
+    <div>
+      <ul class="tight">
+        <li>A continuous random variable can take any value in an interval. A single value has
+          probability 0; an interval has a positive probability.</li>
+        <li>A <b>density</b> $p(x) \ge 0$ gives probabilities as areas: $P(a \le X \le c)$ is the
+          area under $p$ from $a$ to $c$, written $\int_a^c p(x)\,\dd x$. The total area is 1.</li>
+        <li class="step">Uniform on $[0, b]$: $p(x) = 1/b$ on the interval, 0 outside.
+          $P(0.2 \le X \le 0.5) = 0.3/b$.</li>
+        <li class="step">Mean $b/2$, variance $b^2/12$. For $U[0, 1]$: $1/12 = 0.0833$,
+          $\sigma = 0.2887$.</li>
+        <li class="step">A density can exceed 1: $U[0, 0.5]$ has $p(x) = 2$.</li>
+      </ul>
+    </div>
+    <div>
+      <figure><svg id="f-unif"></svg>
+        <figcaption>Density of $U[0, b]$. Yellow: $P(0.2 \le X \le 0.5)$.</figcaption></figure>
+      <div class="controls">
+        <label>$b$ = <input type="range" id="un-b" min="0.5" max="4" step="0.1" value="1">
+          <span id="un-b-out"></span></label>
+      </div>
+      <div class="readout" id="un-read"></div>
+    </div>
+  </div>
+  <aside class="notes">For a continuous variable, probabilities live on intervals: the chance that
+    a uniform number on $[0, 1]$ equals exactly 0.3 is zero, but the chance that it lies in
+    $[0.2, 0.5]$ is 0.3. The density is probability per unit length, so it has units of 1/(units
+    of $X$) and can exceed 1 when the interval is shorter than 1. The integral sign is notation
+    for area: cut $[a, c]$ into many thin strips of width $\Delta x$, and the area is the limit of
+    $\sum_k p(x_k)\,\Delta x$. Means use the same weights as in the discrete case, with sums
+    becoming areas: $\E[X] = \int x\,p(x)\,\dd x$. For $U[0, 1]$ the mean is $1/2$ by symmetry.
+    For $\E[X^2]$ use the strip sum on the grid $x_k = k/n$:
+    $\tfrac1n\sum_{k=1}^n (k/n)^2 = \tfrac{(n + 1)(2n + 1)}{6n^2}$, which is 0.385 for $n = 10$,
+    0.33835 for $n = 100$, and tends to $1/3$. So $\Var X = 1/3 - 1/4 = 1/12$. For $U[0, b]$,
+    $X = bU$ with $U$ uniform on $[0, 1]$, and the scale rule gives mean $b/2$ and variance
+    $b^2/12$.</aside>
+</section>
+
+<!-- ============================================================ gaussian -->
+<section class="slide" id="gaussian-pdf" data-code="00_math_toolkit.py:d04_gauss_pdf">
+  <h2>The Gaussian density</h2>
+  <div class="cols">
+    <div>
+      $$p(x) = \frac{1}{\sigma\sqrt{2\pi}}\exp\Bigl(-\frac{(x - m)^2}{2\sigma^2}\Bigr)$$
+      <ul class="tight">
+        <li>Written $X \sim \Nrm(m, \sigma^2)$: mean $m$, variance $\sigma^2$. The standard
+          normal $\Nrm(0, 1)$ has $m = 0$, $\sigma = 1$.</li>
+        <li>Peak $1/(\sigma\sqrt{2\pi})$ at $x = m$: 0.3989 for $\sigma = 1$, 0.7979 for
+          $\sigma = 0.5$. Halving $\sigma$ doubles the peak; the area stays 1.</li>
+        <li>Symmetric about $m$; steepest at $m \pm \sigma$.</li>
+      </ul>
+    </div>
+    <div>
+      <figure><svg id="f-gauss"></svg>
+        <figcaption>Blue: $\Nrm(m, \sigma^2)$ with dots at $m \pm \sigma$. Gray: $\Nrm(0, 1)$.</figcaption></figure>
+      <div class="controls">
+        <label>$m$ = <input type="range" class="short" id="ga-m" min="-2" max="2" step="0.1" value="0">
+          <span id="ga-m-out"></span></label>
+        <label>$\sigma$ = <input type="range" class="short" id="ga-s" min="0.3" max="2" step="0.05" value="1">
+          <span id="ga-s-out"></span></label>
+      </div>
+      <div class="readout" id="ga-read"></div>
+    </div>
+  </div>
+  <aside class="notes">$\exp(t)$ means $e^t$. The exponent is $-\tfrac12$ times the squared
+    distance from $m$ measured in units of $\sigma$, so the curve depends on $(x - m)/\sigma$ only:
+    changing $m$ slides it, changing $\sigma$ stretches it sideways and squeezes it vertically by
+    the same factor, which keeps the area at 1. The constant $\sqrt{2\pi}$ is the area under
+    $e^{-x^2/2}$, proved on slide <a href="#box-muller-radius">box-muller-radius</a>. That $m$ is
+    the mean follows from the symmetry about $m$; that $\sigma^2$ is the variance is a computation
+    the notebook checks numerically. Gaussians appear whenever a quantity is the sum of many
+    small independent effects (the central limit theorem): the pmf of the sum of two dice is
+    already a triangle, and the sum of ten dice is close to a bell. Sampling-based controllers
+    perturb their inputs with Gaussian noise because it is cheap to draw, fixed by two numbers
+    per coordinate (or a mean vector and a covariance matrix), and has no hard edges. The readout
+    checks the area by a strip sum with width 0.01.</aside>
+</section>
+
+<!-- ============================================================ 68-95-99.7 -->
+<section class="slide" id="rule-68-95-997" data-code="00_math_toolkit.py:d04_prob_within 00_math_toolkit.py:d04_normal_cdf">
+  <h2>Probability within $k$ standard deviations</h2>
+  <div class="cols">
+    <div>
+      <figure><svg id="f-rule"></svg></figure>
+      <div class="controls">
+        <label>$k$ = <input type="range" id="ru-k" min="0" max="3.5" step="0.01" value="1">
+          <span id="ru-k-out"></span></label>
+      </div>
+      <div class="readout" id="ru-read"></div>
+    </div>
+    <div>
+      <ul class="tight">
+        <li>$Z = (X - m)/\sigma$ is standard normal (next slide), so
+          $P(\abs{X - m} \le k\sigma) = P(\abs{Z} \le k)$ depends on $k$ alone.</li>
+        <li>$\Phi(z) = P(Z \le z)$ is the area left of $z$. By symmetry,
+          $P(\abs{Z} \le k) = 2\Phi(k) - 1$.</li>
+        <li>$k = 1, 2, 3$: 0.6827, 0.9545, 0.9973. One tail beyond $2\sigma$: 0.0228.</li>
+        <li class="step">A gripper's position error $e \sim \Nrm(0, (2\text{ mm})^2)$:
+          $P(\abs{e} &gt; 4\text{ mm}) = 1 - 0.9545 = 4.55\,\%$.</li>
+        <li class="step">95.0 % of the probability lies within $1.96\sigma$.</li>
+      </ul>
+    </div>
+  </div>
+  <aside class="notes">Standardizing converts every Gaussian question into a question about
+    $\Nrm(0, 1)$: subtract the mean, divide by the standard deviation. $\Phi$ has no formula in
+    terms of elementary functions; it is computed from the error function,
+    $\Phi(z) = \tfrac12\bigl(1 + \operatorname{erf}(z/\sqrt2)\bigr)$, which numerical libraries
+    provide (<code>math.erf</code> in Python; <code>lib/algo/04_sampling.js</code> sums a series).
+    The symmetry step: the tails beyond $-k$ and beyond $k$ have equal areas $1 - \Phi(k)$, so the
+    middle is $1 - 2(1 - \Phi(k)) = 2\Phi(k) - 1$. The three numbers 0.6827, 0.9545 and 0.9973 are
+    worth memorizing as 68 %, 95 % and 99.7 %. In the gripper example the error exceeds 4 mm, two
+    standard deviations, in about 1 grasp of 22. The value 1.96 makes the middle exactly 95 %
+    and sets the width of the usual 95 % confidence interval of a Monte Carlo estimate:
+    estimate $\pm 1.96\,\sigma_f/\sqrt N$ (slide <a href="#monte-carlo-error">monte-carlo-error</a>).
+    These numbers hold for one Gaussian coordinate; in two dimensions the fractions inside
+    ellipses are smaller (slide <a href="#covariance-ellipse">covariance-ellipse</a>).</aside>
+</section>
+
+<!-- ============================================================ shift and scale -->
+<section class="slide" id="shift-and-scale" data-code="00_math_toolkit.py:d04_sample_stats">
+  <h2>Shifting and scaling a standard normal</h2>
+  <div class="cols">
+    <div>
+      <ul class="tight">
+        <li>If $\epsilon \sim \Nrm(0, 1)$, then $x = m + \sigma\epsilon \sim \Nrm(m, \sigma^2)$.</li>
+        <li class="step">Mean and variance by the rules of slide
+          <a href="#variance-rules">variance-rules</a>: $\E[x] = m + \sigma\cdot 0 = m$,
+          $\Var x = \sigma^2\cdot 1$.</li>
+        <li class="step">$\epsilon = (0.5, -1.2, 2.0)$, $m = 3$, $\sigma = 0.5$:
+          $x = (3.25, 2.4, 4.0)$.</li>
+        <li class="step">2000 draws, seed 11, $m = 3$, $\sigma = 0.5$: sample mean 2.995,
+          standard deviation 0.4971.</li>
+      </ul>
+      <div class="box step">$x = m + \sigma\epsilon$ is the one-dimensional case of
+        $\vx = \vm + L\veps$ with $LL^\T = \Sigma$ (slide
+        <a href="#cholesky-sampling">cholesky-sampling</a>).</div>
+    </div>
+    <div>
+      <figure><svg id="f-shift"></svg>
+        <figcaption>Gray: 2000 draws of $\epsilon$. Blue: $x = m + \sigma\epsilon$ from the same draws.</figcaption></figure>
+      <div class="controls">
+        <label>$m$ = <input type="range" class="short" id="sh-m" min="-3" max="3" step="0.1" value="3">
+          <span id="sh-m-out"></span></label>
+        <label>$\sigma$ = <input type="range" class="short" id="sh-s" min="0.2" max="2" step="0.05" value="0.5">
+          <span id="sh-s-out"></span></label>
+      </div>
+      <div class="readout" id="sh-read"></div>
+    </div>
+  </div>
+  <aside class="notes">Every Gaussian sample in this series is made from standard normals this
+    way, so a generator only needs to produce $\Nrm(0, 1)$. The shape stays Gaussian because the
+    map is a shift and a stretch: $P(x \le t) = P(\epsilon \le (t - m)/\sigma)$, so the density of
+    $x$ at $t$ is the density of $\epsilon$ at $(t - m)/\sigma$ divided by $\sigma$ (stretching
+    the axis by $\sigma$ divides the heights by $\sigma$ to keep the area 1). Written out, that is
+    exactly the formula of slide <a href="#gaussian-pdf">gaussian-pdf</a>. Standardizing,
+    $\epsilon = (x - m)/\sigma$, is the same map run backwards. The figure keeps the 2000 draws of
+    $\epsilon$ fixed (seed 11) and moves only $m$ and $\sigma$, so the blue histogram is the gray
+    one slid and stretched; the readout recomputes the sample mean and standard deviation, which
+    track $m$ and $\sigma$ with errors of about $\sigma/\sqrt{2000} = 0.022\sigma$.</aside>
+</section>
+
+<!-- ============================================================ PRNG -->
+<section class="slide" id="pseudo-random-generators" data-code="00_math_toolkit.py:d04_uniform_stream 00_math_toolkit.py:D04Rng">
+  <h2>Pseudo-random number generators and seeds</h2>
+  <div class="cols r2">
+    <div>
+      <figure><svg id="f-prng"></svg>
+        <figcaption>1000 pairs $(u_k, u_{k+1})$ of successive draws.</figcaption></figure>
+      <div class="controls">
+        <label>seed <input type="range" class="short" id="pr-seed" min="1" max="50" step="1" value="1">
+          <span id="pr-seed-out"></span></label>
+      </div>
+    </div>
+    <div>
+      <ul class="tight">
+        <li>A <b>pseudo-random number generator</b> (PRNG) is a deterministic rule whose outputs
+          look independent and uniform. The <b>seed</b> is its starting state: the same seed gives
+          the same stream.</li>
+        <li>This series uses mulberry32 (<code>lib/num.js</code>): the $k$-th draw of seed $s$ is
+          $u_k = h(s + k c \bmod 2^{32}) / 2^{32}$, with $c = \texttt{0x6D2B79F5}$ and $h$ a fixed
+          mix of shifts, XORs and multiplications.</li>
+        <li class="step">Die roll $1 + \lfloor 6u \rfloor$; uniform on $[a, b]$: $a + (b - a)u$.</li>
+      </ul>
+      <div class="readout" id="pr-read"></div>
+    </div>
+  </div>
+  <aside class="notes">A computer running a program has no dice, so &ldquo;random&rdquo; numbers
+    come from a deterministic function whose outputs pass statistical tests of uniformity and
+    independence. Seed 1 of mulberry32 gives 0.62707, 0.00274, 0.52745, 0.98105, 0.96838, 0.28110,
+    so its first six die rolls are 4, 1, 4, 6, 6, 2. The counter $a = s + kc$ steps by an odd
+    constant $c = 1831565813$, so it returns to its start only after $2^{32}$ draws, the period of
+    the generator. The scatter of successive pairs fills the square without visible structure;
+    old linear generators failed this kind of test (IBM's RANDU put all triples of successive
+    draws on 15 planes in the unit cube). Seeds make experiments reproducible: a figure drawn
+    with seed 1 is the same on every load, a failing random test problem can be rerun, and a
+    paper's random test set can be regenerated. numpy's default generator is PCG64, a different
+    stream; the notebook class <code>D04Rng</code> reproduces mulberry32 and its Box-Muller
+    normals, so every sample statistic on these slides is recomputed in Python for the same
+    seed (<code>tools/twins/04.json</code> checks the two agree bit for bit).</aside>
+</section>
+
+<!-- ============================================================ Box-Muller -->
+<section class="slide" id="box-muller" data-code="00_math_toolkit.py:d04_box_muller">
+  <h2>The Box-Muller transform</h2>
+  <div class="cols three">
+    <figure><svg id="f-bm-u"></svg>
+      <figcaption>600 pairs $(u_1, u_2)$ of uniforms, colored by the quarter of $u_2$. Drag the
+        white point.</figcaption></figure>
+    <figure><svg id="f-bm-z"></svg>
+      <figcaption>Their images $(z_1, z_2)$, same colors.</figcaption></figure>
+    <div class="mathcol">
+      $$r = \sqrt{-2\ln u_1}, \quad \theta = 2\pi u_2$$
+      $$z_1 = r\cos\theta, \quad z_2 = r\sin\theta$$
+      <p class="small">Two independent uniforms give two independent standard normals. $u_2$ sets
+        the angle; $u_1$ sets the radius, which is large when $u_1$ is small.</p>
+      <div class="example small step">$u = (0.3, 0.6)$: $r = 1.5518$, $\theta = 216^\circ$,
+        $\vz = (-1.2554, -0.9121)$.</div>
+      <div class="readout" id="bm-read"></div>
+    </div>
+  </div>
+  <aside class="notes">G. E. P. Box and M. E. Muller published the transform in 1958. It turns a
+    point of the unit square into a point of the plane in polar coordinates: the angle is
+    $2\pi u_2$, uniform on $[0, 2\pi)$, and the radius is $\sqrt{-2\ln u_1}$. Because
+    $\ln u_1 &lt; 0$ for $u_1 &lt; 1$, the square root is real; $u_1$ near 1 gives a radius near
+    0, and $u_1 = e^{-2} = 0.1353$ gives radius 2. The next slide shows why this radius makes the
+    two coordinates independent standard normals. The worked example: $\ln 0.3 = -1.2040$,
+    $r = \sqrt{2.4079} = 1.5518$; $\theta = 0.6 \times 360^\circ = 216^\circ$;
+    $\cos 216^\circ = -0.8090$ and $\sin 216^\circ = -0.5878$. In <code>Num.rng</code> the first
+    uniform of a pair is replaced by $1 - u$ so that it lies in $(0, 1]$ and $\ln u_1$ is finite,
+    and the second normal of each pair is kept for the next call. The colors show that each
+    quarter of the $u_2$ range fills one quadrant of the plane.</aside>
+</section>
+
+<!-- ============================================================ Box-Muller radius -->
+<section class="slide" id="box-muller-radius" data-code="00_math_toolkit.py:d04_radius_tail 00_math_toolkit.py:d04_radius_tail_samples">
+  <h2>The radius of a two-dimensional standard normal sample</h2>
+  <div class="cols">
+    <figure><svg id="f-radius"></svg>
+      <figcaption>2000 draws of $(z_1, z_2)$, seed 5, and the circles $r = 1, 2, 3$.</figcaption></figure>
+    <div>
+      <ul class="tight">
+        <li>For $\vz = (z_1, z_2)$ with independent standard normal entries, the fraction of
+          draws beyond radius $r$ is
+          $$P(R &gt; r) = e^{-r^2/2}.$$</li>
+        <li>$r = 1, 2, 3$: 0.6065, 0.1353, 0.0111. 2000 draws: 0.6085, 0.1110, 0.0095.</li>
+        <li class="step">Box-Muller sets $e^{-R^2/2} = u_1$, so $R = \sqrt{-2\ln u_1}$ and
+          $P(R &gt; r) = P(u_1 &lt; e^{-r^2/2}) = e^{-r^2/2}$.</li>
+        <li class="step">The density $\frac{1}{2\pi}e^{-(z_1^2 + z_2^2)/2}$ depends on the radius
+          only, so the angle is uniform: $\theta = 2\pi u_2$.</li>
+      </ul>
+    </div>
+  </div>
+  <aside class="notes">The joint density of two independent standard normals is the product
+    $\tfrac{1}{\sqrt{2\pi}}e^{-z_1^2/2}\cdot\tfrac{1}{\sqrt{2\pi}}e^{-z_2^2/2} = \tfrac{1}{2\pi}e^{-\rho^2/2}$
+    with $\rho^2 = z_1^2 + z_2^2$. A thin ring of radius $\rho$ and width $\dd\rho$ has area
+    $2\pi\rho\,\dd\rho$, so it holds probability $\rho e^{-\rho^2/2}\,\dd\rho$. The function
+    $-e^{-\rho^2/2}$ has slope $\rho e^{-\rho^2/2}$ (chain rule), so adding up the rings from $r$
+    outward gives $0 - (-e^{-r^2/2}) = e^{-r^2/2}$. At $r = 0$ this is 1: the rings hold all the
+    probability, which proves that $1/(2\pi)$ is the right constant in two dimensions and, taking
+    the square root, that $1/\sqrt{2\pi}$ is the right one in one dimension. The step line is the
+    inverse-transform idea: to make $R$ with $P(R &gt; r) = G(r)$, set $G(R) = u$ for a uniform
+    $u$, because $P(u &lt; t) = t$. In two dimensions only 39.35 % of the draws lie within radius
+    1, against 68.27 % of one coordinate within one standard deviation.</aside>
+</section>
+
+<!-- ============================================================ check 2 -->
+<section class="slide" id="check-continuous">
+  <h2>Check yourself: densities and random numbers</h2>
+  <ol>
+    <li>Can a density take the value 3?
+      <details><summary>answer</summary><div>Yes. $U[0, 1/3]$ has $p(x) = 3$. Areas, not heights,
+        are probabilities.</div></details></li>
+    <li>$X \sim \Nrm(m, \sigma^2)$. What is $P(X &gt; m + \sigma)$?
+      <details><summary>answer</summary><div>$(1 - 0.6827)/2 = 0.1587$, one of the two equal tails.</div></details></li>
+    <li>A generator returns $u = 0.25$. Which number of $U[-1, 3]$ does it give?
+      <details><summary>answer</summary><div>$-1 + 4 \times 0.25 = 0$.</div></details></li>
+    <li>Box-Muller with $u_1 = e^{-2}$ and $u_2 = 0.25$: what are $r$, $\theta$ and $\vz$?
+      <details><summary>answer</summary><div>$r = \sqrt{4} = 2$, $\theta = 90^\circ$, $\vz = (0, 2)$.</div></details></li>
+  </ol>
+  <aside class="notes">Question 1 uses slide <a href="#uniform-density">uniform-density</a>: a
+    uniform density on an interval of length $1/3$ has height 3. Question 2 uses the symmetry of
+    slide <a href="#rule-68-95-997">rule-68-95-997</a>: 31.73 % lies outside one standard
+    deviation, half of it on each side. Question 3 is the map $a + (b - a)u$ of slide
+    <a href="#pseudo-random-generators">pseudo-random-generators</a>. Question 4 is slide
+    <a href="#box-muller">box-muller</a>: $-2\ln e^{-2} = 4$, and $u_2 = 1/4$ of a turn is
+    $90^\circ$, where $\cos = 0$ and $\sin = 1$.</aside>
+</section>
+
+<!-- ============================================================ part 3 -->
+<section class="slide section" id="part-vectors">
+  <p class="kicker">Part 3</p>
+  <h1>Random vectors, covariance, and Monte Carlo estimates</h1>
+  <hr>
+  <p>Covariance matrices and their ellipses, sampling a Gaussian vector with a Cholesky factor,
+    and the error of averages of samples.</p>
+</section>
+
+<!-- ============================================================ covariance -->
+<section class="slide" id="covariance" data-code="00_math_toolkit.py:d04_sample_cov">
+  <h2>Covariance and correlation</h2>
+  <div class="cols">
+    <div>
+      <ul class="tight">
+        <li>$\Cov(X, Y) = \E[(X - m_X)(Y - m_Y)]$ (slide <a href="#variance-rules">variance-rules</a>)
+          is positive when $X$ and $Y$ tend to lie above their means together, negative when one
+          tends to lie above while the other lies below.</li>
+        <li><b>Correlation</b>: $\corr(X, Y) = \Cov(X, Y) / (\sigma_X\sigma_Y)$, a number in
+          $[-1, 1]$ without units.</li>
+      </ul>
+      <div class="example small step">Points $(1, 2), (2, 3), (3, 5), (4, 4), (5, 6)$: means
+        $(3, 4)$; products of deviations $4, 1, 0, 0, 4$; covariance $9/5 = 1.8$; variances 2
+        and 2; correlation $1.8/2 = 0.9$.</div>
+    </div>
+    <div>
+      <figure><svg id="f-corr"></svg>
+        <figcaption>500 draws with unit variances and correlation $r$ (seed 9).</figcaption></figure>
+      <div class="controls">
+        <label>$r$ = <input type="range" id="co-r" min="-0.95" max="0.95" step="0.05" value="0.6">
+          <span id="co-r-out"></span></label>
+      </div>
+      <div class="readout" id="co-read"></div>
+    </div>
+  </div>
+  <aside class="notes">The sign of each product $(x_i - \bar x)(y_i - \bar y)$ says whether a
+    sample sits in the upper-right or lower-left quadrant around the mean (positive) or in one of
+    the other two (negative); the covariance is their average. Its units are the units of $X$
+    times those of $Y$, which is why the correlation divides by both standard deviations. The
+    sample covariance is a dot product: with the deviation vectors
+    $\vd_x = (-2, -1, 0, 1, 2)$ and $\vd_y = (-2, -1, 1, 0, 2)$, $\Cov = \vd_x\cdot\vd_y/5$ and
+    $\corr = \vd_x\cdot\vd_y/(\norm{\vd_x}\norm{\vd_y}) = 9/10$, the cosine of the angle between
+    them (deck 01, <a href="01_vectors_and_matrices.html#dot-product-angle">dot-product-angle</a>).
+    A cosine lies in $[-1, 1]$, and equals $\pm 1$ only when the deviations are proportional,
+    that is when $Y = aX + b$ exactly. Independent variables have correlation 0; the converse
+    fails ($X$ uniform on $\{-1, 0, 1\}$ and $Y = X^2$ are uncorrelated but $Y$ is fixed by $X$).
+    The figure draws its pairs with the Cholesky method of slide
+    <a href="#cholesky-sampling">cholesky-sampling</a>, from the same 1000 standard normals for
+    every $r$.</aside>
+</section>
+
+<!-- ============================================================ covariance matrix -->
+<section class="slide" id="covariance-matrix" data-code="00_math_toolkit.py:d04_directional_variance 00_math_toolkit.py:d04_projected_variance">
+  <h2>The covariance matrix</h2>
+  <div class="cols">
+    <div class="mathcol">
+      <p>A random vector $\vx = (x_1, x_2)$ has mean $\vm = \E[\vx]$ and covariance matrix</p>
+      $$\Sigma = \E\bigl[(\vx - \vm)(\vx - \vm)^\T\bigr] = \begin{bmatrix} \Var x_1 & \Cov(x_1, x_2) \\ \Cov(x_1, x_2) & \Var x_2 \end{bmatrix}.$$
+      <p>Variance along a unit vector $\va$, with $\vd = \vx - \vm$:</p>
+      <ol class="steps">
+        <li class="step">$\Var(\va^\T\vx) = \E\bigl[(\va^\T\vd)^2\bigr]$</li>
+        <li class="step">$\phantom{\Var(\va^\T\vx)} = \E[\va^\T\vd\,\vd^\T\va] = \va^\T\,\E[\vd\vd^\T]\,\va$</li>
+        <li class="step">$\phantom{\Var(\va^\T\vx)} = \va^\T\Sigma\,\va \ge 0$</li>
+      </ol>
+    </div>
+    <div>
+      <figure><svg id="f-dirvar"></svg>
+        <figcaption>1000 draws of $\Nrm(\vzero, \Sigma)$, $\Sigma = \begin{bmatrix} 4 & 2 \\ 2 & 3 \end{bmatrix}$,
+          projected onto $\va$ (ticks). Purple: $\sqrt{\va^\T\Sigma\va}$ in every direction.</figcaption></figure>
+      <div class="controls">
+        <label>angle of $\va$ = <input type="range" id="dv-th" min="-90" max="90" step="1" value="45">
+          <span id="dv-th-out"></span></label>
+      </div>
+      <div class="readout" id="dv-read"></div>
+    </div>
+  </div>
+  <aside class="notes">The outer product $\vd\vd^\T$ is the $2\times 2$ matrix with entries
+    $d_i d_j$ (deck 01, <a href="01_vectors_and_matrices.html#transpose">transpose</a>); its mean
+    has the variances on the diagonal and the covariance off it, and $\Sigma$ is symmetric. Step 1
+    uses $\E[\va^\T\vx] = \va^\T\vm$, so the deviation of $\va^\T\vx$ is $\va^\T\vd$, the shadow of
+    $\vd$ on $\va$ (deck 01, <a href="01_vectors_and_matrices.html#dot-product">dot-product</a>).
+    Step 2 writes the square of the number $\va^\T\vd$ as $(\va^\T\vd)(\vd^\T\va)$ and moves the
+    fixed $\va$ outside the mean. Step 3 is the result: the variance in direction $\va$ is the
+    quadratic form $\va^\T\Sigma\va$ of deck 02
+    (<a href="02_eigenvalues_and_least_squares.html#quadratic-forms">quadratic-forms</a>), and
+    because a variance is never negative, every covariance matrix is positive semidefinite
+    (<a href="02_eigenvalues_and_least_squares.html#positive-definite">positive-definite</a>). For
+    $\Sigma = [[4, 2], [2, 3]]$ the variance is 4 along $x$, 3 along $y$,
+    $\tfrac12(4 + 2\cdot 2 + 3) = 5.5$ at $45^\circ$ and $\tfrac12(4 - 4 + 3) = 1.5$ at
+    $-45^\circ$. Its largest and smallest values over all directions are the eigenvalues of
+    $\Sigma$ (slide <a href="#covariance-ellipse">covariance-ellipse</a>). The readout compares
+    $\va^\T\Sigma\va$ with the sample variance of the 1000 projections (seed 3).</aside>
+</section>
+
+<!-- ============================================================ multivariate gaussian -->
+<section class="slide" id="multivariate-gaussian" data-code="00_math_toolkit.py:d04_mvn_pdf">
+  <h2>The multivariate Gaussian density</h2>
+  $$p(\vx) = \frac{1}{\sqrt{(2\pi)^n\det\Sigma}}\exp\Bigl(-\tfrac12(\vx - \vm)^\T\Sigma^{-1}(\vx - \vm)\Bigr), \qquad \vx \in \R^n$$
+  <div class="cols r2 mid">
+    <figure><svg id="f-mvn"></svg></figure>
+    <ul class="tight">
+      <li>Written $\vx \sim \Nrm(\vm, \Sigma)$, with $\Sigma$ positive definite. For $n = 1$ and
+        $\Sigma = \sigma^2$ it is the density of slide <a href="#gaussian-pdf">gaussian-pdf</a>.</li>
+      <li>$\Sigma = \begin{bmatrix} 4 & 2 \\ 2 & 3 \end{bmatrix}$: $\det\Sigma = 8$,
+        $\Sigma^{-1} = \tfrac18\begin{bmatrix} 3 & -2 \\ -2 & 4 \end{bmatrix}$, peak
+        $1/(2\pi\sqrt8) = 0.05627$.</li>
+      <li class="step">Level sets are the ellipses $(\vx - \vm)^\T\Sigma^{-1}(\vx - \vm) = k^2$;
+        $k$ is the <b>Mahalanobis distance</b> from $\vm$.</li>
+      <li class="step">Diagonal $\Sigma$: the density is a product of 1D densities, and the
+        entries are independent.</li>
+    </ul>
+  </div>
+  <aside class="notes">The exponent is the one-dimensional $-(x - m)^2/(2\sigma^2)$ with the
+    division by $\sigma^2$ replaced by the inverse matrix: it measures the distance from $\vm$ in
+    units of the spread, differently in every direction. The factor $\det\Sigma$ in the constant
+    plays the role of $\sigma^2$: a wider cloud has a lower peak, and the total volume under
+    $p$ stays 1. The figure is a heat map of $p$ for $\vm = \vzero$ with the ellipses $k = 1, 2, 3$;
+    at the Mahalanobis distance $k$ the density is $e^{-k^2/2}$ times the peak. For a diagonal
+    $\Sigma = \diag(\sigma_1^2, \sigma_2^2)$ the inverse is $\diag(1/\sigma_1^2, 1/\sigma_2^2)$,
+    the exponent is $-x_1^2/(2\sigma_1^2) - x_2^2/(2\sigma_2^2)$, the exponential of a sum is a
+    product, and $\det\Sigma = \sigma_1^2\sigma_2^2$ splits the constant: $p(\vx) = p_1(x_1)\,p_2(x_2)$.
+    For Gaussian vectors, uncorrelated entries are therefore independent; for other
+    distributions that is false (slide <a href="#covariance">covariance</a>). The inverse of a
+    $2\times 2$ matrix swaps the diagonal, negates the off-diagonal and divides by the
+    determinant (deck 01, <a href="01_vectors_and_matrices.html#identity-and-inverse">identity-and-inverse</a>).</aside>
+</section>
+
+<!-- ============================================================ covariance ellipse -->
+<section class="slide" id="covariance-ellipse" data-code="00_math_toolkit.py:d04_cov_ellipse 00_math_toolkit.py:d04_ellipse_fractions">
+  <h2>Covariance ellipses from eigenvectors</h2>
+  <div class="cols">
+    <div>
+      <figure><svg id="f-ellipse"></svg></figure>
+      <div class="controls">
+        <label>$\sigma_1$ <input type="range" class="short" id="el-s1" min="0.2" max="3" step="0.05" value="2.35">
+          <span id="el-s1-out"></span></label>
+        <label>$\sigma_2$ <input type="range" class="short" id="el-s2" min="0.2" max="3" step="0.05" value="1.2">
+          <span id="el-s2-out"></span></label><br>
+        <label>$\vv_1$ angle <input type="range" class="short" id="el-phi" min="-90" max="90" step="1" value="38">
+          <span id="el-phi-out"></span></label>
+      </div>
+      <div class="readout" id="el-read"></div>
+    </div>
+    <div>
+      <ul class="tight">
+        <li>Spectral theorem (deck 02, <a href="02_eigenvalues_and_least_squares.html#spectral-theorem">spectral-theorem</a>):
+          $\Sigma = V\diag(\sigma_1^2, \sigma_2^2)V^\T$, orthonormal eigenvectors $\vv_1$, $\vv_2$
+          in the columns of $V$.</li>
+        <li>The $k$-$\sigma$ ellipse $(\vx - \vm)^\T\Sigma^{-1}(\vx - \vm) = k^2$ has semi-axes
+          $k\sigma_1$ along $\vv_1$ and $k\sigma_2$ along $\vv_2$.</li>
+        <li class="step">$\begin{bmatrix} 4 & 2 \\ 2 & 3 \end{bmatrix}$: $\sigma_1^2 = 5.5616$,
+          $\sigma_2^2 = 1.4384$; $\sigma_1 = 2.3583$, $\sigma_2 = 1.1994$; $\vv_1$ at $37.98^\circ$.</li>
+      </ul>
+      <div class="box step">In two dimensions, $P(\text{inside the } k\text{-}\sigma\text{ ellipse}) = 1 - e^{-k^2/2}$:
+        0.3935, 0.8647, 0.9889 for $k = 1, 2, 3$.</div>
+    </div>
+  </div>
+  <aside class="notes">Rotate coordinates with $\vy = V^\T(\vx - \vm)$. Then
+    $(\vx - \vm)^\T\Sigma^{-1}(\vx - \vm) = \vy^\T\diag(1/\sigma_1^2, 1/\sigma_2^2)\vy = y_1^2/\sigma_1^2 + y_2^2/\sigma_2^2$,
+    and setting this to $k^2$ gives an ellipse with semi-axes $k\sigma_1$ and $k\sigma_2$ along the
+    eigenvectors. The eigenvalues of a symmetric $2\times 2$ matrix are
+    $\tfrac{a + d}{2} \pm \sqrt{\bigl(\tfrac{a - d}{2}\bigr)^2 + b^2} = 3.5 \pm \sqrt{4.25} = 3.5 \pm 2.0616$
+    (deck 02, <a href="02_eigenvalues_and_least_squares.html#eigen-2x2">eigen-2x2</a>). They are
+    written $\sigma_i^2$ here because they are the largest and smallest directional variances
+    $\va^\T\Sigma\va$ of the previous slide; $\lambda$ is kept for other uses in this series. The
+    sliders build $\Sigma$ from $\sigma_1$, $\sigma_2$ and the angle of $\vv_1$ and draw 1000 points
+    $\vx = V\diag(\sigma_1, \sigma_2)\veps$ from fixed standard normals $\veps$ (seed 7). For each
+    point $(\vx - \vm)^\T\Sigma^{-1}(\vx - \vm) = \norm{\veps}^2$, so it lies inside the
+    $k$-$\sigma$ ellipse exactly when $\norm{\veps} \le k$, which has probability
+    $1 - e^{-k^2/2}$ by slide <a href="#box-muller-radius">box-muller-radius</a>. The fractions in
+    the readout (0.394, 0.888, 0.993) therefore do not change as the sliders move. These are not
+    the one-dimensional 68-95-99.7 numbers: a 2-$\sigma$ ellipse holds 86 %, not 95 %.</aside>
+</section>
+
+<!-- ============================================================ cholesky sampling -->
+<section class="slide" id="cholesky-sampling" data-code="00_math_toolkit.py:d04_chol2 00_math_toolkit.py:d04_mvn_samples">
+  <h2>Sampling a Gaussian vector with a Cholesky factor</h2>
+  <p>Goal: samples of $\Nrm(\vm, \Sigma)$ from a vector $\veps$ of independent standard normals.</p>
+  <div class="cols">
+    <div>
+      <div class="box">$\vx = \vm + L\veps$ with $LL^\T = \Sigma$ ($L$ the Cholesky factor, deck 02,
+        <a href="02_eigenvalues_and_least_squares.html#cholesky">cholesky</a>).</div>
+      <ol class="steps">
+        <li class="step">$\E[\vx] = \vm + L\,\E[\veps] = \vm$.</li>
+        <li class="step">$\vx - \vm = L\veps$, so $\Cov\vx = \E[L\veps\veps^\T L^\T] = L\,\E[\veps\veps^\T]\,L^\T$.</li>
+        <li class="step">$\E[\veps\veps^\T] = I$: $\E[\epsilon_i^2] = 1$, and $\E[\epsilon_i\epsilon_j] = 0$ for $i \ne j$.</li>
+        <li class="step">$\Cov\vx = LIL^\T = \Sigma$.</li>
+      </ol>
+    </div>
+    <div>
+      <div class="example step" data-step="5">
+        <p>$\Sigma = \begin{bmatrix} 4 & 2 \\ 2 & 3 \end{bmatrix}$: $L = \begin{bmatrix} 2 & 0 \\ 1 & \sqrt2 \end{bmatrix}$.</p>
+        <p>$\veps = (0.5, -1)$: $L\veps = (1,\ 0.5 - 1.4142) = (1, -0.9142)$.</p>
+        <p>$\vm = (1, 2)$: $\vx = (2, 1.0858)$.</p>
+      </div>
+      <p class="small step" data-step="6">Any $L$ with $LL^\T = \Sigma$ works, for example
+        $V\diag(\sigma_1, \sigma_2)$ of the previous slide. Cholesky costs about $n^3/3$
+        operations for $n\times n$ and is the usual choice.</p>
+    </div>
+  </div>
+  <aside class="notes">Step 1 uses linearity of the mean: $\E[L\veps] = L\,\E[\veps]$, because each
+    entry of $L\veps$ is a fixed combination of the $\epsilon_j$. Step 2 uses
+    $(L\veps)^\T = \veps^\T L^\T$ (deck 01, transpose of a product) and moves the fixed matrices
+    out of the mean. Step 3 is the covariance of independent standard normals: unit variances on
+    the diagonal and zero covariances off it (slide <a href="#variance-rules">variance-rules</a>).
+    In one dimension $L = \sigma$ and the recipe is $x = m + \sigma\epsilon$ (slide
+    <a href="#shift-and-scale">shift-and-scale</a>). Matching the mean and covariance is not yet
+    the whole claim: a linear map of a Gaussian vector is again Gaussian (substituting
+    $\veps = L^{-1}(\vx - \vm)$ into the density of $\veps$ gives the formula of slide
+    <a href="#multivariate-gaussian">multivariate-gaussian</a>, with
+    $\norm{L^{-1}(\vx - \vm)}^2 = (\vx - \vm)^\T\Sigma^{-1}(\vx - \vm)$ and $\det L = \sqrt{\det\Sigma}$),
+    so $\vx \sim \Nrm(\vm, \Sigma)$. The factor exists only for a positive definite $\Sigma$
+    (deck 02, <a href="02_eigenvalues_and_least_squares.html#cholesky-exists">cholesky-exists</a>).
+    <code>Num.rng(seed).mvnormal(m, S)</code> in <code>lib/num.js</code> implements this recipe,
+    and the cross-entropy method samples this way in every iteration (deck 10).</aside>
+</section>
+
+<!-- ============================================================ cholesky live -->
+<section class="slide" id="cholesky-live" data-code="00_math_toolkit.py:d04_mvn_samples 00_math_toolkit.py:d04_sample_cov">
+  <h2>Correlated samples from independent ones</h2>
+  <div class="cols three">
+    <figure><svg id="f-ch-e"></svg>
+      <figcaption>500 draws of $\veps$ (seed 3). Drag the white point.</figcaption></figure>
+    <figure><svg id="f-ch-x"></svg>
+      <figcaption>$\vx = \vm + L\veps$, $\vm = (1, 2)$, with the 2-$\sigma$ ellipse.</figcaption></figure>
+    <div>
+      <div class="controls">
+        <label>$\Sigma_{11}$ <input type="range" class="short" id="ch-a" min="0.25" max="6" step="0.05" value="4">
+          <span id="ch-a-out"></span></label><br>
+        <label>$\Sigma_{22}$ <input type="range" class="short" id="ch-d" min="0.25" max="6" step="0.05" value="3">
+          <span id="ch-d-out"></span></label><br>
+        <label>$\Sigma_{12}$ <input type="range" class="short" id="ch-b" min="-4" max="4" step="0.05" value="2">
+          <span id="ch-b-out"></span></label>
+      </div>
+      <div class="readout" id="ch-read"></div>
+    </div>
+  </div>
+  <aside class="notes">The left panel holds 500 pairs of independent standard normals, a round
+    cloud; the right panel maps every pair through $\vx = \vm + L\veps$. The white point and the
+    red point are one sample before and after the map. At the default
+    $\Sigma = [[4, 2], [2, 3]]$ the sample mean of the 500 draws is $(1.009, 1.994)$ and the sample
+    covariance $[[3.733, 1.892], [1.892, 3.134]]$: close to $\vm$ and $\Sigma$, with errors of
+    the size $1/\sqrt{500} \approx 0.045$ relative to the spread (slide
+    <a href="#monte-carlo-error">monte-carlo-error</a>). Moving $\Sigma_{12}$ past
+    $\pm\sqrt{\Sigma_{11}\Sigma_{22}}$ makes $\Sigma$ indefinite: $L_{22}^2 = \Sigma_{22} - \Sigma_{12}^2/\Sigma_{11}$
+    becomes negative, the Cholesky factor does not exist, and the readout says so. No random
+    vector has such a covariance, because some direction would have negative variance (slide
+    <a href="#covariance-matrix">covariance-matrix</a>). At exactly
+    $\Sigma_{12}^2 = \Sigma_{11}\Sigma_{22}$ the cloud collapses onto a line: the two entries are
+    perfectly correlated.</aside>
+</section>
+
+<!-- ============================================================ monte carlo -->
+<section class="slide" id="monte-carlo" data-code="00_math_toolkit.py:d04_mc_pi">
+  <h2>Monte Carlo estimates of expectations</h2>
+  <div class="cols">
+    <div>
+      $$\E[f(X)] \approx \hat f_N = \frac1N\sum_{i=1}^N f(x_i)$$
+      <ul class="tight">
+        <li>$x_1, \dots, x_N$ are independent samples of $X$; the law of large numbers makes
+          $\hat f_N \to \E[f(X)]$.</li>
+        <li>A probability is the mean of an <b>indicator</b>: $P(A) = \E[\ind_A]$, where
+          $\ind_A = 1$ when $A$ happens and 0 otherwise.</li>
+        <li class="step">$\pi/4$ is the probability that a uniform point of the unit square lands
+          in the quarter disk $u_1^2 + u_2^2 \le 1$, so $\pi \approx 4 \times$ (fraction inside).</li>
+        <li class="step">Seed 1: 3.28 ($N = 100$), 3.188 ($10^3$), 3.1364 ($10^4$), 3.14264 ($10^5$).</li>
+      </ul>
+    </div>
+    <div>
+      <figure><svg id="f-mc"></svg>
+        <figcaption>Blue: inside the quarter disk. Red: outside. At most 4000 points are drawn;
+          all $N$ are counted.</figcaption></figure>
+      <div class="controls">
+        <label>$\log_{10} N$ <input type="range" class="short" id="mc-n" min="1" max="5" step="0.5" value="3">
+          <span id="mc-n-out"></span></label>
+        <label>seed <input type="range" class="short" id="mc-seed" min="1" max="20" step="1" value="1">
+          <span id="mc-seed-out"></span></label>
+      </div>
+      <div class="readout" id="mc-read"></div>
+    </div>
+  </div>
+  <aside class="notes">Monte Carlo replaces a sum or an area that is hard to compute by an
+    average over random samples. The name comes from the casino in Monaco, given by Metropolis and
+    Ulam (1949) to the method they used for neutron transport at Los Alamos. The estimate is itself
+    random: another seed gives another number. For the quarter disk the exact fraction is
+    $\pi/4 = 0.7854$ (the area of a quarter of the unit disk), so four times the fraction estimates
+    $\pi$. In sampling-based model predictive control (deck 10) $X$ is a random perturbation of the
+    control inputs and $f$ the cost of the rollout it produces; the average cost of a
+    distribution of inputs is estimated by exactly this formula. Each point uses two uniforms from
+    <code>Num.rng(seed)</code>, first $u_1$ then $u_2$, and the notebook function
+    <code>d04_mc_pi</code> counts the same points.</aside>
+</section>
+
+<!-- ============================================================ MC error -->
+<section class="slide" id="monte-carlo-error" data-code="00_math_toolkit.py:d04_mc_pi_rms">
+  <h2>The $1/\sqrt N$ error of Monte Carlo estimates</h2>
+  <div class="cols">
+    <div>
+      <p class="small">$\sigma_f^2 = \Var f(X)$; the samples $x_i$ are independent.</p>
+      <ol class="steps tight">
+        <li class="step">$\E[\hat f_N] = \frac1N\sum_i\E[f(x_i)] = \E[f(X)]$: no bias.</li>
+        <li class="step">$\Var\hat f_N = \frac{1}{N^2}\sum_i\Var f(x_i)$: variances of
+          independent terms add, and the factor $\frac1N$ is squared.</li>
+        <li class="step">$\Var\hat f_N = \frac{N\sigma_f^2}{N^2} = \frac{\sigma_f^2}{N}$, standard
+          deviation $\sigma_f/\sqrt N$.</li>
+      </ol>
+      <ul class="tight small">
+        <li class="step">$\pi$: $f = 4\cdot\ind$, $\sigma_f = 4\sqrt{p(1 - p)} = 1.6422$ with $p = \pi/4$.</li>
+        <li class="step">RMS error over 200 seeds: 0.1531 at $N = 100$ (predicted 0.1642),
+          0.01569 at $N = 10^4$ (predicted 0.01642).</li>
+      </ul>
+      <div class="box step">Four times the samples halve the error; each extra correct digit
+        costs 100 times the samples.</div>
+    </div>
+    <figure><svg id="f-mcerr"></svg>
+      <figcaption>Red: root-mean-square error of the $\pi$ estimate over seeds 1-200. Blue:
+        $1.6422/\sqrt N$. Both axes are logarithmic.</figcaption></figure>
+  </div>
+  <aside class="notes">Step 2 combines the two rules of slide
+    <a href="#variance-rules">variance-rules</a>: $\Var(aY) = a^2\Var Y$ with $a = 1/N$, and the
+    variance of a sum of independent terms is the sum of their variances. An indicator takes the
+    value 1 with probability $p$ and 0 otherwise, so its mean is $p$, its mean square is also $p$,
+    and its variance is $p - p^2 = p(1 - p)$; multiplying by 4 multiplies the variance by 16.
+    The root-mean-square (RMS) error is the square root of the average squared error over many
+    seeds, an estimate of the standard deviation of $\hat f_N$; the measured values sit about
+    5 % below the prediction because 200 seeds give only a rough estimate of a standard
+    deviation. The derivation never used the dimension of $X$: the error of an average falls as
+    $1/\sqrt N$ in one dimension or in a thousand, with only the constant $\sigma_f$ depending on
+    the problem. Finding a small region of low cost is a different matter, and in high dimension
+    it is hard (tex lines 2406-2416, deck 10). On log-log axes the power law $N^{-1/2}$ is a
+    straight line of slope $-1/2$.</aside>
+</section>
+
+<!-- ============================================================ randomized smoothing -->
+<section class="slide" id="randomized-smoothing" data-code="00_math_toolkit.py:d04_smoothed_step 00_math_toolkit.py:d04_smoothed_step_mc">
+  <h2>Smoothing a step cost by averaging over noise</h2>
+  <div class="cols">
+    <div>
+      <ul class="tight">
+        <li>Step cost: $J(y) = 1$ for $y &lt; 0$, $J(y) = 0$ for $y \ge 0$. Its slope is 0 wherever
+          it exists, so a gradient gives no direction.</li>
+        <li>Smoothed cost:
+          $J_\sigma(z) = \E[J(z + \sigma\epsilon)] = P(\epsilon &lt; -z/\sigma) = \Phi(-z/\sigma)$.</li>
+        <li class="step">Slope at $z = 0$: $-1/(\sigma\sqrt{2\pi})$, which is $-1.330$ for
+          $\sigma = 0.3$.</li>
+        <li class="step">Monte Carlo with $N = 200$ (seed 1), $\sigma = 0.3$: 0.935, 0.44, 0.025 at
+          $z = -0.5, 0, 0.5$; exact 0.9522, 0.5, 0.0478.</li>
+        <li class="step">Large $\sigma$: smooth and wide. Small $\sigma$: close to the step.
+          Annealing starts with a large $\sigma$ and shrinks it (DIAL-MPC, deck 10).</li>
+      </ul>
+    </div>
+    <div>
+      <figure><svg id="f-smooth"></svg>
+        <figcaption>Black: $J$. Blue: $J_\sigma$. Red: Monte Carlo estimates of $J_\sigma$ with
+          the same $N$ draws at every $z$.</figcaption></figure>
+      <div class="controls">
+        <label>$\sigma$ <input type="range" class="short" id="sm-s" min="0.05" max="1" step="0.05" value="0.3">
+          <span id="sm-s-out"></span></label>
+        <label>$N$ <input type="range" class="short" id="sm-n" min="10" max="1000" step="10" value="200">
+          <span id="sm-n-out"></span></label>
+      </div>
+      <div class="readout" id="sm-read"></div>
+    </div>
+  </div>
+  <aside class="notes">A cost that jumps (a grasp that holds or drops, a contact that is made or
+    lost) has zero slope almost everywhere, so gradient methods (deck 05) see nothing. Averaging
+    the cost over random perturbations of the input turns the jump into a ramp: $z + \sigma\epsilon$
+    falls below 0 with probability $\Phi(-z/\sigma)$, which slides smoothly from 1 to 0 over a
+    width of a few $\sigma$. The slope at 0 is the Gaussian density at 0, $1/\sqrt{2\pi} = 0.3989$,
+    divided by $\sigma$ and negated (chain rule, deck 03). Sampling-based optimizers never form
+    $J_\sigma$ explicitly; they evaluate $J$ at perturbed inputs, which amounts to optimizing the
+    smoothed cost. The width $\sigma$ trades bias against shape: a large $\sigma$ gives a useful
+    slope far from the jump but moves the smoothed cost away from $J$; a small one keeps $J_\sigma$
+    close to $J$ but flat almost everywhere. DIAL-MPC and other annealed methods (tex lines
+    2359-2388) run rounds with decreasing $\sigma$. Deck 22 applies the same averaging to contact.
+    With few samples the red estimates are noisy, with standard deviation
+    $\sqrt{J_\sigma(1 - J_\sigma)/N}$ (slide <a href="#monte-carlo-error">monte-carlo-error</a>).</aside>
+</section>
+
+<!-- ============================================================ check 3 -->
+<section class="slide" id="check-vectors">
+  <h2>Check yourself: covariance and Monte Carlo</h2>
+  <ol>
+    <li>$\Sigma = \begin{bmatrix} 9 & 0 \\ 0 & 1 \end{bmatrix}$. What are the semi-axes of the
+      2-$\sigma$ ellipse?
+      <details><summary>answer</summary><div>$2 \times 3 = 6$ along $x$ and $2 \times 1 = 2$ along $y$.</div></details></li>
+    <li>Is $\begin{bmatrix} 1 & 2 \\ 2 & 1 \end{bmatrix}$ a covariance matrix?
+      <details><summary>answer</summary><div>No. $\va = (1, -1)/\sqrt2$ gives $\va^\T\Sigma\va = -1 &lt; 0$
+        (eigenvalues 3 and $-1$).</div></details></li>
+    <li>$L = \begin{bmatrix} 2 & 0 \\ 1 & 1 \end{bmatrix}$. Which covariance does $\vx = L\veps$ have?
+      <details><summary>answer</summary><div>$LL^\T = \begin{bmatrix} 4 & 2 \\ 2 & 2 \end{bmatrix}$.</div></details></li>
+    <li>A Monte Carlo estimate has standard deviation 0.02 with $N = 1000$. About how many samples
+      give 0.005?
+      <details><summary>answer</summary><div>The error must shrink 4 times, so $N$ grows 16 times:
+        16,000.</div></details></li>
+  </ol>
+  <aside class="notes">Question 1 reads the ellipse off a diagonal $\Sigma$: the eigenvectors are the
+    axes and $\sigma_1 = 3$, $\sigma_2 = 1$ (slide <a href="#covariance-ellipse">covariance-ellipse</a>).
+    Question 2 uses slide <a href="#covariance-matrix">covariance-matrix</a>: a covariance matrix
+    gives a nonnegative variance in every direction; here
+    $\va^\T\Sigma\va = \tfrac12(1 - 2\cdot 2 + 1) = -1$. Question 3 is slide
+    <a href="#cholesky-sampling">cholesky-sampling</a> read backwards:
+    $LL^\T = [[4, 2], [2, 1 + 1]]$. Question 4 is the $1/\sqrt N$ law of slide
+    <a href="#monte-carlo-error">monte-carlo-error</a>.</aside>
+</section>
+
+<!-- END PART 3 -->
+
+</main>
+<script>
+</script>
+</body>
+</html>

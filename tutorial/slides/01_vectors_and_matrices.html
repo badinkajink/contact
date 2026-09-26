@@ -99,7 +99,7 @@
     vector in $\R^n$ is $\sqrt{v_1^2 + \dots + v_n^2}$: Pythagoras applied $n-1$ times, one new
     right angle per extra entry. Deck 11 (<a href="11_coulomb_friction.html">Forces and Coulomb
     friction</a>, &ldquo;Tool #1&rdquo;) introduces forces as arrows more slowly; this deck is the
-    reference. The tex (lines 1107-1108) uses the same column convention and writes matrices in
+    reference. The tex (line 1106) uses the same column convention and writes matrices in
     bold capitals; the decks write matrices as italic capitals ($A$, $M$).</aside>
 </section>
 
@@ -184,8 +184,8 @@
   <div class="cols mid">
     <figure>
       <svg id="f-span"></svg>
-      <figcaption>Dots: $c_1\vu + c_2\vw$ for whole numbers $c_1, c_2$ from $-4$ to 4.
-        Drag the tip of $\vw$.</figcaption>
+      <figcaption>Dots: $c_1\vu + c_2\vw$ for whole numbers $c_1, c_2$ (those inside the
+        frame). Yellow: the span. Drag the tip of $\vw$.</figcaption>
     </figure>
     <div>
       <ul>
@@ -212,8 +212,10 @@
     So a point such as $(0, 0, 1)$, whose third entry is not the sum of the first two, is outside
     the span. This plane returns three times in the deck: as the column space of the matrix $M$,
     as the image of the $3\times 2$ matrix $A_{23}^\T$, and as the row space of $A_{23}$. Drag
-    $\vw$ onto the line of $\vu$ (the handle snaps to multiples of 0.25) to watch the dots
-    collapse onto a line.</aside>
+    $\vw$ onto the line of $\vu$ (the handle snaps to multiples of 0.25) and the dots collapse
+    onto that line; the readout then shows $u_1 w_2 - u_2 w_1 = 0$, the test for parallel
+    vectors in $\R^2$ that slide <a href="#determinant-area">determinant-area</a> names the
+    determinant.</aside>
 </section>
 
 <!-- ============================================================ independence -->
@@ -222,8 +224,9 @@
   <div class="cols mid">
     <figure>
       <svg id="f-indep"></svg>
-      <figcaption>The yellow patch is part of the plane spanned by $\vv_1$ and $\vv_2$.
-        $\vv_3$ (red) sits a height $h$ above it.</figcaption>
+      <figcaption>Yellow: part of the plane spanned by $\vv_1$ and $\vv_2$. The dashed segment runs
+        from the point $\vv_1 + \vv_2$ of that plane to the tip of $\vv_3$ (red); its length is
+        $\abs{\beta}$.</figcaption>
     </figure>
     <div>
       <ul>
@@ -231,30 +234,32 @@
           $c_1\vv_1 + \dots + c_k\vv_k = \vzero$ only for $c_1 = \dots = c_k = 0$.
           Otherwise they are <b>dependent</b>: one of them is a combination of the others.</li>
         <li>$(1, 2)$ and $(2, 4)$ are dependent: $2(1, 2) - (2, 4) = \vzero$.</li>
-        <li class="step">$\vv_1 = (1, 0, 1)$, $\vv_2 = (0, 1, 1)$, $\vv_3 = (1, 1, 2 + h)$ are
-          independent exactly when $h \ne 0$. At $h = 0$: $\vv_1 + \vv_2 - \vv_3 = \vzero$.</li>
+        <li class="step">$\vv_1 = (1, 0, 1)$, $\vv_2 = (0, 1, 1)$, $\vv_3 = (1, 1, 2 + \beta)$ are
+          independent exactly when $\beta \ne 0$. At $\beta = 0$: $\vv_1 + \vv_2 - \vv_3 = \vzero$.</li>
         <li class="step">More than $n$ vectors in $\R^n$ are always dependent.</li>
       </ul>
       <div class="controls">
-        <label>$h$ = <input type="range" class="short" id="ind-h" min="-1.5" max="1.5" step="0.05" value="0.8">
+        <label>$\beta$ = <input type="range" class="short" id="ind-h" min="-1.5" max="1.5" step="0.05" value="0.8">
           <span id="ind-h-out"></span></label>
-        <label>view <input type="range" class="short" id="ind-az" min="-170" max="-90" step="1" value="-130"></label>
+        <label>view <input type="range" class="short" id="ind-az" min="0" max="60" step="1" value="20"></label>
       </div>
       <div class="readout" id="ind-read"></div>
     </div>
   </div>
   <aside class="notes">To test independence, solve $c_1\vv_1 + c_2\vv_2 + c_3\vv_3 = \vzero$. The
-    three components give $c_1 + c_3 = 0$, $c_2 + c_3 = 0$ and $c_1 + c_2 + (2 + h)c_3 = 0$.
-    The first two give $c_1 = c_2 = -c_3$; the third becomes $-2c_3 + (2 + h)c_3 = h\,c_3 = 0$.
-    For $h \ne 0$ this forces $c_3 = 0$ and then $c_1 = c_2 = 0$: independent. For $h = 0$ any
-    $c_3$ works, for example $(c_1, c_2, c_3) = (1, 1, -1)$: dependent. The readout also shows
-    the $3\times 3$ determinant of $[\vv_1\ \vv_2\ \vv_3]$, the signed volume of the box with
-    these three edges; it equals $h$, and a zero volume means the three arrows lie in one plane.
-    The $2\times 2$ determinant is built on slide <a href="#determinant-area">determinant-area</a>;
-    the $3\times 3$ one is not needed until deck 02. The rule &ldquo;more than $n$ vectors in
-    $\R^n$ are dependent&rdquo; is proved on slide <a href="#rank-nullity">rank-nullity</a>.
-    Hou and Mason require the rows of their velocity command $C$ to be independent of each other
-    and of the constraint rows $N$ (Hou 2019, Sec. IV-A).</aside>
+    three components give $c_1 + c_3 = 0$, $c_2 + c_3 = 0$ and $c_1 + c_2 + (2 + \beta)c_3 = 0$.
+    The first two give $c_1 = c_2 = -c_3$; the third becomes $-2c_3 + (2 + \beta)c_3 = \beta\,c_3 = 0$.
+    For $\beta \ne 0$ this forces $c_3 = 0$ and then $c_1 = c_2 = 0$: independent. For $\beta = 0$
+    any $c_3$ works, for example $(c_1, c_2, c_3) = (1, 1, -1)$: dependent. Why &ldquo;dependent&rdquo;
+    means &ldquo;one is a combination of the others&rdquo;: if $c_1\vv_1 + \dots + c_k\vv_k = \vzero$
+    with some $c_j \ne 0$, move that term to the other side and divide by $-c_j$. The readout also
+    shows the determinant of the $3\times 3$ matrix $[\vv_1\ \vv_2\ \vv_3]$, the signed volume of
+    the box with these three edges; it equals $\beta$, and a zero volume means the three arrows lie
+    in one plane. This deck builds only the $2\times 2$ determinant (slide
+    <a href="#determinant-area">determinant-area</a>). The rule &ldquo;more than $n$ vectors in
+    $\R^n$ are dependent&rdquo; is proved on slide <a href="#rank-nullity">rank-nullity</a>. Hou and
+    Mason require the rows of their velocity command $C$ to be independent of each other and of
+    the constraint rows $N$ (Hou 2019, Sec. IV-A).</aside>
 </section>
 
 <!-- ============================================================ basis -->
@@ -285,7 +290,8 @@
     coefficients $c_1 - d_1$ and $c_2 - d_2$). Why every basis of $\R^n$ has exactly $n$
     vectors: more than $n$ vectors are dependent (slide <a href="#rank-nullity">rank-nullity</a>),
     and fewer than $n$ cannot span, because a matrix with $k &lt; n$ columns has at most $k$
-    pivots and its column space is smaller than $\R^n$. The same word applies to subspaces: a
+    pivots and its column space is smaller than $\R^n$ (pivots and column spaces are built in
+    Part III). The same word applies to subspaces: a
     basis of a subspace is an independent set that spans it, and the dimension of the subspace is
     the size of any basis. The plane $z = x + y$ in $\R^3$ has the basis $(1, 0, 1)$, $(0, 1, 1)$
     and dimension 2. Computing coordinates is solving a linear system; slide
@@ -322,8 +328,8 @@
     for $\va = \vzero$. The sign tells the angle: positive below $90^\circ$, zero at $90^\circ$,
     negative above. Dividing by $\norm{\vb}$ gives the signed length of the shadow of $\va$ on
     the line of $\vb$: here $12/4 = 3$, the $x$-component of $\va$, because $\vb$ lies on the
-    $x$-axis. Deck 02 turns the shadow into the projection of a vector onto a line and onto a
-    subspace. Deck 11 (&ldquo;Tool #2&rdquo;, <a href="11_coulomb_friction.html">Forces and Coulomb
+    $x$-axis. Deck 02 turns the shadow into the projection of a vector onto a line
+    (<a href="02_eigenvalues_and_least_squares.html#projection-line">deck 02, projection-line</a>) and onto a subspace. Deck 11 (&ldquo;Tool #2&rdquo;, <a href="11_coulomb_friction.html">Forces and Coulomb
     friction</a>) uses the dot product to split a contact force into its normal part
     $f_n = \vf\cdot\nhat$ and tangential part $f_t = \vf\cdot\that$. In the running pair,
     $\vu\cdot\vw = -1 + 3 = 2$, $\norm{\vu} = \sqrt 2$, $\norm{\vw} = \sqrt{10}$, so
@@ -365,7 +371,7 @@
     $\va\cdot\va - 2t\,\va\cdot\vb + t^2\,\vb\cdot\vb \ge 0$. Choose
     $t = \va\cdot\vb / \vb\cdot\vb$; the inequality becomes
     $\norm{\va}^2 - (\va\cdot\vb)^2/\norm{\vb}^2 \ge 0$, which rearranges to
-    $(\va\cdot\vb)^2 \le \norm{\va}^2\norm{\vb}^2$. The $t$ chosen here is the shadow length of
+    $(\va\cdot\vb)^2 \le \norm{\va}^2\norm{\vb}^2$ (for $\vb = \vzero$ both sides are 0). The $t$ chosen here is the shadow length of
     the previous slide divided by $\norm{\vb}$; deck 02 reuses it for projection.</aside>
 </section>
 
@@ -385,8 +391,8 @@
         For $(3, -4)$ it is 4.498 at $p = 3$ and 4.048 at $p = 8$. The $\infty$-norm is its
         limit as $p \to \infty$.</p>
       <div class="example small">Used later: the 2-norm in least squares (deck 02) and the
-        circular friction cone (deck 12); the $\infty$-norm in actuator limits
-        $\abs{u_i} \le u_{\max}$ (decks 07-08).</div>
+        circular friction cone (deck 12); the $\infty$-norm in box limits on controls,
+        $\abs{u_i} \le u_{\max}$ (decks 06 and 09).</div>
     </div>
     <div>
       <p>A norm satisfies, for all vectors $\vx, \vy$ and numbers $c$:</p>
@@ -405,8 +411,8 @@
     only the largest entry. Each has its uses in the series: the 2-norm in least squares (deck 02),
     in the circular friction cone $\norm{\vf_t}_2 \le \mu f_n$ (deck 12) and in quadratic costs
     (decks 05-09); the $\infty$-norm in box constraints such as actuator limits
-    $\norm{\vu}_\infty \le u_{\max}$ (decks 07-08); the 1-norm in costs that should drive many
-    entries exactly to zero. The triangle inequality for the 1-norm follows from
+    $\norm{\vu}_\infty \le u_{\max}$ (deck 06 projects onto such a box; deck 09 clamps controls
+    to it). The 1-norm appears in this deck for its unit ball, the diamond. The triangle inequality for the 1-norm follows from
     $\abs{x_i + y_i} \le \abs{x_i} + \abs{y_i}$ entry by entry, and for the 2-norm from
     Cauchy-Schwarz: $\norm{\vx + \vy}^2 = \norm{\vx}^2 + 2\,\vx\cdot\vy + \norm{\vy}^2 \le
     (\norm{\vx} + \norm{\vy})^2$. The $p$-norm values come from <code>d01_pnorm</code>, which
@@ -446,7 +452,7 @@
     plus the cross terms $2\abs{x_i}\abs{x_j}$, which are never negative, so
     $\norm{\vx}_1^2 \ge \norm{\vx}_2^2$. At $\vx = (3, -4)$ the three values are 4, 5 and 7.
     Unit balls reappear as constraint sets: $\norm{\vu}_\infty \le u_{\max}$ is a box of actuator
-    limits (decks 07-08), and $\norm{\vf_t}_2 \le \mu f_n$ is the disk of friction forces that
+    limits (decks 06 and 09), and $\norm{\vf_t}_2 \le \mu f_n$ is the disk of friction forces that
     becomes the circular friction cone (deck 12). For $p &lt; 1$ the curve $\norm{\vx}_p = 1$ bends
     inward between the axes, so the &ldquo;ball&rdquo; is not convex; that is the picture of the
     failed triangle inequality of the previous slide.</aside>
@@ -625,16 +631,16 @@
         SR = \begin{bmatrix} 1 & -1 \\ 1 & 0 \end{bmatrix}$$
       <div class="controls">
         <select id="comp-order">
-          <option value="RS">shear first, then rotate: $RS$</option>
-          <option value="SR">rotate first, then shear: $SR$</option>
+          <option value="RS">shear first, then rotate: RS</option>
+          <option value="SR">rotate first, then shear: SR</option>
         </select>
       </div>
     </div>
   </div>
   <div class="cols three">
-    <figure class="bare"><svg id="f-comp0"></svg></figure>
-    <figure class="bare"><svg id="f-comp1"></svg></figure>
-    <figure class="bare"><svg id="f-comp2"></svg></figure>
+    <figure class="bare"><svg id="f-comp0"></svg><figcaption id="comp-cap0">the letter F</figcaption></figure>
+    <figure class="bare"><svg id="f-comp1"></svg><figcaption id="comp-cap1"></figcaption></figure>
+    <figure class="bare"><svg id="f-comp2"></svg><figcaption id="comp-cap2"></figcaption></figure>
   </div>
   <aside class="notes">Why column $j$ of $BA$ is $B\va_j$: the product $BA$ must send $\ve_j$ to
     $B(A\ve_j) = B\va_j$, where $\va_j$ is column $j$ of $A$, and column $j$ of a matrix is where
@@ -644,7 +650,7 @@
     1\cdot 1 + 0\cdot 1 \end{bmatrix} = \begin{bmatrix} 0 & -1 \\ 1 & 1 \end{bmatrix}$. The three
     panels show the letter F, its image after the first map and its image after both, with the
     images of $\ve_1$ (red) and $\ve_2$ (green); the last panel's arrows are the columns of the
-    product. Associativity holds because both sides are the same composite map &ldquo;first $C$,
+    product, and its caption lists the product's two rows. Associativity holds because both sides are the same composite map &ldquo;first $C$,
     then $B$, then $A$&rdquo;. Deck 08 composes one map per time step: from
     $\vx_{k+1} = A\vx_k + B\vu_k$, two steps give $\vx_{k+2} = A^2\vx_k + AB\vu_k + B\vu_{k+1}$.</aside>
 </section>
@@ -678,16 +684,17 @@
     which is row $i$ of $B^\T$ dotted with column $j$ of $A^\T$. The proof on the slide applies it
     to the product of $A$ and the one-column matrix $\vx$. The identity
     $(A\vx)\cdot\vy = \vx\cdot(A^\T\vy)$ is how forces move between coordinate systems. In deck 17
-    a Jacobian $J$ maps joint velocities $\vv$ to a contact-point velocity $J\vv$; the power of a
-    contact force $\vlambda$ is $(J\vv)\cdot\vlambda = \vv\cdot(J^\T\vlambda)$, so the joint
-    torques that do the same work are $\vtau = J^\T\vlambda$. Symmetric matrices, such as
+    a contact Jacobian $J_c$ maps joint velocities $\vv$ to a contact-point velocity $J_c\vv$; the
+    power of a contact force $\vlambda$ is $(J_c\vv)\cdot\vlambda = \vv\cdot(J_c^\T\vlambda)$, so
+    the joint torques that deliver the same power are $\vtau = J_c^\T\vlambda$ (Hou 2019 writes
+    $\vtau_\lambda = J_\Phi^\T\vlambda$ in Sec. III-C, just before eq. 4). Symmetric matrices, such as
     $A^\T A$ and the inertia matrix $M$ of the tex (line 1123), are the subject of deck 02:
     $(A^\T A)^\T = A^\T (A^\T)^\T = A^\T A$.</aside>
 </section>
 
 <!-- ============================================================ inverse -->
 <section class="slide" id="identity-and-inverse" data-code="00_math_toolkit.py:d01_inv2">
-  <h2>The identity matrix and the inverse</h2>
+  <h2>Identity matrix and inverse matrix</h2>
   <div class="cols">
     <div>
       <ul>
@@ -704,9 +711,8 @@
       $$\begin{bmatrix} a & b \\ c & d \end{bmatrix}^{-1} = \frac{1}{ad - bc}
         \begin{bmatrix} d & -b \\ -c & a \end{bmatrix}$$
       <div class="example step">$A = \begin{bmatrix} 1 & -1 \\ 1 & 3 \end{bmatrix}$ has
-        $ad - bc = 3 + 1 = 4$, so
-        $$A^{-1} = \tfrac14\begin{bmatrix} 3 & 1 \\ -1 & 1 \end{bmatrix},\quad
-          A^{-1}\begin{bmatrix} 1 \\ 5 \end{bmatrix} = \tfrac14\begin{bmatrix} 3 + 5 \\ -1 + 5 \end{bmatrix}
+        $ad - bc = 3 + 1 = 4$, so $A^{-1} = \tfrac14\begin{bmatrix} 3 & 1 \\ -1 & 1 \end{bmatrix}$ and
+        $$A^{-1}\begin{bmatrix} 1 \\ 5 \end{bmatrix} = \tfrac14\begin{bmatrix} 3 + 5 \\ -1 + 5 \end{bmatrix}
           = \begin{bmatrix} 2 \\ 1 \end{bmatrix}.$$</div>
       <p class="step small">Check: $\tfrac14\begin{bmatrix} 3 & 1 \\ -1 & 1 \end{bmatrix}
         \begin{bmatrix} 1 & -1 \\ 1 & 3 \end{bmatrix} = \tfrac14\begin{bmatrix} 4 & 0 \\ 0 & 4 \end{bmatrix} = I$.</p>
@@ -722,7 +728,8 @@
     <a href="#determinant-area">determinant-area</a>), and two different points that land on the
     same point cannot both be recovered. The reversed order in $(AB)^{-1}$ follows from
     $(B^{-1}A^{-1})(AB) = B^{-1}(A^{-1}A)B = B^{-1}B = I$. A non-square matrix has no inverse;
-    deck 02 builds the pseudoinverse, which picks the shortest solution when there are many and
+    deck 02 builds the pseudoinverse (<a href="02_eigenvalues_and_least_squares.html#pseudoinverse">deck 02,
+    pseudoinverse</a>), which picks the shortest solution when there are many and
     the best approximate solution when there are none.</aside>
 </section>
 
@@ -782,10 +789,10 @@
     </div>
   </div>
   <aside class="notes">Expanding the box area: $(a + b)(c + d) = ac + ad + bc + bd$. Subtracting
-    $ac + bd + 2bc$ leaves $ad - bc$. The picture assumes both columns point into the first
-    quadrant with $(a, c)$ below $(b, d)$ and $b \le a$, $c \le d$; the other arrangements cut
-    the box differently and give the same formula up to sign, which is the orientation of the
-    previous slide. The notebook function
+    $ac + bd + 2bc$ leaves $ad - bc$. The picture assumes all four numbers are positive and $(a, c)$ lies below
+    $(b, d)$, that is $ad &gt; bc$; the pieces then fit together without overlap for any such
+    numbers. Other arrangements cut the box differently and give the same formula up to sign,
+    which is the orientation of the previous slide. The notebook function
     <code>d01_parallelogram_area(3, 1, 1, 2)</code> returns the box 12, the pieces 3, 2 and 2,
     and the area 5, equal to $ad - bc$. A second derivation uses shears. Sliding one side of a
     parallelogram along the direction of the other side keeps its base and height, so it keeps
@@ -797,21 +804,23 @@
 
 <!-- ============================================================ wide matrix -->
 <section class="slide" id="wide-matrix-flattens" data-code="00_math_toolkit.py:d01_nonsquare_maps">
-  <h2>A $2\times 3$ matrix flattens space onto the plane</h2>
+  <h2>A $2\times 3$ matrix as a map from $\R^3$ to $\R^2$</h2>
   <div class="cols">
-    <figure class="bare"><svg id="f-wide3"></svg></figure>
-    <figure class="bare"><svg id="f-wide2"></svg></figure>
+    <figure class="bare"><svg id="f-wide3"></svg>
+      <figcaption>Input space $\R^3$: the unit cube and the red line $\vx(t)$.</figcaption></figure>
+    <figure class="bare"><svg id="f-wide2"></svg>
+      <figcaption>Output space $\R^2$: the image of the cube (gray) and of the line (red dot).</figcaption></figure>
   </div>
   <div class="cols">
     <ul class="tight">
       <li>$A_{23} = \begin{bmatrix} 1 & 0 & 1 \\ 0 & 1 & 1 \end{bmatrix}$ maps $\R^3$ to $\R^2$:
         $(x, y, z) \mapsto (x + z,\ y + z)$. The unit cube lands on a hexagon.</li>
-      <li>Every point of the line $(2, 1, 0) + t(-1, -1, 1)$ lands on $(2, 1)$, because
+      <li>Every point of the line $\vx(t) = (2, 1, 0) + t(-1, -1, 1)$ lands on $(2, 1)$, because
         $A_{23}(-1, -1, 1) = \vzero$.</li>
     </ul>
     <div>
       <div class="controls">
-        <label>$t$ = <input type="range" class="short" id="wide-t" min="-1" max="2.5" step="0.05" value="1">
+        <label>$t$ = <input type="range" class="short" id="wide-t" min="-0.5" max="2" step="0.05" value="1">
           <span id="wide-t-out"></span></label>
         <label>view <input type="range" class="short" id="wide-az" min="-170" max="-100" step="1" value="-128"></label>
       </div>
@@ -835,20 +844,21 @@
 
 <!-- ============================================================ tall matrix -->
 <section class="slide" id="tall-matrix-embeds" data-code="00_math_toolkit.py:d01_nonsquare_maps">
-  <h2>A $3\times 2$ matrix embeds the plane in space</h2>
+  <h2>A $3\times 2$ matrix as a map from $\R^2$ to $\R^3$</h2>
   <div class="cols">
-    <figure class="bare"><svg id="f-tall2"></svg></figure>
-    <figure class="bare"><svg id="f-tall3"></svg></figure>
+    <figure class="bare"><svg id="f-tall2"></svg>
+      <figcaption>Input space $\R^2$. Drag $\vs$.</figcaption></figure>
+    <figure class="bare"><svg id="f-tall3"></svg>
+      <figcaption>Output space $\R^3$: the plane that $B$ reaches (yellow) and $(0, 0, 1)$ (cross).</figcaption></figure>
   </div>
   <div class="cols">
     <ul class="tight">
-      <li>$B = A_{23}^\T = \begin{bmatrix} 1 & 0 \\ 0 & 1 \\ 1 & 1 \end{bmatrix}$ maps $\R^2$ to
-        $\R^3$: $(s_1, s_2) \mapsto (s_1,\ s_2,\ s_1 + s_2)$.</li>
+      <li>$B = A_{23}^\T = \begin{bmatrix} 1 & 0 \\ 0 & 1 \\ 1 & 1 \end{bmatrix}$:
+        $(s_1, s_2) \mapsto (s_1,\ s_2,\ s_1 + s_2)$.</li>
       <li>The image is the plane $z = x + y$. Different $\vs$ land on different points.</li>
-      <li>$(0, 0, 1)$ is off the plane, so $B\vs = (0, 0, 1)$ has no solution.</li>
     </ul>
     <div>
-      <p class="small">Drag $\vs$ in the left panel.</p>
+      <ul class="tight"><li>$(0, 0, 1)$ is off the plane, so $B\vs = (0, 0, 1)$ has no solution.</li></ul>
       <div class="controls">
         <label>view <input type="range" class="short" id="tall-az" min="-170" max="-100" step="1" value="-128"></label>
       </div>
@@ -1628,7 +1638,7 @@
     <li>Composition of maps, as in $\vx_{k+1} = A\vx_k + B\vu_k$ (deck 08).</li>
     <li>$\vf = 25(1, 1, 1, 1) + t(1, -1, 1, -1)$: a nonzero null space of the equilibrium matrix is
       statical indeterminacy (deck 13).</li>
-    <li>$(A\vx)\cdot\vy = \vx\cdot(A^\T\vy)$, which gives $\vtau = J^\T\vlambda$; allowed velocities
+    <li>$(A\vx)\cdot\vy = \vx\cdot(A^\T\vy)$, which gives $\vtau = J_c^\T\vlambda$; allowed velocities
       form $\Null(J_c)$ (decks 17, 18).</li>
     <li>$\dim\mathrm{Sol} = n - \rank$, consistency of $[N; G]$, $n_{av} \ge \rank[N; G] - \rank N$,
       and $G = I$ as the strictest goal (deck 21).</li>
@@ -1687,7 +1697,7 @@
 
   // ---------------------------------------------------------------- title: A as a map
   {
-    const F = Plot.fig("#f-hero", { w: 620, h: 320, xlim: [-5.2, 5.2], ylim: [-3.4, 3.4], equal: true, margin: 4 });
+    const F = Plot.fig("#f-hero", { w: 620, h: 320, xlim: [-5.2, 5.2], ylim: [-2.6, 4.2], equal: true, margin: 4 });
     F.grid2([[1, -1], [1, 3]], { original: true, square: true, labels: ["Ae_1", "Ae_2"] });
   }
 
@@ -1771,7 +1781,7 @@
     const F = Fig("#f-span", { w: 560, h: 465, xlim: xl, ylim: yl });
     const base = F.group(), top = F.group();
     const u = [1, 1];
-    let w = [-1, 2];
+    let w = [-1, 3];
     const par = $("span-par");
     let hw;
     function draw() {
@@ -1791,40 +1801,41 @@
         "\nu1 w2 - u2 w1 = " + fx(det, 2) + "\nspan{u, w} = " + (indep ? "the whole plane" : (Math.hypot(w[0], w[1]) > 0 ? "a line" : "a line (w = 0)"));
     }
     hw = handle(F, top, "h-span-w", w, (q) => { w = snap(clamp2(q, [-4.2, 4.2], [-3.5, 3.5]), 0.25); par.checked = false; draw(); return w; }, { color: C.green });
-    on(par, () => { w = par.checked ? [2, 2] : [-1, 2]; place(F, hw, w); draw(); });
+    on(par, () => { w = par.checked ? [2, 2] : [-1, 3]; place(F, hw, w); draw(); });
     draw();
   }
 
   // ---------------------------------------------------------------- independence (3D)
   {
-    const F = Fig("#f-indep", { w: 540, h: 440, xlim: [-2.1, 2.1], ylim: [-0.75, 2.75] });
-    const hEl = $("ind-h"), azEl = $("ind-az");
-    const v1 = [1, 0, 1], v2 = [0, 1, 1];
+    const F = Fig("#f-indep", { w: 540, h: 400, xlim: [-1.75, 2.05], ylim: [-0.75, 2.45] });
+    const bEl = $("ind-h"), azEl = $("ind-az");
+    const v1 = [1, 0, 1], v2 = [0, 1, 1], n = [1, 1, -1]; // n is normal to the plane z = x + y
     const S = 0.68; // world units per vector unit in the picture
     const sc = (p) => p.map((x) => x * S);
     function draw() {
-      const h = +hEl.value, view = Fig.view3(d(+azEl.value), d(22)), T = F.in3(view);
-      const v3 = [1, 1, 2 + h];
+      const beta = +bEl.value, view = Fig.view3(d(+azEl.value), d(20)), T = F.in3(view);
+      const v3 = [1, 1, 2 + beta];
       F.clear();
-      F.axes3(view, { len: [1.7 * S, 1.7 * S, 3.2 * S], labels: ["x", "y", "z"], color: "#777777", width: 1.2, lsize: 19 });
+      F.axes3(view, { len: [1.8 * S, 1.8 * S, 3.2 * S], labels: ["x", "y", "z"], color: "#777777", width: 1.2, lsize: 19 });
       const patch = [[-0.35, -0.35], [1.35, -0.35], [1.35, 1.35], [-0.35, 1.35]].map(([s, t]) => sc(add(mul(v1, s), mul(v2, t))));
-      const below = h < 0;
+      // v3 lies on the viewer's side of the plane when n . v3 and n . (toward viewer) share a sign.
+      const front = Num.dot(n, v3) * Num.dot(n, view.toward) > 0;
       const drawV3 = () => {
-        T.line(sc([1, 1, 2]), sc(v3), { dash: true, color: C.force, width: 1.4 });
-        T.arrow([0, 0, 0], sc(v3), Object.assign({ color: C.force, label: "v_3", loff: [14, -4] }, vlab));
+        T.line(sc([1, 1, 2]), sc(v3), { dash: true, color: C.force, width: 1.6 });
+        T.arrow([0, 0, 0], sc(v3), Object.assign({ color: C.force, label: "v_3", loff: [16, -4] }, vlab));
       };
-      if (below) drawV3();
+      if (!front) drawV3();
       T.poly(patch, { fill: C.cone, fillOpacity: 0.7, color: "#bba000", width: 1 });
-      T.arrow([0, 0, 0], sc(v1), Object.assign({ color: C.normal, label: "v_1", loff: [14, 8] }, vlab));
-      T.arrow([0, 0, 0], sc(v2), Object.assign({ color: C.green, label: "v_2", loff: [-4, 18] }, vlab));
-      T.dot(sc([1, 1, 2]), { rpx: 3, color: "#bba000" });
-      if (!below) drawV3();
-      const r = LM.indepDet(h);
-      $("ind-h-out").textContent = fx(h, 2);
-      $("ind-read").textContent = "v3 = " + vs(v3, 2) + "\nv1 + v2 - v3 = " + vs([0, 0, -h], 2) +
-        "\nvolume det[v1 v2 v3] = " + fx(r.det, 2) + "\n" + (r.rank === 3 ? "independent" : "dependent: v3 = v1 + v2");
+      T.arrow([0, 0, 0], sc(v1), Object.assign({ color: C.normal, label: "v_1", loff: [-4, 18] }, vlab));
+      T.arrow([0, 0, 0], sc(v2), Object.assign({ color: C.green, label: "v_2", loff: [16, 10] }, vlab));
+      T.dot(sc([1, 1, 2]), { rpx: 4, color: "#bba000" });
+      if (front) drawV3();
+      const r = LM.indepDet(beta);
+      $("ind-h-out").textContent = fx(beta, 2);
+      $("ind-read").textContent = "v3 = " + vs(v3, 2) + "\nv1 + v2 - v3 = " + vs([0, 0, -beta], 2) +
+        "\ndet[v1 v2 v3] = " + fx(r.det, 2) + ": " + (r.rank === 3 ? "independent" : "dependent, v3 = v1 + v2");
     }
-    on(hEl, draw); on(azEl, draw);
+    on(bEl, draw); on(azEl, draw);
     draw();
   }
 
@@ -1934,7 +1945,7 @@
 
   // ---------------------------------------------------------------- 2x2 matrix as a map
   {
-    const F = Plot.fig("#f-grid", { w: 660, h: 470, xlim: [-3.9, 3.9], ylim: [-2.8, 2.8], equal: true, margin: 4 });
+    const F = Plot.fig("#f-grid", { w: 660, h: 470, xlim: [-3.9, 3.9], ylim: [-2.2, 3.4], equal: true, margin: 4 });
     const ids = ["a", "b", "c", "d"], inp = ids.map((k) => $("g-" + k)), pre = $("g-preset");
     const P = { A: [1, -1, 1, 3], I: [1, 0, 0, 1], rot: [0.866, -0.5, 0.5, 0.866], shear: [1, 1, 0, 1],
       stretch: [2, 0, 0, 0.5], proj: [1, 0, 0, 0], refl: [1, 0, 0, -1] };
@@ -1954,27 +1965,30 @@
   // ---------------------------------------------------------------- composition
   {
     const xl = [-2.0, 2.7], yl = [-0.35, 2.75];
-    const Fs = ["#f-comp0", "#f-comp1", "#f-comp2"].map((s) => Fig(s, { w: 368, h: 245, xlim: xl, ylim: yl }));
+    const Fs = ["#f-comp0", "#f-comp1", "#f-comp2"].map((s) => Fig(s, { w: 368, h: 220, xlim: xl, ylim: yl }));
     const S = [[1, 1], [0, 1]], R = [[0, -1], [1, 0]];
     const shape = [[0, 0], [0.25, 0], [0.25, 0.7], [0.65, 0.7], [0.65, 0.95], [0.25, 0.95], [0.25, 1.3],
       [0.85, 1.3], [0.85, 1.55], [0, 1.55]];
     const mv = (M, p) => [M[0][0] * p[0] + M[0][1] * p[1], M[1][0] * p[0] + M[1][1] * p[1]];
     const sel = $("comp-order");
-    function panel(F, M, title) {
+    function panel(F, M) {
       F.clear();
       plane(F, xl, yl, { ticks: false });
       F.poly(shape.map((p) => mv(M, p)), { fill: "#dddddd", color: C.ink, width: 1.5 });
       F.arrow([0, 0], mv(M, [1, 0]), { color: C.force, width: 3 });
       F.arrow([0, 0], mv(M, [0, 1]), { color: C.green, width: 3 });
-      F.text([xl[0] + 0.08, yl[1] - 0.22], title, { size: 21 });
     }
+    const row = (r) => "[" + r.map((v) => String(v).replace("-", "\u2212")).join("  ") + "]";
     function draw() {
-      const first = sel.value === "RS" ? S : R, second = sel.value === "RS" ? R : S;
+      const rs = sel.value === "RS";
+      const first = rs ? S : R, second = rs ? R : S;
       const P = LM.compose(second, first);
-      const n1 = sel.value === "RS" ? "S" : "R", n2 = sel.value === "RS" ? "R" : "S";
-      panel(Fs[0], [[1, 0], [0, 1]], "x");
-      panel(Fs[1], first, n1 + " x");
-      panel(Fs[2], P, n2 + n1 + " x = [" + P[0].join(" ") + "; " + P[1].join(" ") + "] x");
+      const n1 = rs ? "S" : "R", n2 = rs ? "R" : "S";
+      panel(Fs[0], [[1, 0], [0, 1]]);
+      panel(Fs[1], first);
+      panel(Fs[2], P);
+      $("comp-cap1").textContent = "after " + n1 + " (" + (rs ? "shear" : "rotation") + ")";
+      $("comp-cap2").textContent = "after " + n2 + n1 + " = " + row(P[0]) + " " + row(P[1]);
     }
     on(sel, draw);
     draw();
@@ -2006,7 +2020,7 @@
 
   // ---------------------------------------------------------------- determinant derivation (static)
   {
-    const F = Fig("#f-par", { w: 540, h: 420, xlim: [-0.45, 4.7], ylim: [-0.45, 3.55] });
+    const F = Fig("#f-par", { w: 540, h: 420, xlim: [-0.45, 4.95], ylim: [-0.45, 3.55] });
     const G = (k) => F.group({ class: "step", "data-step": String(k) });
     const R1 = "#f4c4c4", B1 = "#c9d3f2", G1 = "#c8e8c8";
     F.poly([[0, 0], [3, 1], [4, 3], [1, 2]], { fill: C.cone, color: C.ink, width: 2 });
@@ -2036,10 +2050,11 @@
 
   // ---------------------------------------------------------------- wide matrix (3D and 2D)
   {
-    const F3 = Fig("#f-wide3", { w: 560, h: 300, xlim: [-2.3, 2.3], ylim: [-1.25, 1.5] });
-    const F2 = Fig("#f-wide2", { w: 560, h: 300, xlim: [-1.5, 3.4], ylim: [-0.45, 2.6] });
+    const F3 = Fig("#f-wide3", { w: 560, h: 260, xlim: [-2.3, 2.3], ylim: [-0.45, 1.95] });
+    const F2 = Fig("#f-wide2", { w: 560, h: 260, xlim: [-1.2, 3.4], ylim: [-0.45, 2.45] });
     const tEl = $("wide-t"), azEl = $("wide-az");
-    const S = 0.62, sc = (p) => p.map((x) => x * S);
+    const S = 1.0, sc = (p) => p.map((x) => x * S);
+    const t0 = +tEl.min, t1 = +tEl.max;
     const xt = (t) => [2 - t, 1 - t, t];
     const cube = [[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0], [0, 0, 1], [1, 0, 1], [1, 1, 1], [0, 1, 1]];
     const edges = [[0, 1], [1, 2], [2, 3], [3, 0], [4, 5], [5, 6], [6, 7], [7, 4], [0, 4], [1, 5], [2, 6], [3, 7]];
@@ -2047,22 +2062,20 @@
       const t = +tEl.value, view = Fig.view3(d(+azEl.value), d(20)), T = F3.in3(view);
       const r = LM.nonsquare(t);
       F3.clear();
-      F3.axes3(view, { len: [2.6 * S, 1.7 * S, 1.9 * S], color: "#777777", width: 1.2, lsize: 19 });
+      F3.axes3(view, { len: [1.6 * S, 1.6 * S, 1.6 * S], color: "#777777", width: 1.2, lsize: 19 });
       edges.forEach(([i, j]) => T.line(sc(cube[i]), sc(cube[j]), { color: "#555555", width: 1.3 }));
-      T.line(sc(xt(-1)), sc(xt(2.5)), { color: C.force, width: 2.5, opacity: 0.8 });
+      T.line(sc(xt(t0)), sc(xt(t1)), { color: C.force, width: 2.5, opacity: 0.8 });
       T.dot(sc(r.x), { rpx: 6, color: C.force });
-      T.label(sc(xt(2.5)), "x(t)", { size: 20, color: C.force });
-      F3.text([-2.2, 1.35], "input space R³", { size: 20 });
+      T.label(sc(r.x), "x(t)", { size: 20, color: C.force, bold: true, dx: 30, dy: 2 });
       // 2D image
       F2.clear();
-      plane(F2, [-1.3, 3.2], [-0.35, 2.5]);
+      plane(F2, [-1.1, 3.2], [-0.35, 2.4]);
       F2.poly(LM.hull2(r.cube_image), { fill: "#dddddd", fillOpacity: 0.8, color: "#555555", width: 1.3 });
-      F2.arrow([0, 0], [1, 0], { color: "#555555", width: 2.5, label: "Ae_1", loff: [0, 16], lsize: 19 });
-      F2.arrow([0, 0], [0, 1], { color: "#555555", width: 2.5, label: "Ae_2", loff: [-22, 0], lsize: 19 });
-      F2.arrow([0, 0], [1, 1], { color: "#555555", width: 2.5, label: "Ae_3", loff: [14, -6], lsize: 19 });
+      F2.arrow([0, 0], [1, 0], { color: "#555555", width: 2.5, label: "Ae_1", lpos: "mid", loff: [0, -16], lsize: 19 });
+      F2.arrow([0, 0], [0, 1], { color: "#555555", width: 2.5, label: "Ae_2", lpos: "mid", loff: [24, 0], lsize: 19 });
+      F2.arrow([0, 0], [1, 1], { color: "#555555", width: 2.5, label: "Ae_3", loff: [2, -4], lsize: 19 });
       F2.dot(r.Ax, { rpx: 7, color: C.force });
       F2.text(r.Ax, "(2, 1)", { size: 20, dx: 12, dy: -12, color: C.force });
-      F2.text([-1.25, 2.35], "output space R²", { size: 20 });
       $("wide-t-out").textContent = fx(t, 2);
       $("wide-read").textContent = "x(t) = " + vs(r.x, 2) + "\nA23 x(t) = " + vs(r.Ax, 2) + "\n|x(t)| = " + fx(LM.length(r.x), 3);
     }
@@ -2072,38 +2085,35 @@
 
   // ---------------------------------------------------------------- tall matrix (2D and 3D)
   {
-    const xl = [-2.2, 2.6], yl = [-1.3, 1.9];
-    const F2 = Fig("#f-tall2", { w: 560, h: 300, xlim: xl, ylim: yl });
-    const F3 = Fig("#f-tall3", { w: 560, h: 300, xlim: [-2.3, 2.3], ylim: [-1.2, 1.55] });
+    const xl = [-2.2, 2.6], yl = [-1.2, 1.7];
+    const F2 = Fig("#f-tall2", { w: 560, h: 260, xlim: xl, ylim: yl });
+    const F3 = Fig("#f-tall3", { w: 560, h: 260, xlim: [-2.0, 2.0], ylim: [-0.9, 1.55] });
     const base = F2.group(), top = F2.group();
     const azEl = $("tall-az");
-    const S = 0.55, sc = (p) => p.map((x) => x * S);
+    const S = 0.5, sc = (p) => p.map((x) => x * S);
     let s = [1, 0.5];
     function draw() {
       base.clear();
       plane(base, xl, yl);
       base.arrow([0, 0], s, Object.assign({ color: C.force, label: "s", loff: [12, -8] }, vlab));
-      base.text([xl[0] + 0.1, yl[1] - 0.2], "input space R²", { size: 20 });
       const view = Fig.view3(d(+azEl.value), d(20)), T = F3.in3(view);
       const r = LM.nonsquare(0, s);
       F3.clear();
-      F3.axes3(view, { len: [2.2 * S, 2.2 * S, 2.6 * S], color: "#777777", width: 1.2, lsize: 19 });
+      F3.axes3(view, { len: [2.2 * S, 2.2 * S, 2.4 * S], color: "#777777", width: 1.2, lsize: 19 });
       const pl = (a, b) => [a, b, a + b];
-      T.poly([pl(-1, -1), pl(1.8, -1), pl(1.8, 1.8), pl(-1, 1.8)].map(sc), { fill: C.cone, fillOpacity: 0.65, color: "#bba000", width: 1 });
+      T.poly([pl(-0.9, -0.9), pl(1.25, -0.9), pl(1.25, 1.25), pl(-0.9, 1.25)].map(sc), { fill: C.cone, fillOpacity: 0.65, color: "#bba000", width: 1 });
       T.arrow([0, 0, 0], sc([1, 0, 1]), { color: "#555555", width: 2.2 });
       T.arrow([0, 0, 0], sc([0, 1, 1]), { color: "#555555", width: 2.2 });
       T.line(sc([r.Bs[0], r.Bs[1], 0]), sc(r.Bs), { color: C.force, dash: true, width: 1.2 });
       T.dot(sc(r.Bs), { rpx: 7, color: C.force });
-      T.label(sc(r.Bs), "Bs", { size: 21, color: C.force, bold: true });
-      const e3 = T.p(sc([0, 0, 1]));
-      F3.line([e3[0] - 0.07, e3[1] - 0.07], [e3[0] + 0.07, e3[1] + 0.07], { color: C.ink, width: 2.5 });
-      F3.line([e3[0] - 0.07, e3[1] + 0.07], [e3[0] + 0.07, e3[1] - 0.07], { color: C.ink, width: 2.5 });
-      F3.text(e3, "(0, 0, 1)", { size: 18, dx: -10, anchor: "end" });
-      F3.text([-2.2, 1.4], "output space R³", { size: 20 });
+      T.label(sc(r.Bs), "Bs", { size: 21, color: C.force, bold: true, dx: 24, dy: -4 });
+      const e3 = T.p(sc([0, 0, 1])), k = 0.06;
+      F3.line([e3[0] - k, e3[1] - k], [e3[0] + k, e3[1] + k], { color: C.ink, width: 2.5 });
+      F3.line([e3[0] - k, e3[1] + k], [e3[0] + k, e3[1] - k], { color: C.ink, width: 2.5 });
       $("tall-read").textContent = "s = " + vs(s, 2) + "\nB s = " + vs(r.Bs, 2) +
         "\nz - x - y = " + fx(r.Bs[2] - r.Bs[0] - r.Bs[1], 2);
     }
-    handle(F2, top, "h-tall-s", s, (q) => { s = snap(clamp2(q, [-2, 2.3], [-1.1, 1.5]), 0.1); draw(); return s; }, { color: C.force });
+    handle(F2, top, "h-tall-s", s, (q) => { s = snap(clamp2(q, [-2, 2.3], [-1.0, 1.5]), 0.1); draw(); return s; }, { color: C.force });
     on(azEl, draw);
     draw();
   }

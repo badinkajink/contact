@@ -1592,6 +1592,354 @@
 </section>
 
 </main>
-<!-- SCRIPT -->
+<script>
+(function () {
+  "use strict";
+  const C = Fig.C, d = Fig.deg, E = window.EigenLS;
+  const $ = (id) => document.getElementById(id);
+  // Numbers for the monospace readouts (ASCII minus) and SVG labels (true minus).
+  const fx = (x, n) => {
+    if (x === null || x === undefined || Number.isNaN(x)) return "-";
+    if (!isFinite(x)) return x > 0 ? "inf" : "-inf";
+    const s = (+x).toFixed(n === undefined ? 2 : n);
+    return /^-0\.?0*$/.test(s) ? s.slice(1) : s;
+  };
+  const vs = (v, n) => "(" + v.map((x) => fx(x, n)).join(", ") + ")";
+  const mat = (A, n) => "[" + A.map((r) => r.map((x) => fx(x, n)).join("  ")).join("; ") + "]";
+  const minus = (s) => String(s).replace(/-/g, "−");
+  const add = (a, b) => a.map((x, i) => x + b[i]);
+  const sub = (a, b) => a.map((x, i) => x - b[i]);
+  const mul = (a, c) => a.map((x) => x * c);
+  const dot = (a, b) => a.reduce((s, x, i) => s + x * b[i], 0);
+  const nrm = (a) => Math.sqrt(dot(a, a));
+  const unit = (a) => { const l = nrm(a); return l > 0 ? mul(a, 1 / l) : a.slice(); };
+  const mid = (a, b) => mul(add(a, b), 0.5);
+  const mv = (A, x) => A.map((r) => dot(r, x));
+  const snap = (p, h) => p.map((x) => Math.round(x / h) * h + 0);
+  const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+  const clamp2 = (p, xl, yl) => [clamp(p[0], xl[0], xl[1]), clamp(p[1], yl[0], yl[1])];
+  const on = (el, f) => { el.addEventListener("input", f); el.addEventListener("change", f); };
+  const LIGHT = "#e8e8e8", AXIS = "#777777", TXT = "#555555", PLANEC = "#bba000", LINEC = "#bbbbbb";
+  const vlab = { lbold: true, lsize: 24 };
+
+  // A handle in its own layer: the figure redraws underneath while the handle element (and the
+  // pointer capture it holds) survives. move(q) returns the accepted world point.
+  function handle(F, layer, id, p0, move, o) {
+    const h = layer.handle(p0, (q) => { const p = move(q); place(F, h, p); }, o);
+    h.id = id;
+    return h;
+  }
+  function place(F, h, p) { const A = F.px(p); h.setAttribute("cx", A[0]); h.setAttribute("cy", A[1]); }
+
+  // Light integer grid and axes for the 2D figures.
+  function plane(G, xl, yl, o) {
+    o = o || {};
+    if (o.grid !== false) {
+      for (let i = Math.ceil(xl[0]); i <= xl[1]; i++) if (i) G.line([i, yl[0]], [i, yl[1]], { color: LIGHT, width: 1 });
+      for (let j = Math.ceil(yl[0]); j <= yl[1]; j++) if (j) G.line([xl[0], j], [xl[1], j], { color: LIGHT, width: 1 });
+    }
+    G.arrow([xl[0], 0], [xl[1] - 0.05, 0], { width: 1.2, color: AXIS, headpx: 9 });
+    G.arrow([0, yl[0]], [0, yl[1] - 0.05], { width: 1.2, color: AXIS, headpx: 9 });
+    if (o.ticks !== false) {
+      const k = o.every || 1;
+      for (let i = Math.ceil(xl[0]); i <= xl[1] - 0.5; i++) if (i && i % k === 0) G.text([i, 0], minus(i), { size: 17, anchor: "middle", dy: 14, color: TXT });
+      for (let j = Math.ceil(yl[0]); j <= yl[1] - 0.5; j++) if (j && j % k === 0) G.text([0, j], minus(j), { size: 17, anchor: "end", dx: -6, color: TXT });
+    }
+  }
+  // The line through p along u, and the line {z : a . z = b}, both drawn across the figure.
+  function through(G, p, u, o) { const t = unit(u); return G.line(add(p, mul(t, -60)), add(p, mul(t, 60)), o); }
+  function rowLine(G, a, b, o) { const l = nrm(a); return through(G, mul(a, b / (l * l)), [-a[1], a[0]], o); }
+  // The image of the unit circle under a 2x2 matrix, as a closed polyline.
+  const image = (A, k) => { const pts = []; k = k || 144; for (let i = 0; i <= k; i++) { const t = 2 * Math.PI * i / k; pts.push(mv(A, [Math.cos(t), Math.sin(t)])); } return pts; };
+  const col = (A, j) => [A[0][j], A[1][j]];
+
+  // An outer figure in pixel coordinates (y up) that holds sub-panels with their own world
+  // coordinates: panel(F0, x, top, w, h, {xlim, ylim}) is a nested <svg> at (x, top).
+  function frame(sel, w, h) { return Fig(sel, { w, h, scale: 1, origin: [0, h] }); }
+  function panel(F0, x, y, w, h, o) {
+    const s = Fig.el("svg", { x, y }, F0.svg);
+    return (o && o.plot ? Plot.fig : Fig)(s, Object.assign({ w, h }, o));
+  }
+
+  // Orthographic 3D (azimuth and elevation in degrees) with every point scaled by S.
+  function in3s(F, az, el, S) {
+    const view = Fig.view3(d(az), d(el)), T = F.in3(view), sc = (p) => p.map((x) => x * S);
+    return {
+      view, S, toward: view.toward,
+      line: (a, b, o) => T.line(sc(a), sc(b), o),
+      arrow: (a, b, o) => T.arrow(sc(a), sc(b), o),
+      path: (pts, o) => T.path(pts.map(sc), o),
+      poly: (pts, o) => T.poly(pts.map(sc), o),
+      dot: (a, o) => T.dot(sc(a), o),
+      text: (a, s, o) => T.text(sc(a), s, o),
+      axes: (len, o) => F.axes3(view, Object.assign({ len: len.map((x) => x * S), color: AXIS, width: 1.2, lsize: 19 }, o || {})),
+      // right-angle mark at c between unit directions u and v, legs k long (vector units)
+      right: (c, u, v, k, o) => T.path([add(c, mul(u, k)), add(add(c, mul(u, k)), mul(v, k)), add(c, mul(v, k))].map(sc),
+        Object.assign({ width: 1.3, color: C.ink }, o || {})),
+    };
+  }
+  // The parallelogram {s q1 + t q2 : s0 <= s <= s1, t0 <= t <= t1}.
+  const patch = (q1, q2, s0, s1, t0, t1) => [[s0, t0], [s1, t0], [s1, t1], [s0, t1]].map(([s, t]) => add(mul(q1, s), mul(q2, t)));
+  const PLANE = { fill: C.cone, fillOpacity: 0.55, color: PLANEC, width: 1 };
+
+  // ================================================================ title: circle -> ellipse
+  {
+    const A = [[3, 0], [4, 5]], r = E.svd2(A);
+    const F0 = frame("#f-hero", 671, 290);
+    const L = panel(F0, 0, 0, 250, 290, { xlim: [-1.4, 1.4], ylim: [-1.45, 1.45] });
+    const R = panel(F0, 330, 0, 341, 290, { xlim: [-7.6, 7.6], ylim: [-7.3, 7.3] });
+    [L, R].forEach((G, i) => {
+      const e = i ? 7.2 : 1.35;
+      G.line([-e, 0], [e, 0], { color: LIGHT, width: 1 });
+      G.line([0, -e], [0, e], { color: LIGHT, width: 1 });
+    });
+    L.circle([0, 0], 1, { color: C.ink, width: 2 });
+    L.arrow([0, 0], col(r.V, 0), { color: C.normal, width: 3, label: "v_1", loff: [4, -4], lbold: true });
+    L.arrow([0, 0], col(r.V, 1), { color: C.green, width: 3, label: "v_2", loff: [4, 4], lbold: true });
+    L.text([-1.35, 1.3], "unit circle", { size: 19, color: TXT });
+    R.circle([0, 0], 1, { color: AXIS, width: 1, dash: "3 3" });
+    R.path(image(A), { color: C.ink, width: 2 });
+    R.arrow([0, 0], mul(col(r.U, 0), r.S[0]), { color: C.normal, width: 3, label: "σ_1u_1", loff: [30, 2] });
+    R.arrow([0, 0], mul(col(r.U, 1), r.S[1]), { color: C.green, width: 3, label: "σ_2u_2", loff: [16, 14] });
+    R.text([-7.4, 6.8], "its image", { size: 19, color: TXT });
+    F0.arrow([256, 145], [322, 145], { width: 2.5, label: "A", lpos: "mid", loff: [0, -18], lsize: 26 });
+  }
+
+  // ================================================================ projection onto a line
+  {
+    const xl = [-1.6, 4.3], yl = [-1.3, 4.0];
+    const F = Fig("#f-projline", { w: 559, h: 430, xlim: xl, ylim: yl });
+    const base = F.group(), top = F.group();
+    let a = [2, 1], b = [1, 3];
+    function draw() {
+      const r = E.projectLine(a, b);
+      base.clear();
+      plane(base, xl, yl);
+      through(base, [0, 0], a, { color: LINEC, width: 1.2 });
+      if (r.dist > 0.05) {
+        base.rightAngle(r.p, nrm(r.p) > 0.05 ? unit(mul(r.p, -1)) : unit(a), unit(r.e), { px: 13 });
+        base.line(r.p, b, { dash: true, color: C.ink, width: 1.8 });
+        base.text(mid(r.p, b), "e", { italic: true, bold: true, size: 24, dx: 10, dy: -4 });
+      }
+      if (nrm(r.p) > 0.05) {
+        base.line([0, 0], r.p, { color: C.purple, width: 9, opacity: 0.45 });
+        base.text(r.p, "p", { italic: true, bold: true, size: 24, color: C.purple, dx: 8, dy: 18 });
+      }
+      base.arrow([0, 0], a, Object.assign({ color: C.normal, label: "a", loff: [4, -14] }, vlab));
+      base.arrow([0, 0], b, Object.assign({ color: C.force, label: "b", loff: [10, -6] }, vlab));
+      base.dot([0, 0], { rpx: 3 });
+      $("projline-read").textContent = "a = " + vs(a) + "   b = " + vs(b) +
+        "\nxhat = a.b / a.a = " + fx(dot(a, b), 3) + " / " + fx(dot(a, a), 3) + " = " + fx(r.xhat, 3) +
+        "\np = " + vs(r.p, 3) + "   e = " + vs(r.e, 3) +
+        "\ne.a = " + fx(r.e_dot_a, 3) + "   |e| = " + fx(r.dist, 3);
+    }
+    const lim = (q) => snap(clamp2(q, [-1.25, 4.0], [-1.0, 3.75]), 0.25);
+    handle(F, top, "h-pl-a", a, (q) => { const n = lim(q); if (nrm(n) > 0.2) a = n; draw(); return a; }, { color: C.normal });
+    handle(F, top, "h-pl-b", b, (q) => { b = lim(q); draw(); return b; }, { color: C.force });
+    draw();
+  }
+
+  // ================================================================ projection derivation (static)
+  {
+    const F = Fig("#f-projder", { w: 447, h: 380, xlim: [-0.6, 4.2], ylim: [-0.6, 3.5] });
+    plane(F, [-0.6, 4.2], [-0.6, 3.5], { ticks: false });
+    const a = [2, 1], b = [0.6, 2.9], r = E.projectLine(a, b), q = [3.2, 1.6];
+    through(F, [0, 0], a, { color: LINEC, width: 1.2 });
+    F.line(r.p, q, { color: C.gray, width: 6, opacity: 0.6 });
+    F.line(q, b, { dash: "3 4", color: TXT, width: 1.6 });
+    F.rightAngle(r.p, unit(mul(r.p, -1)), unit(r.e), { px: 13 });
+    F.line(r.p, b, { dash: true, color: C.ink, width: 1.8 });
+    F.line([0, 0], r.p, { color: C.purple, width: 9, opacity: 0.45 });
+    F.arrow([0, 0], a, Object.assign({ color: C.normal, width: 2.5, label: "a", loff: [0, -16] }, vlab));
+    F.arrow([0, 0], b, Object.assign({ color: C.force, label: "b", loff: [-4, -6] }, vlab));
+    F.dot(r.p, { rpx: 5, color: C.purple });
+    F.dot(q, { rpx: 5, color: TXT });
+    F.text(r.p, "p = x̂a", { italic: true, size: 22, color: C.purple, dx: -8, dy: 22, anchor: "end" });
+    F.text(q, "q", { italic: true, bold: true, size: 24, dx: 6, dy: 18 });
+    F.text(mid(r.p, b), "e", { italic: true, bold: true, size: 24, dx: -20, dy: 0 });
+    F.text(mid(q, b), "b − q", { italic: true, size: 21, color: TXT, dx: 10, dy: -6 });
+  }
+
+  // ================================================================ orthonormal coordinates
+  {
+    const xl = [-2.5, 3.1], yl = [-1.6, 2.7];
+    const F = Fig("#f-onb", { w: 559, h: 430, xlim: xl, ylim: yl });
+    const base = F.group(), top = F.group();
+    const q1 = [0.6, 0.8], q2 = [-0.8, 0.6];
+    let x = [2, 1];
+    function draw() {
+      const c1 = dot(q1, x), c2 = dot(q2, x), p1 = mul(q1, c1), p2 = mul(q2, c2);
+      base.clear();
+      for (let k = -6; k <= 6; k++) {
+        through(base, mul(q2, k), q1, { color: "#d6def5", width: 1 });
+        through(base, mul(q1, k), q2, { color: "#d3ecd3", width: 1 });
+      }
+      plane(base, xl, yl, { grid: false, ticks: false });
+      through(base, [0, 0], q1, { color: "#8899dd", width: 1.2 });
+      through(base, [0, 0], q2, { color: "#77bb77", width: 1.2 });
+      base.line(x, p1, { dash: true, color: C.normal, width: 1.5 });
+      base.line(x, p2, { dash: true, color: C.green, width: 1.5 });
+      base.line([0, 0], p1, { color: C.normal, width: 9, opacity: 0.3 });
+      base.line([0, 0], p2, { color: C.green, width: 9, opacity: 0.3 });
+      base.arrow([0, 0], q1, Object.assign({ color: C.normal, label: "q_1", loff: [-14, -8] }, vlab));
+      base.arrow([0, 0], q2, Object.assign({ color: C.green, label: "q_2", loff: [-6, -14] }, vlab));
+      base.arrow([0, 0], x, Object.assign({ color: C.force, label: "x", loff: [12, -6] }, vlab));
+      base.text(p1, "c₁ = " + minus(fx(c1)), { size: 19, color: C.normal, dx: 8, dy: 14 });
+      base.text(p2, "c₂ = " + minus(fx(c2)), { size: 19, color: C.green, dx: 8, dy: 14 });
+      base.dot([0, 0], { rpx: 3 });
+      $("onb-read").textContent = "x = " + vs(x, 1) + "\nc1 = q1.x = " + fx(c1, 3) + "   c2 = q2.x = " + fx(c2, 3) +
+        "\nc1 q1 + c2 q2 = " + vs(add(p1, p2), 3);
+    }
+    handle(F, top, "h-onb-x", x, (q) => { x = snap(clamp2(q, [-2.3, 2.9], [-1.4, 2.5]), 0.1); draw(); return x; }, { color: C.force });
+    draw();
+  }
+
+  // ================================================================ projection onto a plane (3D)
+  {
+    const F = Fig("#f-projplane", { w: 559, h: 440, xlim: [-3.2, 3.2], ylim: [-2.6, 3.4] });
+    const azEl = $("pp-az");
+    const s2 = Math.SQRT2, s6 = Math.sqrt(6), s3 = Math.sqrt(3);
+    const q1 = [1 / s2, -1 / s2, 0], q2 = [1 / s6, 1 / s6, -2 / s6], n = [1 / s3, 1 / s3, 1 / s3], b = [1, 2, 3];
+    const r = E.projectPlane(b, [q1, q2]);
+    function draw() {
+      const T = in3s(F, +azEl.value, 20, 0.8);
+      F.clear();
+      T.axes([2.4, 2.4, 2.4], { labels: ["x", "y", "z"] });
+      const bFront = dot(n, T.toward) > 0;   // b and e lie on the +n side of the plane
+      const drawB = () => {
+        T.right(r.p, unit(mul(r.p, -1)), n, 0.3);
+        T.line(r.p, b, { dash: true, color: C.ink, width: 1.8 });
+        T.text(mid(r.p, b), "e", { italic: true, bold: true, size: 24, dx: 10 });
+        T.arrow([0, 0, 0], b, Object.assign({ color: C.force, label: "b", loff: [10, -6] }, vlab));
+      };
+      if (!bFront) drawB();
+      T.poly(patch(q1, q2, -2.5, 2.5, -2.3, 2.3), PLANE);
+      T.text(add(mul(q1, 2.3), mul(q2, -2.1)), "x + y + z = 0", { size: 20, color: "#8a7400", anchor: "middle" });
+      T.arrow([0, 0, 0], r.p, Object.assign({ color: C.purple, label: "p", loff: [-12, 10] }, vlab));
+      if (bFront) drawB();
+      T.dot([0, 0, 0], { rpx: 3 });
+    }
+    on(azEl, draw);
+    draw();
+  }
+
+  // ================================================================ Gram-Schmidt
+  {
+    const xl = [-1.7, 3.9], yl = [-0.9, 3.3];
+    const F = Fig("#f-gs", { w: 559, h: 440, xlim: xl, ylim: yl });
+    const base = F.group(), top = F.group();
+    let a1 = [3, 1], a2 = [2, 2];
+    function draw() {
+      const q1 = unit(a1), r12 = dot(q1, a2), pr = mul(q1, r12), w2 = sub(a2, pr), nw = nrm(w2);
+      base.clear();
+      plane(base, xl, yl);
+      through(base, [0, 0], a1, { color: LINEC, width: 1.2 });
+      base.line([0, 0], pr, { color: C.orange, width: 9, opacity: 0.45 });
+      base.text(pr, "(q₁·a₂)q₁", { size: 19, color: C.orange, dx: 6, dy: 18 });
+      if (nw > 0.05) {
+        base.rightAngle(pr, unit(mul(q1, r12 >= 0 ? -1 : 1)), unit(w2), { px: 12 });
+        base.arrow(pr, a2, { color: C.green, width: 2, dash: "6 4", label: "w_2", lpos: "mid", loff: [14, 0], lbold: true });
+        base.arrow([0, 0], unit(w2), Object.assign({ color: C.green, width: 4, label: "q_2", loff: [-14, -4] }, vlab));
+      }
+      base.arrow([0, 0], a1, Object.assign({ color: C.ink, width: 2.5, label: "a_1", loff: [12, 4] }, vlab));
+      base.arrow([0, 0], a2, Object.assign({ color: C.ink, width: 2.5, label: "a_2", loff: [8, -10] }, vlab));
+      base.arrow([0, 0], q1, Object.assign({ color: C.normal, width: 4, label: "q_1", loff: [4, 16] }, vlab));
+      base.dot([0, 0], { rpx: 3 });
+      let txt = "q1 = a1/|a1| = " + vs(q1, 4) + "\nq1.a2 = " + fx(r12, 4) + "   w2 = " + vs(w2, 4);
+      if (nw > 1e-6) {
+        const g = E.gramSchmidt([a1, a2]);
+        txt += "\nq2 = " + vs(g.Q[1], 4) + "\nR = " + mat(g.R, 4);
+      } else txt += "\nw2 = 0: a2 is parallel to a1, no q2";
+      $("gs-read").textContent = txt;
+    }
+    const lim = (q) => snap(clamp2(q, [-1.5, 3.7], [-0.7, 3.1]), 0.1);
+    handle(F, top, "h-gs-a1", a1, (q) => { const n = lim(q); if (nrm(n) > 0.3) a1 = n; draw(); return a1; }, { color: C.ink });
+    handle(F, top, "h-gs-a2", a2, (q) => { a2 = lim(q); draw(); return a2; }, { color: C.ink });
+    draw();
+  }
+
+  // ================================================================ row space and null space (3D)
+  {
+    const F = Fig("#f-compl", { w: 559, h: 430, xlim: [-2.9, 2.9], ylim: [-2.4, 3.2] });
+    const azEl = $("oc-az");
+    const A = [[1, 1, 0], [1, 0, 1]], v = [1, 2, 3], r = E.complementSplit(A, v);
+    const n = r.null[0], b1 = unit([2, 1, 1]), b2 = unit([0, 1, -1]);
+    function draw() {
+      const T = in3s(F, +azEl.value, 20, 0.62);
+      F.clear();
+      T.axes([2.6, 2.6, 2.6]);
+      const cam = dot(n, T.toward);                   // > 0: the viewer is on the +n side
+      const far = mul(n, cam > 0 ? -3 : 3), near = mul(far, -1);
+      const vFront = dot(n, v) * cam > 0;
+      const drawV = () => {
+        T.right(r.v_row, unit(mul(r.v_row, -1)), unit(r.v_null), 0.35);
+        T.arrow(r.v_row, v, Object.assign({ color: C.red, width: 3, label: "v_{null}", lpos: "mid", loff: [34, 6] }, vlab));
+        T.arrow([0, 0, 0], v, Object.assign({ color: C.ink, label: "v", loff: [-10, -8] }, vlab));
+      };
+      T.line([0, 0, 0], far, { color: C.red, width: 2.5 });
+      if (!vFront) drawV();
+      T.poly(patch(b1, b2, -1.6, 3.6, -2.2, 2.2), PLANE);
+      T.text(add(mul(b1, 3.2), mul(b2, -1.9)), "ROW(A)", { size: 20, color: "#8a7400", anchor: "middle" });
+      T.arrow([0, 0, 0], r.v_row, Object.assign({ color: C.normal, width: 3, label: "v_{row}", loff: [22, 14] }, vlab));
+      T.line([0, 0, 0], near, { color: C.red, width: 2.5 });
+      T.text(near, "NULL(A)", { size: 20, color: C.red, dx: 8, dy: -10 });
+      if (vFront) drawV();
+      T.dot([0, 0, 0], { rpx: 3 });
+    }
+    on(azEl, draw);
+    draw();
+  }
+
+  // ================================================================ null-space inclusion (3D)
+  {
+    const F = Fig("#f-incl", { w: 559, h: 330, xlim: [-2.7, 2.7], ylim: [-2.0, 2.0] });
+    const bEl = $("incl-b"), azEl = $("incl-az");
+    const A = [[1, 1, 0], [1, 0, 1]];
+    const BS = [[2, 1, 1], [0, 1, -1], [0, 0, 1], [1, 1, 1]];
+    function draw() {
+      const B = BS[+bEl.value], r = E.inclusion(A, [B]);
+      const n = E.complementSplit(A, [1, 0, 0]).null[0];
+      const basis = Num.nullspace([B]);                // two orthonormal rows spanning NULL(B)
+      const T = in3s(F, +azEl.value, 20, 0.7);
+      const u = unit(B), cam = dot(u, T.toward);
+      F.clear();
+      T.axes([2.2, 2.2, 2.2]);
+      const inPlane = r.included;
+      const back = inPlane ? null : mul(n, dot(n, u) * cam > 0 ? -2.7 : 2.7);
+      const drawNormal = () => T.arrow([0, 0, 0], mul(u, 1.4), { color: C.orange, width: 3, label: "B", loff: [8, -8], lbold: true });
+      if (back) T.line([0, 0, 0], back, { color: C.red, width: 3 });
+      if (cam < 0) drawNormal();
+      T.poly(patch(basis[0], basis[1], -2.2, 2.2, -2.2, 2.2), PLANE);
+      T.text(add(mul(basis[0], 2.0), mul(basis[1], 2.0)), "NULL(B)", { size: 19, color: "#8a7400", anchor: "middle" });
+      if (inPlane) T.line(mul(n, -2.7), mul(n, 2.7), { color: C.red, width: 3 });
+      else T.line([0, 0, 0], mul(back, -1), { color: C.red, width: 3 });
+      T.text(inPlane ? mul(n, 2.7) : mul(back, -1), "NULL(A)", { size: 19, color: C.red, dx: 6, dy: -10 });
+      if (cam >= 0) drawNormal();
+      $("incl-read").textContent = "B = (" + B.join(", ") + ")   rank A = " + r.rank_A + "   rank [A; B] = " + r.rank_AB +
+        "\nB n = " + fx(r.B_null[0][0], 4) + "   NULL(A) " + (r.included ? "is inside NULL(B)" : "is not inside NULL(B)");
+    }
+    on(bEl, draw); on(azEl, draw);
+    draw();
+  }
+
+  // ================================================================ box, rail, and hand (static)
+  {
+    const F = Fig("#f-ranktest", { w: 559, h: 220, xlim: [-0.3, 6.3], ylim: [-0.45, 2.15] });
+    F.ground(-0.3, 6.3, 0);
+    F.rect([3.6, 0.6], 1.6, 1.2, { fill: "#dddddd", width: 1.5 });
+    F.text([3.6, 0.6], "box", { size: 20, anchor: "middle" });
+    F.line([2.55, 2.2], [2.62, 0.9], { color: "#aaaaaa", width: 10 });
+    F.circle([2.64, 0.72], 0.16, { fill: "#f5d0a9", color: C.ink, width: 1.5 });
+    F.text([2.2, 1.95], "hand", { size: 19, anchor: "end", color: TXT });
+    F.arrow([3.6, 1.42], [4.9, 1.42], { color: C.ink, width: 2.5 });
+    F.text([3.6, 1.78], "goal", { size: 19, color: TXT, anchor: "middle" });
+    F.text([4.95, 1.42], "v_{box} = 0.1", { size: 21, italic: true });
+    F.arrow([1.35, 0.3], [2.35, 0.3], { color: C.purple, width: 3, label: "C_1", lpos: "start", loff: [-8, 0], lsize: 22 });
+    F.arrow([1.95, 0.55], [1.95, 1.45], { color: C.orange, width: 3, label: "C_2", lpos: "end", loff: [0, -4], lsize: 22 });
+  }
+
+  // @@MORE
+})();
+</script>
 </body>
 </html>

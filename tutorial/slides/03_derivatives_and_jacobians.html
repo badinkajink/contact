@@ -1,0 +1,1429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Derivatives, gradients, and Jacobians</title>
+<link rel="stylesheet" href="lib/katex/katex.min.css">
+<link rel="stylesheet" href="lib/retro.css">
+<script defer src="lib/katex/katex.min.js"></script>
+<script defer src="lib/katex/contrib/auto-render.min.js"></script>
+<script src="lib/fig.js"></script>
+<script src="lib/plot.js"></script>
+<script src="lib/num.js"></script>
+<script src="lib/algo/03_derivatives.js"></script>
+<script>
+  window.DECK_MACROS = {
+    "\\vdelta": "\\boldsymbol{\\delta}",
+    "\\vtheta": "\\boldsymbol{\\theta}",
+    "\\dd": "\\mathrm{d}",
+  };
+</script>
+<script defer src="lib/deck.js"></script>
+<style>
+  .controls input[type="range"].short { width: 150px; }
+  .controls select { font-family: "Times New Roman", Times, serif; font-size: 20px; }
+  .tight li { margin-bottom: 3px; }
+  .steps li { margin-bottom: 6px; }
+  figure.stack > svg + svg { border-top: 0; }
+  table.mid td, table.mid th { padding: 2px 9px; }
+</style>
+</head>
+<!--
+  Deck 03 of the series. Numbers on the slides come from tutorial/00_math_toolkit.py, section
+  "Deck 03" (functions d03_*); the live figures call lib/algo/03_derivatives.js (Derivatives),
+  whose twin cases are tools/twins/03.json.
+-->
+<body data-index="index.html">
+<main class="deck">
+
+<!-- ============================================================ title -->
+<section class="slide title" id="title" data-code="00_math_toolkit.py:d03_taylor_poly">
+  <h1>Derivatives, gradients, and Jacobians</h1>
+  <p class="authors">William Xie</p>
+  <p class="links">[<a href="index.html">index</a>] [<a href="../00_math_toolkit.py">code</a>]
+    [<a href="#" data-action="print">pdf</a>]</p>
+  <hr>
+  <div class="cols l2 mid">
+    <figure>
+      <svg id="f-hero"></svg>
+      <figcaption>The quartic $J(z) = z^4 - 4z^2 + z + 4$ (black), its tangent line at $z = 1$ (red)
+        and its quadratic model there (blue, dashed).</figcaption>
+    </figure>
+    <div class="small">
+      <p>Deck 03 of 22, Part I (mathematical toolkit).</p>
+      <p>Prerequisites: <a href="01_vectors_and_matrices.html">deck 01</a> (vectors, dot products,
+        matrices as maps). The Hessian slides use eigenvalues from
+        <a href="02_eigenvalues_and_least_squares.html">deck 02</a>.</p>
+      <p>Code: every number on these slides is computed in <code>tutorial/00_math_toolkit.py</code>,
+        section &ldquo;Deck 03&rdquo;. Press <kbd>C</kbd> on a slide to see the function.</p>
+      <p>Used by decks 05, 06, 08, 09, 10, 17, 18 and 21.</p>
+    </div>
+  </div>
+  <p class="updated">Last updated September 2026.</p>
+  <aside class="notes">This deck builds the calculus that the rest of the series uses: the
+    derivative of a function of one variable and the rules that compute it, the second derivative
+    and Taylor polynomials, gradients and Hessians of functions of several variables, Jacobians of
+    vector-valued functions and the chain rule that multiplies them, linearized dynamics, the
+    velocity constraint $J_\Phi\dot q = 0$ that Hou and Mason (ICRA 2019, eq. 3) start from, and
+    finite differences. The tex tutorial states most of this in a few lines (the Taylor insight box
+    at lines 157-175, steepest ascent at lines 224-236, matrix calculus at lines 1303-1322); these
+    slides derive each result one step at a time. One function runs through the deck: the quartic
+    $J(z) = z^4 - 4z^2 + z + 4$ of the tex's Worked Example 1.1, which deck 05 minimizes. Press R
+    to switch between presenting and this reading view.</aside>
+</section>
+
+<!-- ============================================================ part 1 -->
+<section class="slide section" id="part-one-variable">
+  <p class="kicker">Part 1</p>
+  <h1>Derivatives of functions of one variable</h1>
+  <hr>
+  <p>Slopes of the quartic $J(z) = z^4 - 4z^2 + z + 4$, the rules that compute them, curvature,
+    and polynomial models of the quartic near a point.</p>
+</section>
+
+<!-- ============================================================ secant and tangent -->
+<section class="slide" id="secant-and-tangent" data-code="00_math_toolkit.py:d03_secant_slope">
+  <h2>Secant lines and the tangent line of the quartic</h2>
+  <div class="cols l2 mid">
+    <figure>
+      <svg id="f-secant"></svg>
+      <figcaption>Black: $J$. Purple: the secant through $z_0$ and $z_0 + h$. Red: the tangent at $z_0$.</figcaption>
+    </figure>
+    <div>
+      <ul class="tight">
+        <li>$J(1) = 2$ and $J(1.5) = 1.5625$.</li>
+        <li>The secant line through these two points has slope
+          $\dfrac{1.5625 - 2}{0.5} = -0.875$.</li>
+        <li class="step">Shrink $h$: the secant turns toward the <b>tangent line</b>, which touches
+          the graph at $z_0$ with slope $-3$.</li>
+      </ul>
+      <div class="controls">
+        <label>$z_0$ <input type="range" class="short" id="sec-z0" min="-2" max="2" step="0.05" value="1">
+          <span id="sec-z0-out"></span></label><br>
+        <label>$h$ <input type="range" class="short" id="sec-h" min="-1" max="1" step="0.01" value="0.5">
+          <span id="sec-h-out"></span></label><br>
+        <label><input type="checkbox" id="sec-tan" checked> tangent</label>
+      </div>
+      <div class="readout" id="sec-read"></div>
+    </div>
+  </div>
+  <aside class="notes">The slope of a line is rise over run. A curve has no single slope, but the
+    straight line through two of its points does: the <b>secant</b> through $(z_0, J(z_0))$ and
+    $(z_0 + h, J(z_0 + h))$ has slope $\big(J(z_0 + h) - J(z_0)\big)/h$, the average rate of change
+    of $J$ over the interval. With $z_0 = 1$ and $h = 0.5$ this is $-0.875$. As $h$ shrinks toward
+    0 from either side, the second point slides toward the first and the secant settles on one line,
+    the tangent line, whose slope is the <b>derivative</b> $J'(z_0)$. At $z_0 = 1$ that slope is
+    $-3$ (next slide). The slope carries units: if $z$ were in meters and $J$ in joules, $J'$ would
+    be in joules per meter. The value $h = 0$ itself gives $0/0$, which is why the derivative is
+    defined by a limit instead of by plugging in $h = 0$. Drag $z_0$ to the three places where the
+    tangent is flat; deck 05 looks for exactly those points.</aside>
+</section>
+
+<!-- ============================================================ derivative as limit -->
+<section class="slide" id="derivative-as-limit" data-code="00_math_toolkit.py:d03_secant_table">
+  <h2>The derivative as a limit of difference quotients</h2>
+  $$J'(z_0) = \lim_{h\to 0}\frac{J(z_0 + h) - J(z_0)}{h}$$
+  <div class="cols">
+    <div>
+      <table class="small">
+        <tr><th class="num">$h$</th><th class="num">secant slope at $z_0 = 1$</th><th class="num">slope $- (-3)$</th></tr>
+        <tr><td class="num">0.5</td><td class="num">$-0.875$</td><td class="num">2.125</td></tr>
+        <tr><td class="num">0.1</td><td class="num">$-2.759$</td><td class="num">0.241</td></tr>
+        <tr><td class="num">0.01</td><td class="num">$-2.9796$</td><td class="num">0.0204</td></tr>
+        <tr><td class="num">0.001</td><td class="num">$-2.9980$</td><td class="num">0.0020</td></tr>
+      </table>
+      <p class="small">The gap shrinks about tenfold with $h$: it equals $2h + 4h^2 + h^3$.</p>
+    </div>
+    <div>
+      <p class="step">Worked limit, $J(z) = z^2$:</p>
+      <ol class="steps small">
+        <li class="step">$(z + h)^2 - z^2 = 2zh + h^2$.</li>
+        <li class="step">Divide by $h$: $2z + h$.</li>
+        <li class="step">Let $h \to 0$: $\dfrac{\dd}{\dd z} z^2 = 2z$.</li>
+      </ol>
+      <p class="small step">Notation: $J'(z) = \dfrac{\dd J}{\dd z}$, the derivative of $J$ with
+        respect to $z$.</p>
+    </div>
+  </div>
+  <aside class="notes">The limit means: the difference quotient can be made as close to $J'(z_0)$
+    as we like by taking every $h \ne 0$ close enough to 0, on both sides. The table shows this for
+    the quartic at $z_0 = 1$; the gap to $-3$ is exactly $2h + 4h^2 + h^3$, which the slide
+    <a href="#taylor-polynomials">taylor-polynomials</a> explains. For small $h$ the $2h$ term
+    dominates, so the gap is about $2h$ and falls tenfold when $h$ does. For $z^2$ the algebra is
+    exact: after cancelling $z^2$, every remaining term has a factor $h$, the division removes one
+    factor, and the $h$ that is left goes to 0. A function can fail to have a derivative: for
+    $\abs{z}$ at $z = 0$ the quotient is $+1$ for $h &gt; 0$ and $-1$ for $h &lt; 0$, so it has no
+    single limit, and the graph has a corner. Every function in this deck is smooth (it has as many
+    derivatives as we need). Leibniz's notation $\dd J/\dd z$ reads as "a small change in $J$ per
+    small change in $z$"; Lagrange's $J'(z)$ is shorter. The two mean the same.</aside>
+</section>
+
+<!-- ============================================================ power rule -->
+<section class="slide" id="power-rule">
+  <h2>Derivation of the power rule</h2>
+  <p>Claim: $\dfrac{\dd}{\dd z} z^n = n z^{n-1}$ for $n = 1, 2, 3, \dots$</p>
+  <ol class="steps">
+    <li class="step">Binomial expansion:
+      $(z + h)^n = z^n + n z^{n-1}h + \binom{n}{2} z^{n-2}h^2 + \dots + h^n$.</li>
+    <li class="step">Subtract $z^n$: every remaining term has at least one factor $h$.</li>
+    <li class="step">Divide by $h$: $n z^{n-1} + \binom{n}{2} z^{n-2}h + \dots + h^{n-1}$.</li>
+    <li class="step">Let $h \to 0$: every term after the first carries a factor $h$ and vanishes,
+      leaving $n z^{n-1}$.</li>
+  </ol>
+  <div class="example step"><b>Example.</b> $\dfrac{\dd}{\dd z}z^3 = 3z^2$, so the slope at $z = 2$ is
+    $12$. Check: $(2.001^3 - 2^3)/0.001 = 12.006$.</div>
+  <aside class="notes">For $n = 3$ the expansion is $(z + h)^3 = z^3 + 3z^2h + 3zh^2 + h^3$, so the
+    difference quotient is $3z^2 + 3zh + h^2$, which tends to $3z^2$. The coefficient $\binom{n}{2}
+    = n(n-1)/2$ is a binomial coefficient; its value does not matter here, only that the term
+    carries $h^2$. Two special cases: $n = 1$ gives $\frac{\dd}{\dd z}z = 1$ (a line of slope 1),
+    and a constant ($z^0$) has derivative 0 because it does not change. The rule holds for every
+    real exponent, for example $\frac{\dd}{\dd z}z^{-1} = -z^{-2}$, but this deck only needs whole
+    numbers. The check in the example is a forward difference with $h = 0.001$; its error $0.006$ is
+    about $h$ times the curvature term, the pattern Part 4 of this deck studies.</aside>
+</section>
+
+<!-- ============================================================ sum rule -->
+<section class="slide" id="sum-rule-and-the-quartic" data-code="00_math_toolkit.py:d03_quartic_derivs">
+  <h2>Sum and constant-multiple rules applied to the quartic</h2>
+  <ul class="tight">
+    <li>Sum: $(f + g)' = f' + g'$. Constant multiple: $(cf)' = c f'$. Constant: $(4)' = 0$.</li>
+    <li class="step">Term by term: $J(z) = z^4 - 4z^2 + z + 4$ gives
+      $$J'(z) = 4z^3 - 8z + 1,\quad J''(z) = 12z^2 - 8,\quad J'''(z) = 24z,\quad J''''(z) = 24.$$</li>
+  </ul>
+  <div class="cols step">
+    <table class="small">
+      <tr><th class="num">$z$</th><th class="num">$J(z)$</th><th class="num">$J'(z)$</th><th class="num">$J''(z)$</th></tr>
+      <tr><td class="num">$-1$</td><td class="num">0</td><td class="num">5</td><td class="num">4</td></tr>
+      <tr><td class="num">0</td><td class="num">4</td><td class="num">1</td><td class="num">$-8$</td></tr>
+      <tr><td class="num">1</td><td class="num">2</td><td class="num">$-3$</td><td class="num">4</td></tr>
+      <tr><td class="num">2</td><td class="num">6</td><td class="num">17</td><td class="num">40</td></tr>
+    </table>
+    <p class="small">$J''$ is the derivative of $J'$, and $J'''$ the derivative of $J''$.
+      $J'(1) = 4 - 8 + 1 = -3$ matches the limit of the secant slopes on the previous slide.</p>
+  </div>
+  <aside class="notes">The sum rule holds because the difference quotient of $f + g$ is the sum of
+    the two difference quotients, and the limit of a sum is the sum of the limits. The same argument
+    gives the constant-multiple rule. Together they say that differentiation is a linear operation,
+    in the sense of deck 01's slide <a href="01_vectors_and_matrices.html#linearity">linearity</a>:
+    the derivative of $af + bg$ is $af' + bg'$. With the power rule, any polynomial can be
+    differentiated term by term: $4z^3$ from $z^4$, $-8z$ from $-4z^2$, $1$ from $z$, and $0$ from
+    the constant 4. The second, third and fourth derivatives repeat the process; the fifth is 0.
+    The row $z = 2$ is where deck 05's gradient descent starts in the tex (Worked Example 1.2,
+    line 289): $J(2) = 6$ and $J'(2) = 17$. Every entry of the table can be checked by hand, and
+    <code>d03_quartic_derivs</code> computes them.</aside>
+</section>
+
+<!-- ============================================================ product rule -->
+<section class="slide" id="product-rule">
+  <h2>The product rule</h2>
+  <div class="cols r2 mid">
+    <figure>
+      <svg id="f-product"></svg>
+      <figcaption>The area $fg$ grows by the two strips and the small corner.</figcaption>
+    </figure>
+    <div>
+      <p>$(fg)' = f'g + fg'$.</p>
+      <ul class="tight">
+        <li>A rectangle has sides $f(z)$ and $g(z)$. When $z$ grows by $h$, the sides grow by
+          $\Delta f$ and $\Delta g$.</li>
+        <li class="step">New area minus old: $g\,\Delta f + f\,\Delta g + \Delta f\,\Delta g$.</li>
+        <li class="step">Divide by $h$ and let $h \to 0$: $\Delta f/h \to f'$, $\Delta g/h \to g'$,
+          and the corner $\Delta f\,\Delta g/h \approx f' g' h \to 0$.</li>
+        <li class="step">Check: $J = z^2(z^2 - 4) + z + 4$ gives $J' = 2z(z^2 - 4) + z^2\cdot 2z + 1$;
+          at $z = 1$: $-6 + 2 + 1 = -3$.</li>
+      </ul>
+    </div>
+  </div>
+  <aside class="notes">The algebra behind the picture: $f(z+h)g(z+h) - f(z)g(z) = \big(f(z+h) -
+    f(z)\big)g(z+h) + f(z)\big(g(z+h) - g(z)\big)$, which is the old area subtracted from the new
+    one, split into a strip of width $\Delta f$ (including the corner) and a strip of height
+    $\Delta g$. Divide by $h$. The first term tends to $f'(z)g(z)$ because $g(z+h) \to g(z)$ (a
+    differentiable function is continuous), and the second tends to $f(z)g'(z)$. The check writes
+    the quartic as a product plus a line and recovers $J'(1) = -3$. The product rule reappears
+    three times in the series: in the proof that the gradient is perpendicular to a circle's radius
+    (next slides), in the second derivatives of compositions that deck 09 needs for the DDP
+    Q-function (tex lines 1829-1833), and in deck 17, where differentiating $R^\T R = I$ shows that
+    $R^\T\dot R$ is skew-symmetric.</aside>
+</section>
+
+<!-- ============================================================ chain rule -->
+<section class="slide" id="chain-rule-one-variable">
+  <h2>The chain rule for a composition</h2>
+  <p>For $J(z) = g(f(z))$: $\quad\dfrac{\dd J}{\dd z} = g'(f(z))\,f'(z)$.</p>
+  <ol class="steps">
+    <li class="step">The quartic is $J(z) = (z^2 - 2)^2 + z$. Inner function $f(z) = z^2 - 2$,
+      $f'(z) = 2z$. Outer function $g(y) = y^2$, $g'(y) = 2y$.</li>
+    <li class="step">$\dfrac{\dd}{\dd z}(z^2 - 2)^2 = 2(z^2 - 2)\cdot 2z$, so
+      $J'(z) = 4z(z^2 - 2) + 1 = 4z^3 - 8z + 1$.</li>
+    <li class="step">At $z = 1$: $f = -1$, $g'(f) = -2$, $f' = 2$, and $J'(1) = (-2)(2) + 1 = -3$.</li>
+  </ol>
+  <div class="box step">Rates multiply: $y = f(z)$ changes $f'(z)$ times as fast as $z$, and
+    $g(y)$ changes $g'(y)$ times as fast as $y$, so $g(f(z))$ changes $g'(y)\,f'(z)$ times as
+    fast as $z$.</div>
+  <aside class="notes">Expanding $(z^2 - 2)^2 = z^4 - 4z^2 + 4$ confirms that this is the same
+    quartic. The chain rule follows from the definition by splitting the difference quotient:
+    $\frac{g(f(z+h)) - g(f(z))}{h} = \frac{g(f(z+h)) - g(f(z))}{f(z+h) - f(z)}\cdot\frac{f(z+h) -
+    f(z)}{h}$. As $h \to 0$, the second factor tends to $f'(z)$ and the first, a difference quotient
+    of $g$ at $y = f(z)$ with step $f(z+h) - f(z) \to 0$, tends to $g'(f(z))$. (The split fails when
+    $f(z+h) = f(z)$ for small $h$; the first-order argument on the slide
+    <a href="#chain-rule-jacobians">chain-rule-jacobians</a> avoids the division and covers that
+    case.) The chain rule is the most used rule in the series: it differentiates a rotation angle
+    that changes in time (next slide), a cost evaluated along a trajectory (deck 09), and a
+    constraint that holds along a motion (slide <a href="#constraint-time-derivative">constraint-time-derivative</a>).</aside>
+</section>
+
+<!-- ============================================================ sine and cosine -->
+<section class="slide" id="sine-cosine-derivatives" data-code="00_math_toolkit.py:d03_sincos_check 00_math_toolkit.py:d03_rotation_derivative">
+  <h2>Derivatives of sine, cosine, and a planar rotation</h2>
+  <div class="cols r2 mid">
+    <figure>
+      <svg id="f-sincos"></svg>
+      <figcaption>Green: the velocity $\vp'(\theta)$, perpendicular to the radius.</figcaption>
+    </figure>
+    <div>
+      <ul class="tight">
+        <li>$\vp(\theta) = (\cos\theta, \sin\theta)$ moves on the unit circle; with $\theta$ in
+          radians the arc length is $\theta$, so the speed is 1.</li>
+        <li class="step">The velocity is tangent to the circle: $\vp'(\theta) = (-\sin\theta, \cos\theta)$.
+          So $\cos' = -\sin$ and $\sin' = \cos$.</li>
+        <li class="step">Entry by entry, $R(\theta) = \begin{bmatrix}\cos\theta & -\sin\theta\\ \sin\theta & \cos\theta\end{bmatrix}$ has
+          $\dfrac{\dd R}{\dd\theta} = \begin{bmatrix}-\sin\theta & -\cos\theta\\ \cos\theta & -\sin\theta\end{bmatrix} = R(\theta)\,S$,
+          $S = \begin{bmatrix}0 & -1\\ 1 & 0\end{bmatrix}$.</li>
+        <li class="step">In time (chain rule): $\dot R = R\,S\,\dot\theta$, with angular velocity $\omega = \dot\theta$.</li>
+      </ul>
+      <div class="controls">
+        <label>$\theta$ (deg) <input type="range" class="short" id="sc-th" min="0" max="360" step="1" value="30">
+          <span id="sc-th-out"></span></label>
+      </div>
+      <div class="readout" id="sc-read"></div>
+    </div>
+  </div>
+  <aside class="notes">Why the velocity is perpendicular to the radius: $\cos^2\theta + \sin^2\theta
+    = 1$ for every $\theta$, and differentiating both sides with the chain rule gives
+    $2\cos\theta\,\cos'\theta + 2\sin\theta\,\sin'\theta = 0$, that is $\vp\cdot\vp' = 0$ (a dot
+    product, deck 01's <a href="01_vectors_and_matrices.html#dot-product">dot-product</a>). The
+    velocity has length 1 because an arc of angle $\Delta\theta$ radians on a unit circle has length
+    $\Delta\theta$. The two facts fix $\vp' = (-\sin\theta, \cos\theta)$, the radius turned by
+    $+90°$. In degrees the derivatives pick up a factor $\pi/180$, which is why calculus uses
+    radians. The readout checks both rules with a central difference of step $10^{-5}$ (Part 4).
+    $S$ is the $90°$ rotation of deck 01's slide <a href="01_vectors_and_matrices.html#linearity">linearity</a>;
+    $R(\theta)S$ rotates by $\theta + 90°$, which is where each column of $R$ moves as $\theta$
+    grows. Deck 17 builds the 3D version, $\dot R = R\,[\vomega]_\times$ with a skew-symmetric
+    matrix of the angular velocity; the planar $S$ is that matrix for a unit rotation rate about the
+    $z$-axis.</aside>
+</section>
+
+<!-- ============================================================ second derivative -->
+<section class="slide" id="second-derivative-curvature" data-code="00_math_toolkit.py:d03_stationary_points 00_math_toolkit.py:d03_inflection_points">
+  <h2>The second derivative as curvature</h2>
+  <div class="cols r2 mid">
+    <figure class="stack">
+      <svg id="f-c2a"></svg><svg id="f-c2b"></svg><svg id="f-c2c"></svg>
+    </figure>
+    <div>
+      <ul class="tight">
+        <li>$J''(z) = 12z^2 - 8$ is the slope of $J'$.</li>
+        <li class="step">$J'' &gt; 0$: the slope increases and the graph bends up. $J'' &lt; 0$: it bends down.
+          The bend changes at the <b>inflection points</b> $z = \pm\sqrt{2/3} = \pm 0.8165$.</li>
+        <li class="step">$J' = 0$ at $z = -1.473$, $0.126$, $1.347$. There $J'' = 18.04$, $-7.81$,
+          $13.77$: a minimum, a maximum, a minimum.</li>
+      </ul>
+      <div class="controls">
+        <label>$z$ <input type="range" class="short" id="c2-z" min="-2" max="2" step="0.01" value="1">
+          <span id="c2-z-out"></span></label>
+      </div>
+      <div class="readout" id="c2-read"></div>
+    </div>
+  </div>
+  <aside class="notes">The three panels show $J$, $J'$ and $J''$ over the same $z$. Where $J'' &gt; 0$
+    the slope $J'$ is increasing, so the tangent line turns counter-clockwise as $z$ grows and the
+    graph lies above its tangent lines (it bends up, or is locally convex); where $J'' &lt; 0$ it bends
+    down. A point with $J' = 0$ is a <b>stationary point</b>. If $J'' &gt; 0$ there, the graph bends up
+    on both sides and the point is a local minimum; if $J'' &lt; 0$, a local maximum. This is the
+    second-derivative test; the slide <a href="#taylor-polynomials">taylor-polynomials</a> shows why
+    it works. With $J'' = 0$ the test says nothing: $z^4$ has a minimum at 0 and $z^3$ has neither.
+    The roots of the cubic $J'$ need a numerical method; <code>d03_stationary_points</code> uses
+    Newton's method on $J'$ (deck 05). The values: $J(-1.473) = -1.444$ (the global minimum),
+    $J(0.126) = 4.063$, $J(1.347) = 1.381$. The tex (line 257) gives $J(-1.47) \approx 0.26$ and
+    $J(1.35) \approx 1.28$; both are wrong and recorded in the notebook's errata cell.</aside>
+</section>
+
+<!-- ============================================================ Taylor polynomials -->
+<section class="slide" id="taylor-polynomials" data-code="00_math_toolkit.py:d03_taylor_coeffs">
+  <h2>Taylor polynomials of the quartic</h2>
+  <p>Goal: a polynomial in $\delta = z - z_0$ that has the value, slope, curvature, &hellip; of $J$ at $z_0$.</p>
+  <ol class="steps">
+    <li class="step">$T(\delta) = c_0 + c_1\delta + c_2\delta^2 + c_3\delta^3 + c_4\delta^4$ has
+      $T^{(k)}(0) = k!\,c_k$. Matching $T^{(k)}(0) = J^{(k)}(z_0)$ gives $c_k = J^{(k)}(z_0)/k!$.</li>
+    <li class="step">At $z_0 = 1$: $J = 2$, $J' = -3$, $J'' = 4$, $J''' = 24$, $J'''' = 24$, so
+      $$J(1 + \delta) = 2 - 3\delta + 2\delta^2 + 4\delta^3 + \delta^4.$$</li>
+    <li class="step">Keep two terms: the <b>linear model</b> $2 - 3\delta$ (the tangent line).
+      Keep three: the <b>quadratic model</b> $2 - 3\delta + 2\delta^2$.</li>
+  </ol>
+  <div class="example step">$\delta = 0.1$: $J(1.1) = 1.7241$; linear model $1.7$; quadratic model $1.72$.</div>
+  <aside class="notes">Step 1: differentiating $\delta^k$ $k$ times gives $k(k-1)\cdots 1 = k!$, a
+    constant. Lower powers have already become 0 after fewer than $k$ derivatives, and higher powers
+    still carry a factor $\delta$ that is 0 at $\delta = 0$. So the $k$-th derivative of $T$ at 0
+    picks out $k!\,c_k$ alone. For a polynomial of degree 4 the degree-4 Taylor polynomial is the
+    function itself, only rewritten around $z_0$; expanding $(1+\delta)^4 - 4(1+\delta)^2 +
+    (1+\delta) + 4$ gives the same five coefficients. For $\sin z$ or $e^z$ the series never stops
+    and truncating it leaves an error. Two uses on earlier slides: the secant error at $z_0 = 1$ is
+    $\big(J(1+h) - 2 + 3h\big)/h = 2h + 4h^2 + h^3$ (slide
+    <a href="#derivative-as-limit">derivative-as-limit</a>), and at a stationary point the linear
+    term vanishes, so near it $J(z_0 + \delta) \approx J(z_0) + \tfrac12 J''(z_0)\delta^2$, which is
+    above $J(z_0)$ on both sides when $J'' &gt; 0$: the second-derivative test.</aside>
+</section>
+
+<!-- ============================================================ Taylor models live -->
+<section class="slide" id="taylor-models-live" data-code="00_math_toolkit.py:d03_taylor_poly">
+  <h2>Linear and quadratic models of the quartic</h2>
+  <div class="cols l2 mid">
+    <figure>
+      <svg id="f-taylor"></svg>
+      <figcaption>Black: $J$. Red: linear model. Blue: quadratic. Purple: cubic. Orange: quartic (equal to $J$).</figcaption>
+    </figure>
+    <div>
+      <ul class="tight small">
+        <li>The linear model is the tangent line. The quadratic model is the parabola with the same
+          value, slope and curvature at $z_0$.</li>
+        <li>At $z_0 = 1$ the quadratic model $2 - 3\delta + 2\delta^2$ opens upward; its minimum is at
+          $\delta = 0.75$.</li>
+        <li>At $z_0 = 0$ it is $4 + \delta - 4\delta^2$, which opens downward.</li>
+      </ul>
+      <div class="controls">
+        <label>$z_0$ <input type="range" class="short" id="tm-z0" min="-2" max="2" step="0.05" value="1">
+          <span id="tm-z0-out"></span></label><br>
+        <label>models <select id="tm-deg">
+          <option value="12" selected>linear and quadratic</option>
+          <option value="1">linear</option>
+          <option value="2">quadratic</option>
+          <option value="3">cubic</option>
+          <option value="4">quartic</option>
+        </select></label>
+      </div>
+      <div class="readout" id="tm-read"></div>
+    </div>
+  </div>
+  <aside class="notes">The models are polynomials in $\delta = z - z_0$ with the coefficients
+    $c_k = J^{(k)}(z_0)/k!$ of the previous slide, computed by <code>d03_taylor_poly</code>. Near
+    $z_0$ each model hugs the quartic; farther away it drifts off, the linear model first. The
+    quadratic model's stationary point solves $c_1 + 2c_2\delta = 0$, that is
+    $\delta = -J'(z_0)/J''(z_0)$. Newton's method (deck 05) jumps there. From $z_0 = 1$ the jump is
+    $\delta = 0.75$, to $z = 1.75$, past the minimum at $1.347$. From $z_0 = 0$ the model opens
+    downward ($J''(0) = -8$), so its stationary point $\delta = 1/8$ is a maximum, and Newton's
+    method heads for the local maximum of $J$ at $0.126$. Gradient descent uses only the linear
+    model, which has no minimum; it steps a fixed distance downhill along it. The tex insight box
+    (lines 157-175) names these two choices as the difference between the two methods. The
+    quartic model (degree 4) lies exactly on $J$.</aside>
+</section>
+
+<!-- ============================================================ Taylor error order -->
+<section class="slide" id="taylor-error-order" data-code="00_math_toolkit.py:d03_taylor_error_table">
+  <h2>Error of the linear and quadratic models</h2>
+  <div class="cols l2">
+    <div>
+      <table class="small">
+        <tr><th class="num">$\delta$</th><th class="num">$J(1 + \delta)$</th><th class="num">linear error</th><th class="num">ratio</th><th class="num">quadratic error</th><th class="num">ratio</th></tr>
+        <tr><td class="num">0.2</td><td class="num">1.5136</td><td class="num">0.1136</td><td class="num"></td><td class="num">0.0336</td><td class="num"></td></tr>
+        <tr><td class="num">0.1</td><td class="num">1.7241</td><td class="num">0.0241</td><td class="num">4.71</td><td class="num">0.0041</td><td class="num">8.20</td></tr>
+        <tr><td class="num">0.05</td><td class="num">1.8555</td><td class="num">0.00551</td><td class="num">4.38</td><td class="num">0.000506</td><td class="num">8.10</td></tr>
+        <tr><td class="num">0.025</td><td class="num">1.9263</td><td class="num">0.00131</td><td class="num">4.19</td><td class="num">0.0000629</td><td class="num">8.05</td></tr>
+      </table>
+      <p class="small">Ratio: the error at the previous $\delta$ divided by the error at this one.</p>
+    </div>
+    <div>
+      <ul class="tight small">
+        <li>Linear error $= 2\delta^2 + 4\delta^3 + \delta^4 \approx 2\delta^2$: halving $\delta$
+          divides it by about $2^2 = 4$.</li>
+        <li class="step">Quadratic error $= 4\delta^3 + \delta^4 \approx 4\delta^3$: halving
+          $\delta$ divides it by about $2^3 = 8$.</li>
+        <li class="step">Written $O(\delta^2)$ and $O(\delta^3)$: bounded by a constant times
+          $\abs\delta^2$ or $\abs\delta^3$ for small $\delta$.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="box step">A Taylor model that keeps the terms up to $\delta^k$ has error $O(\delta^{k+1})$;
+    near $z_0$ the error is about $\dfrac{J^{(k+1)}(z_0)}{(k+1)!}\,\delta^{k+1}$.</div>
+  <aside class="notes">The table is <code>d03_taylor_error_table</code> at $z_0 = 1$. The error of
+    a model is everything it dropped: from $J(1 + \delta) = 2 - 3\delta + 2\delta^2 + 4\delta^3 +
+    \delta^4$, the linear model drops $2\delta^2 + 4\delta^3 + \delta^4$ and the quadratic model
+    drops $4\delta^3 + \delta^4$. For small $\delta$ the lowest dropped power dominates, so the
+    ratios approach $2^2 = 4$ and $2^3 = 8$ as $\delta$ shrinks; at $\delta = 0.2$ the higher powers
+    still add a visible share, so the first ratios are 4.71 and 8.20. The notation: $e(\delta) =
+    O(\delta^p)$ means $\abs{e(\delta)} \le C\abs{\delta}^p$ for some constant $C$ and all small
+    enough $\delta$. The box holds for any function with $k+1$ continuous derivatives (Taylor's
+    theorem with remainder). The orders matter later: Newton's method converges fast because its
+    quadratic model is $O(\delta^3)$ accurate (deck 05), and the forward and central finite
+    differences of Part 4 have errors $O(h)$ and $O(h^2)$ for the same reason.</aside>
+</section>
+
+<!-- ============================================================ check 1 -->
+<section class="slide" id="check-one-variable">
+  <h2>Check yourself: derivatives of one variable</h2>
+  <ol>
+    <li>Compute $J'(0.5)$ and $J''(0.5)$ for the quartic. Is $J$ bending up or down there?
+      <details><summary>answer</summary><div>$J'(0.5) = 0.5 - 4 + 1 = -2.5$; $J''(0.5) = 3 - 8 = -5$:
+        bending down ($0.5 &lt; 0.8165$).</div></details></li>
+    <li>Differentiate $(3z^2 + 1)^2$ and evaluate at $z = 1$.
+      <details><summary>answer</summary><div>Chain rule: $2(3z^2 + 1)\cdot 6z$; at $z = 1$: $2\cdot 4\cdot 6 = 48$.</div></details></li>
+    <li>Write the quadratic model of the quartic at $z_0 = 2$.
+      <details><summary>answer</summary><div>$J(2) = 6$, $J'(2) = 17$, $J''(2)/2 = 20$:
+        $6 + 17\delta + 20\delta^2$.</div></details></li>
+    <li>Differentiate $\cos(2\theta)$.
+      <details><summary>answer</summary><div>$-2\sin(2\theta)$: the outer derivative $-\sin$ at
+        $2\theta$, times the inner derivative 2.</div></details></li>
+  </ol>
+  <aside class="notes">Question 1 uses the formulas of the slide
+    <a href="#sum-rule-and-the-quartic">sum-rule-and-the-quartic</a> and the inflection points of
+    <a href="#second-derivative-curvature">second-derivative-curvature</a>: between $-0.8165$ and
+    $0.8165$ the quartic bends down. Question 2 is the chain rule with inner function $3z^2 + 1$
+    (derivative $6z$) and outer function $y^2$ (derivative $2y$); expanding to $9z^4 + 6z^2 + 1$ and
+    differentiating term by term gives $36z^3 + 12z$, also 48 at $z = 1$. Question 3 uses
+    $c_k = J^{(k)}(z_0)/k!$; <code>d03_taylor_coeffs(2.0)</code> returns $6, 17, 20, 8, 1$, so the
+    full expansion is $6 + 17\delta + 20\delta^2 + 8\delta^3 + \delta^4$. Question 4 combines the
+    chain rule with $\cos' = -\sin$.</aside>
+</section>
+
+<!-- ============================================================ part 2 -->
+<section class="slide section" id="part-several-variables">
+  <p class="kicker">Part 2</p>
+  <h1>Gradients and Hessians</h1>
+  <hr>
+  <p>Functions of several variables: slices, the gradient and its level curves, curvature along a
+    line, the multivariable Taylor expansion, and the gradients of linear, quadratic and
+    least-squares functions.</p>
+</section>
+
+<!-- ============================================================ contour plots -->
+<section class="slide" id="contour-plots" data-code="00_math_toolkit.py:d03_valley 00_math_toolkit.py:d03_valley_stationary">
+  <h2>A function of two variables as a surface and a contour map</h2>
+  <div class="cols">
+    <figure class="bare"><svg id="f-surf"></svg></figure>
+    <figure><svg id="f-cont"></svg></figure>
+  </div>
+  <div class="cols l2">
+    <p class="small">$J(z_1, z_2) = z_1^4 - 4z_1^2 + z_1 + 4 + 2(z_2 - z_1)^2$: the quartic along
+      $z_1$ plus a valley term, zero on the line $z_2 = z_1$. $J(0, 1) = 6$, $J(1, 0) = 4$.
+      Minima: $(-1.473, -1.473)$ with $J = -1.444$ and $(1.347, 1.347)$ with $J = 1.381$.
+      Saddle: $(0.126, 0.126)$, $J = 4.063$.</p>
+    <div class="controls">
+      <label>view <input type="range" class="short" id="surf-az" min="-170" max="-10" step="1" value="-120">
+        <span id="surf-az-out"></span></label>
+    </div>
+  </div>
+  <aside class="notes">A function of two variables takes a point $\vz = (z_1, z_2)$ of the plane
+    and returns a number. Two pictures show it. The surface (left) plots the height $J$ above each
+    point. The contour map (right) is a topographic map: each curve joins the points where $J$ has
+    one value, the <b>level curve</b> $J(\vz) = c$, here for $c = -1, 0, 1, 2, 3, 4, 5, 6, 8, 10, 13,
+    17$. Contours close together mean a steep slope. On the line $z_2 = z_1$ the valley term
+    vanishes and $J$ is the quartic of Part 1, so the two minima and the saddle lie on that line at
+    the stationary points of the quartic; off the line $J$ rises as $2(z_2 - z_1)^2$. The saddle is
+    a maximum along the line and a minimum across it, and the contour map shows it as a crossing of
+    level curves. The minimizers and the Hessian eigenvalues that classify them come from
+    <code>d03_valley_stationary</code> (slide <a href="#curvature-along-a-line">curvature-along-a-line</a>).
+    The view slider turns the surface about the vertical axis.</aside>
+</section>
+
+<!-- ============================================================ partial derivatives -->
+<section class="slide" id="partial-derivatives" data-code="00_math_toolkit.py:d03_partial_slices">
+  <h2>Partial derivatives as slopes of slices</h2>
+  <p class="small">$\dfrac{\partial J}{\partial z_1}$: hold $z_2$ fixed and differentiate in $z_1$.
+    $\dfrac{\partial J}{\partial z_2}$: hold $z_1$ fixed. For the valley function,
+    $\dfrac{\partial J}{\partial z_1} = 4z_1^3 - 8z_1 + 1 - 4(z_2 - z_1)$ and
+    $\dfrac{\partial J}{\partial z_2} = 4(z_2 - z_1)$; at $(0, 1)$ they are $-3$ and $4$.</p>
+  <div class="cols">
+    <figure>
+      <svg id="f-part"></svg>
+      <figcaption>Drag the point. Red: the slice with $z_2$ fixed. Blue: $z_1$ fixed.</figcaption>
+    </figure>
+    <div>
+      <figure class="stack"><svg id="f-part1"></svg><svg id="f-part2"></svg></figure>
+      <div class="readout" id="part-read"></div>
+    </div>
+  </div>
+  <aside class="notes">A partial derivative is an ordinary derivative of a one-variable slice.
+    Freezing $z_2 = 1$ leaves $t \mapsto J(t, 1) = t^4 - 4t^2 + t + 4 + 2(1 - t)^2$, the red curve in
+    the upper right panel; its slope at $t = 0$ is $\partial J/\partial z_1(0, 1)$. Freezing $z_1 = 0$
+    leaves $t \mapsto J(0, t) = 4 + 2t^2$, the blue curve; its slope at $t = 1$ is $4t = 4$. The rules
+    of Part 1 apply with the frozen variable treated as a constant. The term $2(z_2 - z_1)^2$ needs
+    the chain rule: in $z_1$ its derivative is $2\cdot 2(z_2 - z_1)\cdot(-1) = -4(z_2 - z_1)$, and in
+    $z_2$ it is $+4(z_2 - z_1)$. The readout checks both partial derivatives with central differences
+    of step $10^{-6}$ (<code>d03_partial_slices</code>); they agree to about $10^{-10}$. The symbol
+    $\partial$ (a rounded d) marks a derivative with the other variables held fixed.</aside>
+</section>
+
+<!-- ============================================================ gradient vector -->
+<section class="slide" id="gradient-vector" data-code="00_math_toolkit.py:d03_valley_grad">
+  <h2>The gradient vector</h2>
+  <div class="cols r2 mid">
+    <figure>
+      <svg id="f-grad"></svg>
+      <figcaption>Arrows: $\nabla J$ on a grid, scaled to fit. Red: $\nabla J(0, 1) = (-3, 4)$ at 0.12 scale.</figcaption>
+    </figure>
+    <div>
+      <ul class="tight">
+        <li>The <b>gradient</b> collects the partial derivatives:
+          $\nabla J(\vz) = \left(\dfrac{\partial J}{\partial z_1},\ \dfrac{\partial J}{\partial z_2}\right)$.
+          In $\R^n$ it has $n$ entries.</li>
+        <li class="step">Valley function: $\nabla J = \big(4z_1^3 - 8z_1 + 1 - 4(z_2 - z_1),\ 4(z_2 - z_1)\big)$.</li>
+        <li class="step">$\nabla J(0, 1) = (-3, 4)$, length 5. $\nabla J(1, 0) = (1, -4)$.
+          $\nabla J(1, 1) = (-3, 0)$.</li>
+        <li class="step">The arrows point uphill, cross the contours at right angles, and are longest
+          where the contours crowd.</li>
+      </ul>
+    </div>
+  </div>
+  <aside class="notes">The gradient is a vector in the same space as $\vz$, and each point has its
+    own gradient, so the gradient is a vector field: an arrow attached to every point of the plane.
+    The tex (line 1305) defines it by $(\nabla J)_i = \partial J/\partial z_i$. The grid arrows are
+    scaled by one common factor so the longest fits in its cell; their lengths compare with each
+    other but not with the axes. At a minimum, a maximum or a saddle every partial derivative is
+    zero, so the arrows shrink to nothing near the three stationary points on the line $z_2 = z_1$.
+    The next three slides prove the three observations in the last bullet: the gradient gives the
+    rate of change in every direction, it points in the direction of fastest increase, and it is
+    perpendicular to the level curve through its base point. Hand check at $(1, 1)$: $4 - 8 + 1 - 0 =
+    -3$ and $4(1 - 1) = 0$, so on the line $z_2 = z_1$ the gradient points along $z_1$.</aside>
+</section>
+
+<!-- ============================================================ directional derivative -->
+<section class="slide" id="directional-derivative" data-code="00_math_toolkit.py:d03_directional_derivative">
+  <h2>Directional derivative as the dot product of gradient and direction</h2>
+  <div class="cols mid">
+    <figure>
+      <svg id="f-dir"></svg>
+      <figcaption>Drag the point. Red: $\nabla J$ (scaled 0.12). Blue: the unit direction $\vd$.</figcaption>
+    </figure>
+    <div>
+      <p class="small">Move from $\vz$ along a unit vector $\vd$: $g(t) = J(\vz + t\vd)$. The rate
+        of change of $J$ in direction $\vd$ is $g'(0)$.</p>
+      <ol class="steps small">
+        <li class="step">$g(t) = J(z_1 + t d_1,\ z_2 + t d_2)$: both arguments move with $t$.</li>
+        <li class="step">Change one argument at a time:
+          $g'(0) = \dfrac{\partial J}{\partial z_1}d_1 + \dfrac{\partial J}{\partial z_2}d_2$.</li>
+        <li class="step">$g'(0) = \nabla J(\vz)\cdot\vd$.</li>
+      </ol>
+      <p class="small step">At $(0, 1)$ with $\vd = (0.6, 0.8)$: $(-3)(0.6) + (4)(0.8) = 1.4$.</p>
+      <div class="controls">
+        <label>$\vd$ angle (deg) <input type="range" class="short" id="dir-phi" min="-180" max="180" step="1" value="53">
+          <span id="dir-phi-out"></span></label>
+      </div>
+      <div class="readout" id="dir-read"></div>
+    </div>
+  </div>
+  <aside class="notes">Step 2 splits the change of $J$ into two moves, first along $z_1$, then
+    along $z_2$: $J(z_1 + td_1, z_2 + td_2) - J(z_1, z_2) = \big[J(z_1 + td_1, z_2 + td_2) - J(z_1,
+    z_2 + td_2)\big] + \big[J(z_1, z_2 + td_2) - J(z_1, z_2)\big]$. Divided by $t$, the first bracket
+    is a difference quotient in $z_1$ with step $td_1$ and tends to $\frac{\partial J}{\partial
+    z_1}d_1$ (this needs the partial derivatives to be continuous, which holds for every function in
+    this deck); the second tends to $\frac{\partial J}{\partial z_2}d_2$. The sum of products is
+    the dot product of deck 01 (<a href="01_vectors_and_matrices.html#dot-product">dot-product</a>).
+    Special cases: $\vd = (1, 0)$ gives $\partial J/\partial z_1 = -3$ and $\vd = (0, 1)$ gives
+    $\partial J/\partial z_2 = 4$ at $(0, 1)$. The readout compares $\nabla J\cdot\vd$ with the
+    central difference $\big(J(\vz + t\vd) - J(\vz - t\vd)\big)/2t$ at $t = 10^{-6}$. For a direction
+    that is not a unit vector the same formula gives the rate per unit of $t$, which is
+    $\norm{\vd}$ times the rate per unit length.</aside>
+</section>
+
+<!-- ============================================================ steepest ascent -->
+<section class="slide" id="steepest-ascent" data-code="00_math_toolkit.py:d03_steepest_directions">
+  <h2>Steepest ascent and descent directions</h2>
+  <div class="cols r2 mid">
+    <figure>
+      <svg id="f-steep"></svg>
+      <figcaption>$\nabla J\cdot\vd$ at $(0, 1)$ for the unit vector $\vd$ at angle $\varphi$.</figcaption>
+    </figure>
+    <div>
+      <ul class="tight">
+        <li>For a unit $\vd$: $\nabla J\cdot\vd = \norm{\nabla J}\cos\alpha$, where $\alpha$ is the
+          angle between $\vd$ and $\nabla J$.</li>
+        <li class="step">Largest, $+\norm{\nabla J}$, at $\alpha = 0$: $\vd = \nabla J/\norm{\nabla J}$,
+          the <b>steepest ascent</b> direction.</li>
+        <li class="step">Smallest, $-\norm{\nabla J}$, at $\vd = -\nabla J/\norm{\nabla J}$:
+          <b>steepest descent</b>. Gradient descent (deck 05) steps this way.</li>
+        <li class="step">Zero at $\alpha = \pm 90^\circ$: along the level curve.</li>
+        <li class="step">At $(0, 1)$: ascent at $126.87^\circ$ with rate 5; descent at $-53.13^\circ$;
+          level at $36.87^\circ$ and $-143.13^\circ$.</li>
+      </ul>
+    </div>
+  </div>
+  <aside class="notes">The first bullet is the angle form of the dot product,
+    $\va\cdot\vb = \norm{\va}\norm{\vb}\cos\alpha$, from deck 01
+    (<a href="01_vectors_and_matrices.html#dot-product-angle">dot-product-angle</a>), with
+    $\norm{\vd} = 1$. The cosine ranges over $[-1, 1]$, so the directional derivative ranges over
+    $[-\norm{\nabla J}, \norm{\nabla J}]$, and the curve in the figure is $5\cos(\varphi -
+    126.87^\circ)$. The tex states the same argument (lines 224-236) and adds that the result holds
+    for step lengths measured in the Euclidean norm. With the length of a step measured as
+    $\sqrt{\vdelta^\T H\vdelta}$ instead, the steepest direction becomes $-H^{-1}\nabla J$, Newton's
+    direction; the tex omits that this needs $H$ positive definite (deck 02,
+    <a href="02_eigenvalues_and_least_squares.html#positive-definite">positive-definite</a>). At
+    $(0, 1)$ the valley Hessian is indefinite, so there it fails; the errata cell of the notebook
+    records it. Rescaling one coordinate changes which direction is steepest, which is why gradient
+    descent crawls on ill-conditioned problems (deck 05).</aside>
+</section>
+
+<!-- ============================================================ gradient perpendicular -->
+<section class="slide" id="gradient-perpendicular-level-set" data-code="00_math_toolkit.py:d03_level_tangent">
+  <h2>Orthogonality of the gradient to level curves</h2>
+  <div class="cols mid">
+    <figure>
+      <svg id="f-level"></svg>
+      <figcaption>Drag the point. Purple: the level curve through it. Red: $\nabla J$ (scaled). Green: the unit tangent.</figcaption>
+    </figure>
+    <div>
+      <ol class="steps small">
+        <li>A level curve $\vz(s)$ keeps $J(\vz(s)) = c$ for every $s$.</li>
+        <li class="step">Differentiate in $s$ with the previous two slides:
+          $\nabla J(\vz(s))\cdot\vz'(s) = 0$.</li>
+        <li class="step">So the tangent $\vz'(s)$ is perpendicular to $\nabla J$.</li>
+      </ol>
+      <p class="small step">At $(0, 1)$: $J = 6$, $\nabla J = (-3, 4)$, unit tangent $(-0.8, -0.6)$,
+        and $(-3)(-0.8) + (4)(-0.6) = 0$. A step of $0.001$ along the tangent changes $J$ by
+        $-2.5\times 10^{-6}$, a second-order change.</p>
+      <div class="readout" id="level-read"></div>
+    </div>
+  </div>
+  <aside class="notes">Step 2 is the directional derivative with the direction $\vz'(s)$: the rate
+    of change of $J$ along the curve is $\nabla J\cdot\vz'(s)$, and $J$ does not change along a level
+    curve. A level curve passes through every point where $\nabla J \ne \vzero$ (the implicit function
+    theorem, used here without proof); at the saddle $(0.126, 0.126)$ two level curves cross and the
+    gradient is zero. The tangent in the readout is $\nabla J$ turned by $+90°$ and divided by its
+    length. Walking $0.001$ along the tangent leaves $J$ unchanged to first order; the change that
+    remains is $\tfrac12(0.001)^2\,\vt^\T H\vt = -2.48\times 10^{-6}$, the curvature term of the slide
+    <a href="#multivariable-taylor">multivariable-taylor</a>. Deck 06 uses this slide: at the minimum
+    of $J$ on a constraint curve $\Phi(\vz) = 0$, $\nabla J$ has no component along the curve, so it is
+    perpendicular to the curve and therefore parallel to $\nabla\Phi$. That is the Lagrange
+    multiplier condition.</aside>
+</section>
+
+<!-- ============================================================ Hessian -->
+<section class="slide" id="hessian-matrix" data-code="00_math_toolkit.py:d03_valley_hess">
+  <h2>The Hessian matrix of second partial derivatives</h2>
+  $$\nabla^2 J(\vz) = \begin{bmatrix} \dfrac{\partial^2 J}{\partial z_1^2} & \dfrac{\partial^2 J}{\partial z_1\,\partial z_2}\\[8pt] \dfrac{\partial^2 J}{\partial z_2\,\partial z_1} & \dfrac{\partial^2 J}{\partial z_2^2}\end{bmatrix},\qquad \left(\nabla^2 J\right)_{ij} = \frac{\partial}{\partial z_i}\frac{\partial J}{\partial z_j}.$$
+  <ol class="steps small">
+    <li class="step">Differentiate $\dfrac{\partial J}{\partial z_1} = 4z_1^3 - 8z_1 + 1 - 4(z_2 - z_1)$:
+      in $z_1$, $12z_1^2 - 8 + 4 = 12z_1^2 - 4$; in $z_2$, $-4$.</li>
+    <li class="step">Differentiate $\dfrac{\partial J}{\partial z_2} = 4(z_2 - z_1)$: in $z_1$, $-4$; in $z_2$, $4$.</li>
+    <li class="step">$\nabla^2 J = \begin{bmatrix} 12z_1^2 - 4 & -4\\ -4 & 4\end{bmatrix}$. At $(1, 0)$:
+      $\begin{bmatrix} 8 & -4\\ -4 & 4\end{bmatrix}$. At $(0, 1)$: $\begin{bmatrix} -4 & -4\\ -4 & 4\end{bmatrix}$.</li>
+  </ol>
+  <p class="step">The two mixed partial derivatives are equal: the Hessian is symmetric.</p>
+  <aside class="notes">The Hessian (written $\nabla^2 J$, or $H$ when the point is clear) is the
+    $n\times n$ matrix of all second partial derivatives, as the tex defines it at line 1306. Row
+    $i$ is the gradient of $\partial J/\partial z_i$, so the Hessian is the Jacobian of the gradient
+    (Part 3). The order of differentiation does not matter when the second partial derivatives are
+    continuous (Schwarz's theorem, also called Clairaut's), which makes the Hessian symmetric; here
+    both mixed partials are $-4$. A symmetric matrix has real eigenvalues and perpendicular
+    eigenvectors (deck 02, <a href="02_eigenvalues_and_least_squares.html#spectral-theorem">spectral-theorem</a>),
+    and the next slide reads them as the largest and smallest curvature. This Hessian does not
+    depend on $z_2$, because $J$ is quadratic in $z_2$. The function <code>d03_valley_hess</code>
+    returns it at any point.</aside>
+</section>
+
+<!-- ============================================================ curvature along a line -->
+<section class="slide" id="curvature-along-a-line" data-code="00_math_toolkit.py:d03_slice_curvature 00_math_toolkit.py:d03_hessian_eigen">
+  <h2>Curvature along a line and the Hessian eigenvalues</h2>
+  <p class="small">Along $g(t) = J(\vz + t\vd)$: $g'(t) = \nabla J(\vz + t\vd)\cdot\vd$ and,
+    differentiating each entry of $\nabla J$ the same way, $g''(0) = \vd^\T\nabla^2 J(\vz)\,\vd$.</p>
+  <div class="cols">
+    <figure>
+      <svg id="f-curv"></svg>
+      <figcaption>Drag the point; the slider turns the line.</figcaption>
+    </figure>
+    <div>
+      <figure><svg id="f-curv-g"></svg></figure>
+      <div class="controls">
+        <label>$\vd$ angle (deg) <input type="range" class="short" id="curv-phi" min="0" max="180" step="1" value="45">
+          <span id="curv-phi-out"></span></label>
+      </div>
+      <div class="readout" id="curv-read"></div>
+    </div>
+  </div>
+  <aside class="notes">Step by step: $g'(t) = \sum_j \frac{\partial J}{\partial z_j}(\vz + t\vd)\,d_j$
+    by the previous slides. Each $\partial J/\partial z_j$ is itself a function of two variables, and
+    its rate of change along $\vd$ is $\sum_i \frac{\partial^2 J}{\partial z_i\partial z_j}d_i$. So
+    $g''(0) = \sum_i\sum_j d_i H_{ij} d_j = \vd^\T H\vd$. At $(1, 0)$, where $H = [8, -4; -4, 4]$,
+    the curvature is $8$ at $0°$, $2$ at $45°$, $4$ at $90°$ and $10$ at $135°$. Over all unit
+    directions the largest and smallest values of $\vd^\T H\vd$ are the eigenvalues of $H$,
+    $10.47$ along $(0.851, -0.526)$ and $1.53$ along $(0.526, 0.851)$ (deck 02,
+    <a href="02_eigenvalues_and_least_squares.html#quadratic-forms">quadratic-forms</a>). Both are
+    positive, so every line through $(1, 0)$ curves up. At $(0, 1)$ the eigenvalues are $\pm 5.66$:
+    some lines curve up and others down, the local shape of a saddle. At the two minima of the
+    valley both eigenvalues are positive ($22.88, 3.15$ and $18.85, 2.92$); at the saddle
+    $(0.126, 0.126)$ they are $5.69$ and $-5.49$. The dashed parabola in the right panel is
+    $g(0) + g'(0)t + \tfrac12 g''(0)t^2$.</aside>
+</section>
+
+<!-- ============================================================ multivariable Taylor -->
+<section class="slide" id="multivariable-taylor" data-code="00_math_toolkit.py:d03_valley_models">
+  <h2>Taylor expansion in several variables</h2>
+  <ol class="steps">
+    <li class="step">Restrict $J$ to the line from $\vz_0$ through $\vz_0 + \vdelta$:
+      $g(t) = J(\vz_0 + t\vdelta)$, so $J(\vz_0 + \vdelta) = g(1)$.</li>
+    <li class="step">One-variable Taylor at $t = 0$: $g(1) \approx g(0) + g'(0) + \tfrac12 g''(0)$.</li>
+    <li class="step">Substitute $g'(0) = \nabla J(\vz_0)^\T\vdelta$ and $g''(0) = \vdelta^\T\nabla^2 J(\vz_0)\,\vdelta$:</li>
+  </ol>
+  <div class="step" data-step="3">
+  $$J(\vz_0 + \vdelta) \approx J(\vz_0) + \nabla J(\vz_0)^\T\vdelta + \tfrac12\,\vdelta^\T\nabla^2 J(\vz_0)\,\vdelta.$$
+  </div>
+  <div class="example step">At $\vz_0 = (1, 0)$, $\vdelta = (0.1, 0.1)$: $J = 3.7241$. Linear model:
+    $4 + (1)(0.1) + (-4)(0.1) = 3.7$. Quadratic: $\vdelta^\T H\vdelta = 0.01(8 - 8 + 4) = 0.04$, so
+    $3.7 + 0.02 = 3.72$.</div>
+  <aside class="notes">$\nabla J^\T\vdelta$ is the dot product $\nabla J\cdot\vdelta$ written as a
+    matrix product (a row times a column). The derivation reuses the one-variable Taylor polynomial
+    of the slide <a href="#taylor-polynomials">taylor-polynomials</a> with $\delta = 1$ along the
+    line, and the two derivative formulas of the last slides with $\vd = \vdelta$. As in one
+    variable, the linear model has error $O(\norm{\vdelta}^2)$ and the quadratic model
+    $O(\norm{\vdelta}^3)$. This is the tex's insight box (lines 157-175): gradient descent keeps
+    the linear model, Newton's method keeps the quadratic model and jumps to its minimum (deck 05),
+    and DDP / iLQR build a quadratic model at every time step of a trajectory (deck 09). In deck 09
+    the variable is the stacked vector $(\delta\vx, \delta\vu)$ of state and control, and the blocks
+    of its gradient and Hessian are the $Q_\vx$, $Q_\vu$, $Q_{\vx\vx}$, $Q_{\vx\vu}$, $Q_{\vu\vu}$
+    of the tex's eq. (Q-expansion), line 1789. The example is <code>d03_valley_models</code>.</aside>
+</section>
+
+<!-- ============================================================ quadratic model contours -->
+<section class="slide" id="quadratic-model-contours" data-code="00_math_toolkit.py:d03_valley_models 00_math_toolkit.py:d03_hessian_eigen">
+  <h2>Contours of the quadratic model</h2>
+  <div class="cols l2 mid">
+    <figure>
+      <svg id="f-qm"></svg>
+      <figcaption>Drag the expansion point. Gray: contours of $J$. Dashed teal: contours of the
+        quadratic model at the same levels.</figcaption>
+    </figure>
+    <div>
+      <ul class="tight small">
+        <li>At $(1, 0)$ the Hessian eigenvalues are $10.47$ and $1.53$, both positive: the model is
+          a bowl, and its contours are ellipses.</li>
+        <li>At $(0, 1)$ they are $\pm 5.66$: the model is a saddle, and its contours are hyperbolas.</li>
+        <li>Near the expansion point the two sets of contours agree; far from it they separate.</li>
+      </ul>
+      <div class="readout" id="qm-read"></div>
+    </div>
+  </div>
+  <aside class="notes">The quadratic model $m(\vdelta) = J(\vz_0) + \nabla J^\T\vdelta +
+    \tfrac12\vdelta^\T H\vdelta$ is a quadratic form plus a linear term, the shape deck 02 studied
+    on its slide <a href="02_eigenvalues_and_least_squares.html#quadratic-forms">quadratic-forms</a>:
+    positive eigenvalues give a bowl with elliptical level sets, mixed signs a saddle with hyperbolas.
+    The eigenvalues come from <code>d03_hessian_eigen</code>. For a bowl, setting the gradient of the
+    model to zero gives $H\vdelta = -\nabla J$ (with the matrix-calculus identities two slides on).
+    At $(1, 0)$ that is $8\delta_1 - 4\delta_2 = -1$ and $-4\delta_1 + 4\delta_2 = 4$, so
+    $\vdelta = (0.75, 1.75)$: the model's minimum is at $(1.75, 1.75)$, where the model predicts
+    $J = 0.875$ and the true value is $2.879$. Newton's method (deck 05) jumps to that point and
+    rebuilds the model there. At a saddle the model has no minimum and the same formula lands on the
+    saddle point of the model.</aside>
+</section>
+
+<!-- ============================================================ check 2 -->
+<section class="slide" id="check-gradient-hessian">
+  <h2>Check yourself: gradients and Hessians</h2>
+  <ol>
+    <li>$f(z_1, z_2) = z_1^2 z_2 + 3z_2$. Find $\nabla f$ and $\nabla^2 f$ at $(1, 2)$.
+      <details><summary>answer</summary><div>$\nabla f = (2z_1z_2,\ z_1^2 + 3) = (4, 4)$;
+        $\nabla^2 f = \begin{bmatrix} 2z_2 & 2z_1\\ 2z_1 & 0\end{bmatrix} = \begin{bmatrix} 4 & 2\\ 2 & 0\end{bmatrix}$.</div></details></li>
+    <li>At $(0, 1)$ the valley gradient is $(-3, 4)$. What is the rate of change along $\vd = (0, -1)$,
+      and which unit direction is steepest descent?
+      <details><summary>answer</summary><div>$\nabla J\cdot\vd = -4$; steepest descent
+        $-\nabla J/5 = (0.6, -0.8)$.</div></details></li>
+    <li>At $(1, 0)$, $H = \begin{bmatrix} 8 & -4\\ -4 & 4\end{bmatrix}$. What is the curvature along $\vd = (0.6, 0.8)$?
+      <details><summary>answer</summary><div>$8(0.36) - 2\cdot 4(0.48) + 4(0.64) = 2.88 - 3.84 + 2.56 = 1.6$.</div></details></li>
+    <li>A level curve through $\vz$ has unit tangent $\vt$. What is $\nabla J(\vz)\cdot\vt$?
+      <details><summary>answer</summary><div>0: $J$ is constant along the curve.</div></details></li>
+  </ol>
+  <aside class="notes">Question 1 differentiates term by term with the other variable frozen; the
+    mixed partials $\partial^2 f/\partial z_1\partial z_2 = 2z_1$ agree, as the slide
+    <a href="#hessian-matrix">hessian-matrix</a> says they must. Question 2 applies the slides
+    <a href="#directional-derivative">directional-derivative</a> and
+    <a href="#steepest-ascent">steepest-ascent</a>; the rate along the steepest descent direction is
+    $-5$, and $-4$ is close to it because $(0, -1)$ is only $36.87°$ away from $(0.6, -0.8)$. Question
+    3 expands $\vd^\T H\vd = 8d_1^2 - 8d_1d_2 + 4d_2^2$; the value 1.6 lies between the eigenvalues
+    1.53 and 10.47, as every curvature at that point must. Question 4 is the slide
+    <a href="#gradient-perpendicular-level-set">gradient-perpendicular-level-set</a>.</aside>
+</section>
+
+<!-- ============================================================ linear and quadratic forms -->
+<section class="slide" id="gradient-linear-quadratic-forms" data-code="00_math_toolkit.py:d03_grad_linear 00_math_toolkit.py:d03_grad_quadratic">
+  <h2>Gradients of $\vb^\T\vx$ and $\vx^\T A\vx$</h2>
+  <div class="cols">
+    <div>
+      <p><b>Linear.</b> $f(\vx) = \vb^\T\vx = \sum_i b_i x_i$.</p>
+      <ul class="tight small">
+        <li class="step">Only the term $i = k$ contains $x_k$: $\dfrac{\partial f}{\partial x_k} = b_k$.</li>
+        <li class="step">$\nabla(\vb^\T\vx) = \vb$. Example: $\vb = (2, -1)$, $f = 2x_1 - x_2$,
+          $\nabla f = (2, -1)$ at every $\vx$.</li>
+      </ul>
+    </div>
+    <div>
+      <p><b>Quadratic.</b> $f(\vx) = \vx^\T A\vx = \sum_i\sum_j x_i A_{ij} x_j$.</p>
+      <ol class="steps small">
+        <li class="step">Terms with $i = k$: derivative $\sum_j A_{kj}x_j = (A\vx)_k$.</li>
+        <li class="step">Terms with $j = k$: derivative $\sum_i x_i A_{ik} = (A^\T\vx)_k$.</li>
+        <li class="step">$\nabla(\vx^\T A\vx) = (A + A^\T)\vx$, which is $2A\vx$ for symmetric $A$.
+          Hessian: $A + A^\T$.</li>
+      </ol>
+    </div>
+  </div>
+  <div class="example step">$A = \begin{bmatrix} 1 & 2\\ 0 & 3\end{bmatrix}$, $\vx = (1, 1)$:
+    $f = x_1^2 + 2x_1x_2 + 3x_2^2 = 6$, and by hand $\nabla f = (2x_1 + 2x_2,\ 2x_1 + 6x_2) = (4, 8)$
+    $= (A + A^\T)\vx$ with $A + A^\T = \begin{bmatrix} 2 & 2\\ 2 & 6\end{bmatrix}$.</div>
+  <aside class="notes">Both identities are the one-variable rules $\frac{\dd}{\dd x}(bx) = b$ and
+    $\frac{\dd}{\dd x}(ax^2) = 2ax$ in several variables, proved component by component. In the
+    double sum, $x_k$ appears in the terms of row $k$ ($i = k$) and of column $k$ ($j = k$); the
+    diagonal term $A_{kk}x_k^2$ belongs to both, and its derivative $2A_{kk}x_k$ is split between
+    steps 1 and 2, one $A_{kk}x_k$ each, so nothing is counted twice. Only the symmetric part of $A$
+    matters: $\vx^\T A\vx = \vx^\T\tfrac12(A + A^\T)\vx$, since $\vx^\T A\vx$ is a number and equals
+    its own transpose $\vx^\T A^\T\vx$. The Hessian follows by applying the linear identity to each
+    entry of $(A + A^\T)\vx$. Deck 06 uses the linear identity on the constraint term of a
+    Lagrangian: $\vnu^\T(A\vx - \vb) = (A^\T\vnu)^\T\vx - \vnu^\T\vb$ has gradient $A^\T\vnu$ in
+    $\vx$. The functions <code>d03_grad_linear</code> and <code>d03_grad_quadratic</code> check the
+    example with central differences.</aside>
+</section>
+
+<!-- ============================================================ least squares -->
+<section class="slide" id="gradient-least-squares" data-code="00_math_toolkit.py:d03_grad_least_squares">
+  <h2>Gradient and Hessian of a least-squares cost</h2>
+  <ol class="steps small">
+    <li>$f(\vx) = \tfrac12\norm{A\vx - \vb}^2 = \tfrac12(A\vx - \vb)^\T(A\vx - \vb)$.</li>
+    <li class="step">Expand: $f = \tfrac12\vx^\T(A^\T A)\vx - (A^\T\vb)^\T\vx + \tfrac12\vb^\T\vb$
+      (the two cross terms are equal numbers).</li>
+    <li class="step">Apply the identities, with $A^\T A$ symmetric:
+      $\nabla f = A^\T A\vx - A^\T\vb = A^\T(A\vx - \vb)$ and $\nabla^2 f = A^\T A$.</li>
+    <li class="step">$\nabla f = \vzero$ gives the normal equations $A^\T A\vx = A^\T\vb$
+      (deck 02, <a href="02_eigenvalues_and_least_squares.html#normal-equations">normal-equations</a>).</li>
+  </ol>
+  <div class="example step">Line fit through $(1, 1)$, $(2, 2)$, $(3, 2)$:
+    $A = \begin{bmatrix} 1 & 1\\ 1 & 2\\ 1 & 3\end{bmatrix}$, $\vb = (1, 2, 2)$. At $\vx = (0, 1)$:
+    $\vr = A\vx - \vb = (0, 0, 1)$, $f = 0.5$, $\nabla f = A^\T\vr = (1, 3)$.
+    $A^\T A = \begin{bmatrix} 3 & 6\\ 6 & 14\end{bmatrix}$, $A^\T\vb = (5, 11)$, minimizer
+    $\vx^\star = (2/3,\ 1/2)$.</div>
+  <aside class="notes">Step 2 multiplies out $(A\vx - \vb)^\T(A\vx - \vb) = \vx^\T A^\T A\vx -
+    \vx^\T A^\T\vb - \vb^\T A\vx + \vb^\T\vb$; the two middle terms are numbers and each is the
+    transpose of the other, so they are equal to $(A^\T\vb)^\T\vx$. Step 3 uses $\nabla(\vx^\T M\vx)
+    = 2M\vx$ for the symmetric $M = A^\T A$ and $\nabla(\vc^\T\vx) = \vc$ for $\vc = A^\T\vb$; the
+    constant has gradient zero. The gradient $A^\T\vr$ pulls the residual $\vr = A\vx - \vb$ back
+    through $A^\T$; deck 02 reached the same normal equations from the geometry of projection. The
+    line fit $y = x_1 + x_2 t$ at $\vx = (0, 1)$ is the line $y = t$, which misses only the third
+    point, by 1. Solving $3x_1 + 6x_2 = 5$, $6x_1 + 14x_2 = 11$ gives $x_2 = 1/2$ and $x_1 = 2/3$
+    (<code>d03_grad_least_squares</code>). For a nonlinear residual $\vr(\vx)$ the chain rule of Part 3
+    gives $\nabla\tfrac12\norm{\vr}^2 = J_\vr^\T\vr$, and the Gauss-Newton method of deck 05 uses
+    $J_\vr^\T J_\vr$ in place of the Hessian.</aside>
+</section>
+
+<!-- ============================================================ check 3 -->
+<section class="slide" id="check-matrix-calculus">
+  <h2>Check yourself: matrix calculus</h2>
+  <ol>
+    <li>Gradient of $f(\vx) = 3x_1 - 2x_2 + 5x_3$?
+      <details><summary>answer</summary><div>$(3, -2, 5)$, the vector $\vb$ of $f = \vb^\T\vx$.</div></details></li>
+    <li>$A = \begin{bmatrix} 2 & 1\\ 1 & 3\end{bmatrix}$. Gradient of $\vx^\T A\vx$ at $\vx = (1, -1)$?
+      <details><summary>answer</summary><div>$A$ is symmetric: $2A\vx = 2(1, -2) = (2, -4)$.</div></details></li>
+    <li>$f(\vx) = \tfrac12\norm{\vx - \vb}^2$ (that is, $A = I$). Gradient, Hessian, and minimizer?
+      <details><summary>answer</summary><div>$\nabla f = \vx - \vb$, $\nabla^2 f = I$, $\vx^\star = \vb$.</div></details></li>
+    <li>Gradient of $\vnu^\T(A\vx - \vb)$ with respect to $\vx$?
+      <details><summary>answer</summary><div>$A^\T\vnu$: the term is $(A^\T\vnu)^\T\vx$ minus a constant.</div></details></li>
+  </ol>
+  <aside class="notes">Question 2 by hand: $f = 2x_1^2 + 2x_1x_2 + 3x_2^2$, so $\nabla f = (4x_1 +
+    2x_2,\ 2x_1 + 6x_2) = (2, -4)$ at $(1, -1)$. Question 3 is the least-squares identity of the
+    slide <a href="#gradient-least-squares">gradient-least-squares</a> with $A = I$: the cost is half
+    the squared distance to $\vb$, so the minimizer is $\vb$ itself. Question 4 is the constraint
+    term of the Lagrangian $L(\vx, \vnu) = J(\vx) + \vnu^\T(A\vx - \vb)$ of deck 06, whose gradient in
+    $\vx$ is $\nabla J + A^\T\vnu$; setting it to zero is the first KKT condition. The identities in
+    this deck use column vectors throughout; some books write gradients as rows, which transposes
+    every formula.</aside>
+</section>
+
+<!-- ============================================================ part 3 -->
+<section class="slide section" id="part-jacobians">
+  <p class="kicker">Part 3</p>
+  <h1>Jacobians, linearization, and constraints</h1>
+  <hr>
+  <p>Vector-valued functions and their Jacobians, the chain rule as a product of matrices,
+    linearized pendulum dynamics, and the velocity constraint $J_\Phi\dot q = 0$ of Hou and Mason.</p>
+</section>
+
+<!-- ============================================================ Jacobian matrix -->
+<section class="slide" id="jacobian-matrix" data-code="00_math_toolkit.py:d03_arm_fk 00_math_toolkit.py:d03_arm_jacobian">
+  <h2>The Jacobian matrix of a vector-valued function</h2>
+  <p class="small">$\vf:\R^n\to\R^m$ has $m$ component functions $f_1, \dots, f_m$ of $n$ variables.
+    Its <b>Jacobian</b> is the $m\times n$ matrix $J_\vf = \dfrac{\partial\vf}{\partial\vx}$ with
+    entries $\dfrac{\partial f_i}{\partial x_j}$: row $i$ is $\nabla f_i^\T$, column $j$ is the rate
+    of change of $\vf$ along $x_j$. To first order, $\vf(\vx + \vdelta) \approx \vf(\vx) + J_\vf\,\vdelta$.</p>
+  <div class="cols r2 mid">
+    <figure>
+      <svg id="f-arm0"></svg>
+      <figcaption>At $\vtheta = (0, 90^\circ)$. Red: column 1. Green: column 2.</figcaption>
+    </figure>
+    <div>
+      <p class="small step">Two-link arm, $l_1 = l_2 = 1$ m, joint angles $\vtheta = (\theta_1, \theta_2)$:
+        $\vp(\vtheta) = \big(\cos\theta_1 + \cos(\theta_1 + \theta_2),\ \sin\theta_1 + \sin(\theta_1 + \theta_2)\big)$.</p>
+      <div class="step">
+      $$J_\vp = \begin{bmatrix} -\sin\theta_1 - \sin(\theta_1 + \theta_2) & -\sin(\theta_1 + \theta_2)\\ \cos\theta_1 + \cos(\theta_1 + \theta_2) & \cos(\theta_1 + \theta_2)\end{bmatrix}$$
+      </div>
+      <p class="small step">At $\vtheta = (0, 90^\circ)$: $\vp = (1, 1)$ m and
+        $J_\vp = \begin{bmatrix} -1 & -1\\ 1 & 0\end{bmatrix}$ m/rad.</p>
+    </div>
+  </div>
+  <aside class="notes">The shape rule: one row per output, one column per input. With $m = 1$ the
+    Jacobian is a single row, the gradient laid on its side ($\nabla f^\T$); with $n = 1$ it is a
+    single column, the velocity of a curve. The first-order formula is the multivariable Taylor
+    expansion of each component, cut after the linear term. The arm's tip is the sum of the two link
+    vectors, each a rotated unit vector, and each entry of $J_\vp$ comes from the rules of Part 1:
+    $\theta_1$ appears in both links, $\theta_2$ only in the second. Deck 01
+    (<a href="01_vectors_and_matrices.html#linearity">linearity</a>) showed that column $j$ of a
+    matrix is the image of $\ve_j$; here column $j$ is the tip velocity when joint $j$ turns at
+    1 rad/s with the other joint held still. At $(0, 90°)$ column 1 is $(-1, 1)$: turning the
+    shoulder moves the tip $(1, 1)$ perpendicular to the line from the shoulder. Column 2 is
+    $(-1, 0)$: turning the elbow at $(1, 0)$ moves the tip perpendicular to the second link.
+    <code>d03_arm_jacobian</code> computes both.</aside>
+</section>
+
+<!-- ============================================================ arm Jacobian live -->
+<section class="slide" id="arm-jacobian" data-code="00_math_toolkit.py:d03_arm_jacobian 00_math_toolkit.py:d03_arm_first_order">
+  <h2>The arm Jacobian as a linear map of joint velocities</h2>
+  <div class="cols mid">
+    <figure>
+      <svg id="f-arm"></svg>
+      <figcaption>Purple: tip velocities $J_\vp\dot\vtheta$ for all unit joint rates $\norm{\dot\vtheta} = 1$ rad/s (scaled 0.5).</figcaption>
+    </figure>
+    <div>
+      <ul class="tight small">
+        <li>Tip velocity by the chain rule in time: $\dot\vp = J_\vp(\vtheta)\,\dot\vtheta$.</li>
+        <li>The circle of unit joint rates maps to an ellipse
+          (deck 02, <a href="02_eigenvalues_and_least_squares.html#svd-picture">svd-picture</a>).</li>
+        <li>$\det J_\vp = l_1 l_2\sin\theta_2$: zero when the arm is straight or folded. The ellipse
+          then flattens to a segment and the tip cannot move along the arm.</li>
+        <li class="step">First-order check at $(0, 90^\circ)$, $\dd\vtheta = (0.01, 0.02)$ rad:
+          true $\Delta\vp = (-0.030045, 0.009550)$ m, $J_\vp\,\dd\vtheta = (-0.03, 0.01)$ m.
+          For $(0.1, 0.2)$ rad: $(-0.3005, 0.0552)$ vs $(-0.3, 0.1)$.</li>
+      </ul>
+      <div class="controls">
+        <label>$\theta_1$ <input type="range" class="short" id="arm-t1" min="-180" max="180" step="1" value="0">
+          <span id="arm-t1-out"></span></label>
+        <label>$\theta_2$ <input type="range" class="short" id="arm-t2" min="-180" max="180" step="1" value="90">
+          <span id="arm-t2-out"></span></label>
+      </div>
+      <div class="readout" id="arm-read"></div>
+    </div>
+  </div>
+  <aside class="notes">$\vp(\vtheta(t))$ is a composition of the arm map with the joint trajectory,
+    and the chain rule of the next slide gives $\dot\vp = J_\vp\dot\vtheta$. For each $\vtheta$ the
+    Jacobian is a $2\times 2$ matrix, a linear map from joint rates to tip velocities, and deck 02
+    showed that such a map sends the unit circle to an ellipse whose semi-axes are the singular
+    values (listed in the readout). The determinant: $J_{11}J_{22} - J_{12}J_{21} = l_1l_2(\sin(\theta_1
+    + \theta_2)\cos\theta_1 - \sin\theta_1\cos(\theta_1 + \theta_2)) = l_1 l_2\sin\theta_2$. At
+    $\theta_2 = 0$ both columns point perpendicular to the straight arm, so no joint motion moves
+    the tip along it; the arm is at a <b>singular configuration</b>. Near it, the smallest singular
+    value is small and a tip velocity along the arm needs very large joint rates (deck 02's
+    condition number). The first-order check shows the linear prediction improving as the step
+    shrinks: at $\dd\vtheta = (0.01, 0.02)$ the error is about $5\times 10^{-4}$ m, at ten times the
+    step about $4.5\times 10^{-2}$ m, a hundred times larger, as an $O(\norm{\dd\vtheta}^2)$ error
+    should be. Deck 17 uses the transpose of this matrix for forces, $\vtau = J^\T\vf$.</aside>
+</section>
+
+<!-- ============================================================ chain rule Jacobians -->
+<section class="slide" id="chain-rule-jacobians" data-code="00_math_toolkit.py:d03_arm_distance_gradient">
+  <h2>The chain rule as a product of Jacobians</h2>
+  <p class="small">$\vx\in\R^n \;\xrightarrow{\ \vf\ }\; \vy = \vf(\vx)\in\R^m \;\xrightarrow{\ \vg\ }\; \vw = \vg(\vy)\in\R^p$.</p>
+  <ol class="steps small">
+    <li class="step">$\vf(\vx + \vdelta) \approx \vf(\vx) + J_\vf\,\vdelta$, so $\vy$ moves by $\Delta\vy \approx J_\vf\vdelta$.</li>
+    <li class="step">$\vg(\vy + \Delta\vy) \approx \vg(\vy) + J_\vg\,\Delta\vy \approx \vg(\vy) + J_\vg J_\vf\,\vdelta$.</li>
+    <li class="step">$J_{\vg\circ\vf}(\vx) = J_\vg(\vf(\vx))\,J_\vf(\vx)$: sizes $(p\times m)(m\times n) = p\times n$.</li>
+  </ol>
+  <div class="example step">Arm distance $w(\vtheta) = \tfrac12\norm{\vp(\vtheta) - \vp^\star}^2$,
+    $\vp^\star = (0.5, 1.5)$, at $\vtheta = (0, 90^\circ)$: outer Jacobian $(\vp - \vp^\star)^\T =
+    [0.5\ \ {-0.5}]$ ($1\times 2$), inner $J_\vp$ ($2\times 2$). Gradient
+    $\nabla w = J_\vp^\T(\vp - \vp^\star) = (-1, -0.5)$.</div>
+  <p class="small step">Along a path $\vz(t)$: $\dfrac{\dd}{\dd t}J(\vz(t)) = \nabla J(\vz)^\T\dot\vz$.</p>
+  <aside class="notes">Entry by entry, $\frac{\partial w_i}{\partial x_j} = \sum_k \frac{\partial
+    g_i}{\partial y_k}\frac{\partial y_k}{\partial x_j}$: every path from $x_j$ to $w_i$ through an
+    intermediate $y_k$ contributes the product of its two rates. Deck 01 showed that composing linear
+    maps multiplies their matrices (<a href="01_vectors_and_matrices.html#composition">composition</a>);
+    the chain rule says the first-order approximations compose the same way. The tex states the rule
+    at lines 1316-1319. For a scalar output ($p = 1$) the Jacobian is a row, and the gradient is its
+    transpose: $\nabla(g\circ\vf) = J_\vf^\T\nabla g$. In the example, $J_\vp^\T = [-1, 1; -1, 0]$
+    times $(0.5, -0.5)$ gives $(-1, -0.5)$, which <code>d03_arm_distance_gradient</code> confirms
+    with central differences. Deck 09 uses the same identity for the DDP Q-function, $Q_\vx = c_\vx
+    + \vf_\vx^\T V'_\vx$ (tex eq. Qx, line 1802). The path formula is the case $n = 1$: the path
+    $t\mapsto\vz(t)$ has the column $\dot\vz$ as Jacobian. It differentiates $J$ along a trajectory
+    and, on the slide <a href="#constraint-time-derivative">constraint-time-derivative</a>, a
+    constraint along a motion.</aside>
+</section>
+
+<!-- ============================================================ linearizing dynamics -->
+<section class="slide" id="linearizing-dynamics" data-code="00_math_toolkit.py:d03_pendulum_step 00_math_toolkit.py:d03_pendulum_AB">
+  <h2>Linearization of discrete-time dynamics into $A$ and $B$</h2>
+  <p class="small">Dynamics $\vx_{k+1} = \vf(\vx_k, \vu_k)$. Near a nominal state and control
+    $(\bar\vx, \bar\vu)$: $\delta\vx_{k+1} \approx A\,\delta\vx_k + B\,\delta\vu_k$ with
+    $A = \dfrac{\partial\vf}{\partial\vx}$, $B = \dfrac{\partial\vf}{\partial\vu}$ at $(\bar\vx, \bar\vu)$.</p>
+  <p class="small">Pendulum: $\vx = (\theta, \omega)$, torque $u$, $m = 1$ kg, $l = 1$ m, $g = 9.81$ m/s$^2$, time step $h = 0.01$ s.</p>
+  <ol class="steps small">
+    <li class="step">$a = -\tfrac{g}{l}\sin\theta + \tfrac{u}{ml^2}$; $\ \omega_{k+1} = \omega_k + h a$;
+      $\ \theta_{k+1} = \theta_k + h\omega_{k+1} = \theta_k + h\omega_k + h^2 a$.</li>
+    <li class="step">$\dfrac{\partial a}{\partial\theta} = -\tfrac{g}{l}\cos\theta = -k$ and
+      $\dfrac{\partial a}{\partial u} = \tfrac{1}{ml^2} = b$.</li>
+    <li class="step">$A = \begin{bmatrix} 1 - h^2k & h\\ -hk & 1\end{bmatrix}$,
+      $B = \begin{bmatrix} h^2 b\\ hb\end{bmatrix}$.</li>
+    <li class="step">Hanging down ($\bar\theta = 0$, $k = 9.81$):
+      $A = \begin{bmatrix} 0.999019 & 0.01\\ -0.0981 & 1\end{bmatrix}$, $B = \begin{bmatrix} 0.0001\\ 0.01\end{bmatrix}$, $\det A = 1$.</li>
+  </ol>
+  <aside class="notes">Row 1 of $A$ differentiates $\theta_{k+1} = \theta_k + h\omega_k + h^2 a$:
+    $\partial/\partial\theta_k = 1 + h^2(-k)$ and $\partial/\partial\omega_k = h$. Row 2
+    differentiates $\omega_{k+1} = \omega_k + ha$: $-hk$ and 1. $B$ collects the derivatives in $u$.
+    The step updates the velocity first and then moves the angle with the new velocity
+    (semi-implicit Euler), which is the update of MuJoCo's default integrator, <code>mjINT_EULER</code>.
+    Its $\det A = (1 - h^2k) + h^2k = 1$ for every $\theta$: the step preserves area in the
+    $(\theta, \omega)$ plane, as the exact pendulum does. Upside down ($\bar\theta = \pi$) the sign
+    of $k$ flips and $A = [1.000981, 0.01; 0.0981, 1]$. The nominal point need not be an equilibrium:
+    along a trajectory $(\bar\vx_k, \bar\vu_k)$ each step has its own $A_k$ and $B_k$. Deck 08
+    designs LQR controllers for $\delta\vx_{k+1} = A\delta\vx_k + B\delta\vu_k$, and deck 09 (iLQR)
+    relinearizes around each new trajectory. <code>d03_pendulum_AB</code> computes the matrices.</aside>
+</section>
+
+<!-- ============================================================ linearization live -->
+<section class="slide" id="linearization-live" data-code="00_math_toolkit.py:d03_pendulum_rollouts">
+  <h2>Linearized and nonlinear pendulum trajectories</h2>
+  <div class="cols l2 mid">
+    <figure>
+      <svg id="f-lin"></svg>
+      <figcaption>Black: the nonlinear step. Red, dashed: $\bar\theta + \delta\theta_k$ with $\delta\vx_k = A^k\delta\vx_0$.</figcaption>
+    </figure>
+    <div>
+      <ul class="tight small">
+        <li>Both start at rest, $\Delta\theta_0$ away from the nominal angle, with $u = 0$.</li>
+        <li>Hanging down, the largest gap over 2 s: $0.011^\circ$ from $5^\circ$, $0.73^\circ$ from
+          $20^\circ$, $8.44^\circ$ from $45^\circ$, $71.0^\circ$ from $90^\circ$.</li>
+        <li>Upside down, the linear model grows like $e^{3.13t}$. From $1^\circ$ the gap is
+          $0.011^\circ$ after 1 s and $69^\circ$ after 2 s.</li>
+      </ul>
+      <div class="controls">
+        <label>nominal <select id="lin-eq">
+          <option value="0" selected>hanging down, 0&deg;</option>
+          <option value="180">upside down, 180&deg;</option>
+        </select></label><br>
+        <label>$\Delta\theta_0$ (deg) <input type="range" class="short" id="lin-d0" min="1" max="90" step="1" value="20">
+          <span id="lin-d0-out"></span></label>
+      </div>
+      <div class="readout" id="lin-read"></div>
+    </div>
+  </div>
+  <aside class="notes">The linear model replaces $\sin\theta$ by its tangent line at $\bar\theta$.
+    Hanging down, $\sin\theta = \theta - \theta^3/6 + \dots$, so the dropped term is third order and
+    the gap grows like the cube of the amplitude: from $5°$ to $20°$ the amplitude grows 4 times and
+    the gap $0.011° \to 0.73°$ about $4^3 = 64$ times. Upside down, the eigenvalues of $A$ are about
+    $1 \pm 0.0313$, so the linear model multiplies the deviation by about $1.0318$ per step, which is
+    $e^{3.13t}$ with $3.13 \approx \sqrt{g/l}$. The true pendulum falls and swings through the bottom,
+    and after 2 s it has nothing to do with the exponential prediction. The numbers come from
+    <code>d03_pendulum_rollouts</code> (1 s windows for the upside-down figures in the notebook, 2 s on
+    the plot). A linear model is only as good as the region the state stays in: LQR (deck 08) holds
+    the pendulum up because the feedback keeps $\delta\vx$ small, and iLQR (deck 09) relinearizes
+    along the current trajectory for the same reason.</aside>
+</section>
+
+<!-- ============================================================ constraint derivative -->
+<section class="slide" id="constraint-time-derivative" data-code="00_math_toolkit.py:d03_bead_constraint">
+  <h2>Time derivative of a holonomic constraint</h2>
+  <div class="cols r2 mid">
+    <figure>
+      <svg id="f-bead"></svg>
+      <figcaption>Blue: $J_\Phi^\T$. Green: $\dot q$ along the circle. Red: $\dot q = (1, 0)$.</figcaption>
+    </figure>
+    <div>
+      <ul class="tight">
+        <li>A constraint $\Phi(q) = 0$ holds at every instant of a motion $q(t)$.</li>
+        <li class="step">Chain rule: $\dfrac{\dd}{\dd t}\Phi(q(t)) = J_\Phi(q)\,\dot q = 0$.</li>
+        <li class="step">Bead on the unit circle: $\Phi(x, y) = x^2 + y^2 - 1$,
+          $J_\Phi = [\,2x\ \ 2y\,]$. At $(0.6, 0.8)$: $J_\Phi = [\,1.2\ \ 1.6\,]$.</li>
+        <li class="step">$\dot q = (-0.8, 0.6)$: $J_\Phi\dot q = 0$, along the circle.
+          $\dot q = (1, 0)$: $1.2$, off the circle.</li>
+        <li class="step">Hou and Mason 2019, eq. 3: $J_\Phi(q)\,\dot q = J_\Phi(q)\,\Omega(q)\,v = 0$.</li>
+      </ul>
+      <div class="controls">
+        <label>bead angle (deg) <input type="range" class="short" id="bead-th" min="0" max="360" step="1" value="53">
+          <span id="bead-th-out"></span></label>
+      </div>
+      <div class="readout" id="bead-read"></div>
+    </div>
+  </div>
+  <aside class="notes">A <b>holonomic constraint</b> restricts the configuration $q$ itself, as an
+    equation $\Phi(q) = 0$ (Hou 2019, eq. 2). If it holds at every time, its time derivative is zero,
+    and the chain rule for a path (slide <a href="#chain-rule-jacobians">chain-rule-jacobians</a>)
+    turns that into a linear equation on the velocity: $J_\Phi\dot q = 0$, with $J_\Phi =
+    \partial\Phi/\partial q$. The allowed velocities form the null space of $J_\Phi$ (deck 01,
+    <a href="01_vectors_and_matrices.html#null-space">null-space</a>). For the bead, $J_\Phi^\T =
+    (2x, 2y)$ points along the radius and the allowed velocities are tangent to the circle. The same
+    computation for a unit quaternion, $\Phi(q) = q^\T q - 1$, gives $2q^\T\dot q = 0$: the
+    derivative of a unit quaternion is perpendicular to it (deck 17). Hou and Mason write
+    $\dot q = \Omega(q)v$ with a generalized velocity $v$ (deck 17 builds $\Omega$), so the
+    constraint becomes $Nv = 0$ with $N = J_\Phi\Omega$, their natural constraint (deck 21). A
+    simulator that steps $q_{k+1} = q_k + h\dot q_k$ with $J_\Phi\dot q_k = 0$ still drifts off
+    the circle: from $(0.6, 0.8)$ with $\dot q = (-0.8, 0.6)$ and $h = 0.01$,
+    $\norm{q_1}^2 - 1 = h^2 = 10^{-4}$.</aside>
+</section>
+
+<!-- ============================================================ pivoting block -->
+<section class="slide" id="pivoting-block-constraint" data-code="00_math_toolkit.py:d03_pivot_jacobian 00_math_toolkit.py:d03_pivot_residual 00_math_toolkit.py:d03_pivot_pose">
+  <h2>Velocity constraint of a block pivoting on its corner</h2>
+  <div class="cols mid">
+    <figure>
+      <svg id="f-pivot"></svg>
+      <figcaption>Black dot: the pinned corner. Blue: velocity of the centre. Red: velocity of the corner, $J_\Phi\dot q$.</figcaption>
+    </figure>
+    <div>
+      <ul class="tight small">
+        <li>$q = (x, y, \theta)$: centre and angle of a $0.2\times 0.1$ m block. Corner in the block
+          frame: $\vc = (-a, -b)$, $a = 0.1$ m, $b = 0.05$ m.</li>
+        <li class="step">Pinned corner: $\Phi(q) = \begin{bmatrix} x\\ y\end{bmatrix} + R(\theta)\vc = \vzero$ (2 equations).</li>
+        <li class="step">$J_\Phi = \big[\, I_2 \ \big|\ R'(\theta)\vc\,\big]$ ($2\times 3$). At $\theta = 0$:
+          $J_\Phi = \begin{bmatrix} 1 & 0 & 0.05\\ 0 & 1 & -0.1\end{bmatrix}$.</li>
+        <li class="step">$\Null J_\Phi$ is spanned by $(-0.05, 0.1, 1)$: rotation about the corner.
+          Sliding right, $(1, 0, 0)$, moves the corner at $(1, 0)$ m/s.</li>
+      </ul>
+      <div class="controls">
+        <label>$\theta$ (deg) <input type="range" class="short" id="piv-th" min="0" max="90" step="1" value="30">
+          <span id="piv-th-out"></span></label><br>
+        <label>$\dot q$ <select id="piv-v">
+          <option value="null" selected>rotate about the corner</option>
+          <option value="slide">slide right (1, 0, 0)</option>
+          <option value="spin">spin about the centre (0, 0, 1)</option>
+        </select></label>
+      </div>
+      <div class="readout" id="piv-read"></div>
+    </div>
+  </div>
+  <aside class="notes">$\Phi(q)$ is the world position of the corner, the centre plus the rotated
+    corner offset, minus the pin at the origin. Its Jacobian has the $2\times 2$ identity in the
+    $(x, y)$ columns, because moving the centre moves the corner by the same amount, and
+    $R'(\theta)\vc = R(\theta)S\vc$ in the $\theta$ column (slide
+    <a href="#sine-cosine-derivatives">sine-cosine-derivatives</a>). At $\theta = 0$,
+    $S\vc = (b, -a) = (0.05, -0.1)$; at $30°$ the column is $(0.0933, -0.0616)$
+    (<code>d03_pivot_jacobian</code>). $J_\Phi\dot q$ is the velocity of the corner point, so the
+    constraint says that the corner does not move; a Jacobian that maps $\dot q$ to the velocity of a
+    contact point is a <b>contact Jacobian</b> (deck 18). The null vector with $\dot\theta = 1$ moves
+    the centre at $(-0.05, 0.1)$, perpendicular to the corner-to-centre vector $(0.1, 0.05)$: a pure
+    rotation about the corner. Hou and Mason (2019, eqs. 31-33) write their sticking contacts in this
+    form, a rotated body-frame point plus the body position equal to a fixed world point. For planar
+    $(x, y, \theta)$ coordinates $\dot q$ is the generalized velocity, so $\Omega = I$ and
+    $N = J_\Phi$. Deck 21 tilts a block about an edge with this constraint.</aside>
+</section>
+
+<!-- ============================================================ check 4 -->
+<section class="slide" id="check-jacobians">
+  <h2>Check yourself: Jacobians and constraints</h2>
+  <ol class="small">
+    <li>$\vf(x_1, x_2) = (x_1 x_2,\ x_1 + x_2^2)$. Jacobian at $(1, 2)$?
+      <details><summary>answer</summary><div>$\begin{bmatrix} x_2 & x_1\\ 1 & 2x_2\end{bmatrix} = \begin{bmatrix} 2 & 1\\ 1 & 4\end{bmatrix}$.</div></details></li>
+    <li>$\vf:\R^3\to\R^2$ and $\vg:\R^2\to\R^4$. What size is $J_{\vg\circ\vf}$?
+      <details><summary>answer</summary><div>$(4\times 2)(2\times 3) = 4\times 3$.</div></details></li>
+    <li>The arm at $\vtheta = (0, 0)$: $\det J_\vp$, and which tip velocity is impossible?
+      <details><summary>answer</summary><div>$J_\vp = \begin{bmatrix} 0 & 0\\ 2 & 1\end{bmatrix}$, $\det = 0$: the tip moves only along $y$, never along the arm ($x$).</div></details></li>
+    <li>Bead on the unit circle at $(0, 1)$: which velocities are allowed?
+      <details><summary>answer</summary><div>$J_\Phi = [\,0\ \ 2\,]$, so $2\dot y = 0$: $\dot q = (\dot x, 0)$ for any $\dot x$.</div></details></li>
+    <li>Pendulum upside down, $h = 0.01$ s: the entry $A_{21}$?
+      <details><summary>answer</summary><div>$-hk = -0.01\cdot(-9.81) = 0.0981$.</div></details></li>
+  </ol>
+  <aside class="notes">Question 1 differentiates each component in each variable: row 1 is
+    $\nabla(x_1x_2)^\T = (x_2, x_1)$, row 2 is $\nabla(x_1 + x_2^2)^\T = (1, 2x_2)$. Question 2 uses the
+    size rule of the slide <a href="#chain-rule-jacobians">chain-rule-jacobians</a>. Question 3: the
+    straight arm has both joints on the $x$-axis, and each joint moves the tip perpendicular to the
+    line from the joint to the tip, which is the $y$ direction for both; this is the singular
+    configuration of the slide <a href="#arm-jacobian">arm-jacobian</a>. Question 4 is the null space
+    of a $1\times 2$ matrix: every velocity with no radial component. Question 5 uses $k =
+    (g/l)\cos\pi = -9.81$ in the $A$ of the slide <a href="#linearizing-dynamics">linearizing-dynamics</a>;
+    the positive entry is what makes the upside-down pendulum unstable.</aside>
+</section>
+
+<!-- ============================================================ part 4 -->
+<section class="slide section" id="part-finite-differences">
+  <p class="kicker">Part 4</p>
+  <h1>Finite differences</h1>
+  <hr>
+  <p>Derivatives from function values alone: truncation error, roundoff, and the finite-difference
+    Jacobians that MuJoCo and MuJoCo MPC use.</p>
+</section>
+
+<!-- ============================================================ forward and central -->
+<section class="slide" id="forward-central-differences" data-code="00_math_toolkit.py:d03_fd_forward 00_math_toolkit.py:d03_fd_central">
+  <h2>Forward and central difference formulas</h2>
+  <ol class="steps small">
+    <li>Taylor: $J(z \pm h) = J(z) \pm hJ'(z) + \tfrac{h^2}{2}J''(z) \pm \tfrac{h^3}{6}J'''(z) + \dots$</li>
+    <li class="step">Forward difference: $\dfrac{J(z + h) - J(z)}{h} = J'(z) + \tfrac{h}{2}J''(z) + \dots$:
+      error $O(h)$.</li>
+    <li class="step">Central difference: subtract the two expansions; the even terms cancel.
+      $\dfrac{J(z + h) - J(z - h)}{2h} = J'(z) + \tfrac{h^2}{6}J'''(z) + \dots$: error $O(h^2)$.</li>
+  </ol>
+  <div class="example step">$z = 1$, $h = 0.1$, $J'(1) = -3$: $J(1.1) = 1.7241$, $J(1) = 2$, $J(0.9) = 2.3161$.
+    <br>Forward: $(1.7241 - 2)/0.1 = -2.759$, error $0.241$.
+    <br>Central: $(1.7241 - 2.3161)/0.2 = -2.96$, error $0.04$.</div>
+  <aside class="notes">A finite difference computes a derivative from values of the function alone,
+    which is what a program can do with a simulator whose equations it cannot differentiate by hand.
+    Step 2 subtracts $J(z)$ from the expansion of $J(z + h)$ and divides by $h$; the first term left
+    over is $\tfrac{h}{2}J''$, so halving $h$ halves the error. Step 3 subtracts the expansion of
+    $J(z - h)$ from that of $J(z + h)$: the $J$ and $J''$ terms cancel and the $J'$ and $J'''$ terms
+    double, and dividing by $2h$ leaves an error of $\tfrac{h^2}{6}J'''$. For the quartic at
+    $z = 1$ the errors are exact polynomials: $2h + 4h^2 + h^3$ forward and $4h^2$ central (the fifth
+    derivative is zero), so $0.241$ and $0.04$ at $h = 0.1$. The central difference costs two new
+    evaluations per derivative, the forward difference one when $J(z)$ is already known. Both are
+    options of MuJoCo's <code>mjd_transitionFD</code> (argument <code>flg_centered</code>), which
+    deck 10 uses.</aside>
+</section>
+
+<!-- ============================================================ roundoff -->
+<section class="slide" id="floating-point-roundoff" data-code="00_math_toolkit.py:d03_fd_forward">
+  <h2>Roundoff error in floating-point subtraction</h2>
+  <ul>
+    <li>A double-precision number carries 53 binary digits, about 16 decimal digits. Near 1 the
+      spacing of doubles is $\varepsilon = 2^{-52} \approx 2.2\times 10^{-16}$.</li>
+    <li class="step">$1 + 10^{-12}$ is stored as $1 + 4504\,\varepsilon$, so the computer's
+      $(1 + 10^{-12}) - 1$ is $1.000089\times 10^{-12}$: relative error $8.9\times 10^{-5}$.</li>
+    <li class="step">$J(1 + 10^{-12})$ computes to $1.9999999999969997$ and $J(1) = 2$: their
+      difference keeps about 4 correct digits.</li>
+    <li class="step">The forward difference at $h = 10^{-12}$ has error $2.7\times 10^{-4}$, larger
+      than at $h = 10^{-4}$ ($2.0\times 10^{-4}$).</li>
+  </ul>
+  <div class="box step">Each value of $J$ carries an error of about $\varepsilon\abs{J}$. A difference
+    divided by $h$ carries about $\varepsilon\abs{J}/h$, which grows as $h$ shrinks.</div>
+  <aside class="notes">A double stores a number as a 53-bit binary fraction times a power of two,
+    so between 1 and 2 the representable numbers are spaced $2^{-52}$ apart. $10^{-12}/\varepsilon
+    = 4503.6$, and the nearest representable number to $1 + 10^{-12}$ is $1 + 4504\varepsilon =
+    1 + 1.000089\times 10^{-12}$. The subtraction itself is exact, but it exposes the rounding of the
+    input: the result has only about four correct digits. This loss of digits when two nearly equal
+    numbers are subtracted is called <b>cancellation</b>. The forward difference subtracts
+    $J(z)$ from $J(z + h)$, two numbers that agree in their first 12 digits when $h = 10^{-12}$, then
+    divides by $h$, which enlarges the rounding error by $10^{12}$. The truncation error of the
+    previous slide shrinks with $h$ and the roundoff error grows as $h$ shrinks; the next slide plots
+    both. The values are from <code>d03_fd_forward</code> and Python's own arithmetic; JavaScript uses
+    the same IEEE 754 doubles, and the twin tests check that the slide's error curve matches the
+    notebook's bit for bit.</aside>
+</section>
+
+<!-- ============================================================ error curve -->
+<section class="slide" id="finite-difference-error-curve" data-code="00_math_toolkit.py:d03_fd_steps 00_math_toolkit.py:d03_fd_error_curve">
+  <h2>Error of finite differences against the step size</h2>
+  <div class="cols l2 mid">
+    <figure>
+      <svg id="f-fd"></svg>
+      <figcaption>$\abs{\text{difference} - J'(z_0)}$ on log-log axes. Orange: forward. Teal: central.</figcaption>
+    </figure>
+    <div>
+      <ul class="tight small">
+        <li>Right branch: truncation error, slope 1 (forward) and slope 2 (central) on log-log axes.</li>
+        <li>Left branch: roundoff error, about $\varepsilon\abs{J}/h$.</li>
+        <li>At $z_0 = 1$ the forward error is smallest near $h = 10^{-8}$ (about $10^{-8}$); the
+          central error near $h = 10^{-6}$ to $10^{-5}$ (about $10^{-11}$).</li>
+        <li>Rule of thumb for $\abs{z_0}$ near 1: $h \approx \sqrt\varepsilon = 1.5\times 10^{-8}$
+          forward, $h \approx \varepsilon^{1/3} = 6\times 10^{-6}$ central.</li>
+      </ul>
+      <div class="controls">
+        <label>$z_0$ <input type="range" class="short" id="fd-z0" min="-2" max="2" step="0.05" value="1">
+          <span id="fd-z0-out"></span></label><br>
+        <label>$\log_{10}h$ <input type="range" class="short" id="fd-h" min="-15" max="0" step="0.1" value="-8">
+          <span id="fd-h-out"></span></label>
+      </div>
+      <div class="readout" id="fd-read"></div>
+    </div>
+  </div>
+  <aside class="notes">The total error of the forward difference is about $\tfrac{h}{2}\abs{J''} +
+    \varepsilon\abs{J}/h$. The first term falls as $h$ shrinks and the second rises, so the sum is
+    smallest where the two are comparable, at $h$ of order $\sqrt{\varepsilon}$ for a function whose
+    value and curvature are of order 1; the smallest error is then also of order $\sqrt\varepsilon$,
+    about $10^{-8}$: half of the 16 digits are lost. The central difference balances $\tfrac{h^2}{6}
+    \abs{J'''}$ against the same roundoff, which gives $h$ of order $\varepsilon^{1/3}$ and an error
+    of order $\varepsilon^{2/3} \approx 10^{-11}$. On the grid of <code>d03_fd_steps</code> the
+    smallest measured errors at $z_0 = 1$ are $5.5\times 10^{-9}$ at $h = 7\times 10^{-9}$ (forward)
+    and $2.5\times 10^{-11}$ at $h = 2\times 10^{-6}$ (central). The left branch is jagged because
+    rounding errors depend on the exact bits of each value. At $h = 10^{-15}$ the forward error is
+    $0.55$: the difference $J(1 + h) - J(1)$ is almost all rounding. Where $J'' = 0$ (the inflection
+    points) the forward difference loses its $O(h)$ term and behaves like the central one.</aside>
+</section>
+
+<!-- ============================================================ FD Jacobians -->
+<section class="slide" id="finite-difference-jacobians" data-code="00_math_toolkit.py:d03_fd_jacobian 00_math_toolkit.py:d03_fd_pendulum_AB">
+  <h2>Finite-difference Jacobians in MuJoCo MPC</h2>
+  <ul class="tight small">
+    <li>Column $j$ of $\partial\vf/\partial\vx$ is about $\big(\vf(\vx + h\ve_j) - \vf(\vx)\big)/h$.
+      All $n + m$ columns of $[A\ B]$ cost $n + m$ perturbed steps plus the nominal step.</li>
+    <li class="step">Pendulum at $\theta = 0.5$ rad, $\omega = 0$, step $10^{-6}$: 4 calls of the step function.</li>
+  </ul>
+  <div class="cols l2 step">
+    <table class="small mid">
+      <tr><th>entry</th><th class="num">analytic</th><th class="num">finite difference</th></tr>
+      <tr><td>$A_{11}$</td><td class="num">0.99913909</td><td class="num">0.99913909</td></tr>
+      <tr><td>$A_{12}$</td><td class="num">0.01</td><td class="num">0.00999999999</td></tr>
+      <tr><td>$A_{21}$</td><td class="num">$-0.08609085$</td><td class="num">$-0.08609083$</td></tr>
+      <tr><td>$B_{11}$, $B_{21}$</td><td class="num">0.0001, 0.01</td><td class="num">0.0000999999, 0.0100000000</td></tr>
+    </table>
+    <p class="small">Largest entry error: $2.4\times 10^{-8}$, the size the forward-difference curve
+      predicts at this step.</p>
+  </div>
+  <p class="small step">MuJoCo's <code>mjd_transitionFD(m, d, eps, flg_centered, A, B, C, D)</code>
+    returns $A = \partial\vx_{k+1}/\partial\vx_k$ and $B = \partial\vx_{k+1}/\partial\vu_k$ (and the
+    sensor Jacobians $C$, $D$) from the same perturbed steps. MuJoCo MPC's iLQG and gradient planners call it.</p>
+  <aside class="notes">The function <code>d03_fd_jacobian</code> perturbs one input at a time and
+    stores the change of every output as one column; <code>d03_fd_pendulum_AB</code> applies it to the
+    stacked input $(\theta, \omega, u)$ of the pendulum step of the slide
+    <a href="#linearizing-dynamics">linearizing-dynamics</a>. The cost depends on the number of
+    inputs, not outputs: this is the tex's observation (lines 2523-2545) that sensor values computed
+    by the same step come with no extra evaluations. MuJoCo counts the state as $2n_v + n_a$
+    numbers (positions in the tangent space, velocities, actuator states), so a free body with a
+    quaternion contributes 6 position coordinates, not 7 (deck 17). With the step size $10^{-3}$
+    the largest error is $2.4\times 10^{-5}$ (truncation), with $10^{-10}$ it is $2.2\times
+    10^{-7}$ (roundoff): the V curve of the previous slide again. A contact that switches on or
+    off inside the perturbation makes a finite difference meaningless across the switch; deck 22
+    returns to this. Deck 10 uses these derivatives in MuJoCo MPC.</aside>
+</section>
+
+<!-- ============================================================ check 5 -->
+<section class="slide" id="check-finite-differences">
+  <h2>Check yourself: finite differences</h2>
+  <ol>
+    <li>Forward difference of the quartic at $z_0 = 1$ with $h = 0.01$: what error does
+      $\tfrac{h}{2}J''$ predict?
+      <details><summary>answer</summary><div>$0.005\cdot 4 = 0.02$; the exact error is $2h + 4h^2 + h^3 = 0.020401$.</div></details></li>
+    <li>Central difference at $z_0 = 1$, $h = 0.01$: the computed slope?
+      <details><summary>answer</summary><div>Error $4h^2 = 0.0004$, slope $-2.9996$.</div></details></li>
+    <li>A system has $n = 12$ states and $m = 4$ controls. How many step evaluations do forward and central
+      differences of $[A\ B]$ need?
+      <details><summary>answer</summary><div>Forward: $16 + 1 = 17$. Central: $2\cdot 16 = 32$.</div></details></li>
+    <li>Why is the forward error about 0.5 at $h = 10^{-15}$?
+      <details><summary>answer</summary><div>Roundoff: $\varepsilon\abs{J}/h \approx 2.2\times 10^{-16}\cdot 2/10^{-15} \approx 0.44$.</div></details></li>
+  </ol>
+  <aside class="notes">Question 1 compares the leading error term with the exact error of the
+    slide <a href="#forward-central-differences">forward-central-differences</a>; the leading term
+    carries 98 % of it at this step. Question 2 uses the central error $\tfrac{h^2}{6}J'''(1) =
+    \tfrac{h^2}{6}\cdot 24 = 4h^2$. Question 3 counts perturbed calls: one per input for forward
+    differences plus the nominal call, two per input for central differences (the nominal call is
+    not needed). Question 4 is the roundoff estimate of the slide
+    <a href="#floating-point-roundoff">floating-point-roundoff</a>; the measured error, 0.55, is of
+    that size.</aside>
+</section>
+
+<!-- ============================================================ results -->
+<section class="slide" id="results-later-decks">
+  <h2>Results used in later decks</h2>
+  <table class="small mid">
+    <tr><th>deck</th><th>result</th><th>slide</th></tr>
+    <tr><td>05</td><td>$J' = 0$, $J'' &gt; 0$ at a minimum; stationary points $-1.473$, $0.126$, $1.347$ of the quartic</td><td><a href="#second-derivative-curvature">second-derivative-curvature</a></td></tr>
+    <tr><td>05, 09</td><td>$J(\vz_0 + \vdelta) \approx J + \nabla J^\T\vdelta + \tfrac12\vdelta^\T\nabla^2 J\,\vdelta$, errors $O(\delta^2)$, $O(\delta^3)$</td><td><a href="#multivariable-taylor">multivariable-taylor</a></td></tr>
+    <tr><td>05, 06</td><td>$\nabla J\cdot\vd$ is the rate along $\vd$; $-\nabla J$ is steepest descent; $\nabla J\perp$ level curves</td><td><a href="#steepest-ascent">steepest-ascent</a></td></tr>
+    <tr><td>05, 06</td><td>$\nabla\vb^\T\vx = \vb$, $\nabla\vx^\T A\vx = (A + A^\T)\vx$, $\nabla\tfrac12\norm{A\vx - \vb}^2 = A^\T(A\vx - \vb)$</td><td><a href="#gradient-least-squares">gradient-least-squares</a></td></tr>
+    <tr><td>08, 09</td><td>$A = \partial\vf/\partial\vx$, $B = \partial\vf/\partial\vu$; $\nabla(V\circ\vf) = J_\vf^\T\nabla V$</td><td><a href="#linearizing-dynamics">linearizing-dynamics</a></td></tr>
+    <tr><td>10</td><td>forward $O(h)$, central $O(h^2)$; $h \approx \sqrt\varepsilon$ or $\varepsilon^{1/3}$; $n + m$ perturbed steps</td><td><a href="#finite-difference-error-curve">finite-difference-error-curve</a></td></tr>
+    <tr><td>17</td><td>$\dd R/\dd\theta = RS$, $\dot R = RS\dot\theta$; $q^\T\dot q = 0$ for a unit quaternion</td><td><a href="#sine-cosine-derivatives">sine-cosine-derivatives</a></td></tr>
+    <tr><td>18, 21</td><td>$\Phi(q) = 0 \Rightarrow J_\Phi\dot q = 0$; $J_\Phi = [\,I_2\mid R'(\theta)\vc\,]$ for a pinned corner</td><td><a href="#pivoting-block-constraint">pivoting-block-constraint</a></td></tr>
+  </table>
+  <p>Next: <a href="04_probability_and_sampling.html">deck 04, Probability, Gaussians, and sampling</a>.</p>
+  <aside class="notes">Each row names a result built in this deck, the decks that use it, and the
+    slide that builds it. Deck 04 (probability, Gaussians and sampling) is the last toolkit deck;
+    deck 05 then uses the derivatives, Taylor models and Hessians of this deck to build gradient
+    descent and Newton's method on the same quartic, and deck 06 adds constraints with the gradient
+    of a Lagrangian. The notebook cells for this deck (section &ldquo;Deck 03&rdquo; of
+    <code>tutorial/00_math_toolkit.py</code>) recompute every number shown here; the tex covers
+    the same material in lines 157-175, 224-236 and 1303-1322.</aside>
+</section>
+
+</main>
+<script>
+/* FIGURES */
+</script>
+</body>
+</html>
